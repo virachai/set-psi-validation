@@ -106,6 +106,7 @@ jobs:
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
+          mkdir -p market-data predictions reports validation
           git add market-data/ predictions/ reports/ validation/ catalog.json docs/010-regime-taxonomy-v01.json
           git diff --quiet && git diff --staged --quiet || git commit -m "Automated market data update: $(date +'%Y-%m-%d') (${{ github.event_name }})"
           git push
