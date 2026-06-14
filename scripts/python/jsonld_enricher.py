@@ -102,7 +102,8 @@ def process_directory(directory: str, validate_only: bool = False) -> int:
         print(f"[SKIP] Directory not found: {directory}")
         return 0
 
-    schema_meta = DIRECTORY_MAP.get(directory, {})
+    dirname = os.path.basename(os.path.normpath(directory))
+    schema_meta = DIRECTORY_MAP.get(dirname, {})
     if not schema_meta:
         print(f"[SKIP] No schema mapping for directory '{directory}'")
         return 0

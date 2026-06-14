@@ -20,6 +20,20 @@
 
 ## 2. Required GitHub Secrets
 
+### Dependency Management (PEP 723)
+
+This project does **not** use `requirements.txt` or `pyproject.toml`. Each Python script declares its own dependencies inline via [PEP 723](https://peps.python.org/pep-0723/):
+
+```python
+# /// script
+# dependencies = ["httpx", "python-dotenv"]
+# ///
+```
+
+`uv run script.py` auto-installs the required dependencies on execution — no separate install step needed. Both workflows (`python-quality.yml`, `intraday-pipeline.yml`) have had their `uv sync` steps removed for this reason.
+
+---
+
 The pipeline requires **6 secrets** to run the full intraday cycle. Set these in:
 
 > **GitHub UI → Settings → Secrets and variables → Actions → Repository secrets**
@@ -171,7 +185,6 @@ Alternatively, upload any output JSON file to:
 | Symptom                       | Likely Cause             | Fix                                                                    |
 | :---------------------------- | :----------------------- | :--------------------------------------------------------------------- |
 | Workflow shows ❌ but no logs | Missing GitHub secrets   | Go to Settings → Secrets and add missing values.                       |
-| `uv sync` fails               | No `pyproject.toml`      | Create minimal `pyproject.toml` or use PEP 723 inline dependencies.    |
 | Script not found              | `scripts/` not committed | Verify `.gitignore` allows `scripts/python/` (not `scripts/`).         |
 | Empty commit                  | No data files changed    | CI ran but market data was unchanged. Normal for non-market days.      |
 | Rich Results Test error       | `@context` wrong         | Check that `@context` is exactly `"https://schema.org"` (with `s`).    |
