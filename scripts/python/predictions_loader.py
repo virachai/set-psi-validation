@@ -28,6 +28,8 @@ ICT_OFFSET = timedelta(hours=7)
 PREDICTIONS_DIR = "predictions"
 PSI_API_URL = os.getenv("PSI_API_URL", "https://api.psi-engine.dev/v1/predict")
 PSI_API_KEY = os.getenv("PSI_ENGINE_API_KEY")
+if PSI_API_KEY:
+    print(f"[DEBUG] PSI_API_KEY loaded: {PSI_API_KEY[:3]}...")
 RAPIDAPI_HOST = os.getenv("RAPIDAPI_HOST")
 REGIME_TAXONOMY_URL = (
     "https://raw.githubusercontent.com/virachai/set-psi-validation"

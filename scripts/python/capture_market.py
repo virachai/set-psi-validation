@@ -42,6 +42,8 @@ VALID_REGIMES = ["Bullish", "Bearish", "Sideways", "Risk-Off", "Crisis"]
 
 SETSMART_BASE_URL = "https://www.setsmart.com"
 SETSMART_API_KEY = os.getenv("SETSMART_API_KEY")
+if SETSMART_API_KEY:
+    print(f"[DEBUG] SETSMART_API_KEY loaded: {SETSMART_API_KEY[:3]}...")
 SET_INDEX_SYMBOL = os.getenv("SET_INDEX_SYMBOL", "SET")
 
 
