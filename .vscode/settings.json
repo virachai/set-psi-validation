@@ -1,0 +1,24 @@
+{
+  "eslint.workingDirectories": [
+    {
+      "mode": "auto"
+    }
+  ],
+  "editor.formatOnSave": true,
+  "[markdown]": {
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "terminal.integrated.defaultProfile.windows": "Git Bash",
+  "terminal.integrated.profiles.windows": {
+    "Git Bash": {
+      "path": "C:\\Program Files\\Git\\bin\\bash.exe",
+      "icon": "terminal-bash"
+    }
+  },
+  // "terminal.integrated.env.windows": {
+  //   "CLAUDE_CODE_EFFORT_LEVEL": "low",
+  //   "MAX_THINKING_TOKENS": "1024"
+  // },
+  "json.schemaDownload.enable": true
+}

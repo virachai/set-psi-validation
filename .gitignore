@@ -43,3 +43,8 @@ uv.lock
 .turbo
 
 .env
+
+scripts/
+.agents/
+.claude/
+.tmp/
