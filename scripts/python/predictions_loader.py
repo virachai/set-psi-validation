@@ -43,7 +43,8 @@ VALID_REGIMES = ["Bullish", "Bearish", "Sideways", "Risk-Off", "Crisis"]
 def fetch_prediction() -> dict:
     """Calls the PSI Engine API and returns the raw prediction response."""
     if not PSI_API_KEY:
-        raise EnvironmentError("PSI_ENGINE_API_KEY environment variable is not set.")
+        print("[SKIP] PSI_ENGINE_API_KEY not set. Skipping prediction capture.")
+        return {}
 
     headers = {
         "Accept": "application/json",
@@ -179,10 +180,15 @@ def save_snapshot(snapshot: dict) -> str:
 def main() -> None:
     try:
         data = fetch_prediction()
+        if not data:
+            return
         snapshot = build_snapshot(data)
         save_snapshot(snapshot)
         print("[DONE] Prediction capture complete.")
     except httpx.HTTPStatusError as e:
+        if e.response.status_code in [401, 403]:
+            print(f"[SKIP] API Authentication failed ({e.response.status_code}). Check secrets.")
+            return
         print(f"[ERROR] API returned {e.response.status_code}: {e.response.text}")
         sys.exit(1)
     except httpx.RequestError as e:

@@ -46,11 +46,13 @@ SET_INDEX_SYMBOL = os.getenv("SET_INDEX_SYMBOL", "SET")
 
 
 def fetch_setsmart_eod(symbol: str, date: str) -> Optional[dict]:
-    """Fetch EOD price data from SETSMART API. Returns None if no data (non-market day)."""
+    """Fetch EOD price data from SETSMART API for a given symbol and date."""
     if not SETSMART_API_KEY:
-        raise EnvironmentError("SETSMART_API_KEY not set.")
+        print("[SKIP] SETSMART_API_KEY not set. Skipping market data capture.")
+        return None
 
     url = f"{SETSMART_BASE_URL}/api/listed-company-api/eod-price-by-symbol"
+
     params = {
         "symbol": symbol,
         "startDate": date,
@@ -63,6 +65,9 @@ def fetch_setsmart_eod(symbol: str, date: str) -> Optional[dict]:
 
     with httpx.Client(timeout=30.0) as client:
         response = client.get(url, params=params, headers=headers)
+        if response.status_code in [401, 403]:
+            print(f"[SKIP] SETSMART Authentication failed ({response.status_code}). Check secrets.")
+            return None
         response.raise_for_status()
         data = response.json()
 
