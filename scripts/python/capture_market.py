@@ -45,8 +45,8 @@ SETSMART_API_KEY = os.getenv("SETSMART_API_KEY")
 SET_INDEX_SYMBOL = os.getenv("SET_INDEX_SYMBOL", "SET")
 
 
-def fetch_setsmart_eod(symbol: str, date: str) -> dict:
-    """Fetch EOD price data from SETSMART API for a given symbol and date."""
+def fetch_setsmart_eod(symbol: str, date: str) -> Optional[dict]:
+    """Fetch EOD price data from SETSMART API. Returns None if no data (non-market day)."""
     if not SETSMART_API_KEY:
         raise EnvironmentError("SETSMART_API_KEY not set.")
 
@@ -68,7 +68,7 @@ def fetch_setsmart_eod(symbol: str, date: str) -> dict:
 
     if isinstance(data, list) and len(data) > 0:
         return data[0]
-    raise ValueError(f"No EOD data for {symbol} on {date}")
+    return None
 
 
 def extract_market_prices(eod: dict) -> tuple[float, float, float]:
@@ -289,6 +289,9 @@ def main() -> None:
         if args.symbol:
             print(f"[SETSMART] Fetching EOD data for {args.symbol} on {date_str}...")
             eod = fetch_setsmart_eod(args.symbol, date_str)
+            if eod is None:
+                print(f"[SKIP] No market data for {args.symbol} on {date_str} (non-market day?).")
+                return
             ato_price, atc_price, volatility = extract_market_prices(eod)
             print(f"[SETSMART] ATO={ato_price}, ATC={atc_price}, Vol={volatility}")
 

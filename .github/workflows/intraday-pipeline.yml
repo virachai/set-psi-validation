@@ -1,6 +1,11 @@
 name: Intraday Market Cycle
 
 on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'scripts/**'
+      - 'pyproject.toml'
   schedule:
     - cron: '0 2 * * 1-5'   # 09:00 ICT - Prediction Capture
     - cron: '0 3 * * 1-5'   # 10:00 ICT - ATO Capture
@@ -45,9 +50,10 @@ jobs:
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             echo "step=${{ github.event.inputs.step }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.event_name }}" == "push" ]]; then
+            echo "step=all" >> $GITHUB_OUTPUT
           else
             HOUR=$(date -u +%H)
-            MINUTE=$(date -u +%M)
             if [[ "$HOUR" == "02" ]]; then echo "step=prediction" >> $GITHUB_OUTPUT;
             elif [[ "$HOUR" == "03" ]]; then echo "step=ato" >> $GITHUB_OUTPUT;
             elif [[ "$HOUR" == "09" ]]; then echo "step=atc" >> $GITHUB_OUTPUT;
@@ -98,5 +104,5 @@ jobs:
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           git add market-data/ predictions/ reports/ validation/ catalog.json docs/010-regime-taxonomy-v01.json
-          git diff --quiet && git diff --staged --quiet || git commit -m "Automated market data update: $(date +'%Y-%m-%d')"
+          git diff --quiet && git diff --staged --quiet || git commit -m "Automated market data update: $(date +'%Y-%m-%d') (${{ github.event_name }})"
           git push
