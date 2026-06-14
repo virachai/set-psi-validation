@@ -31,7 +31,7 @@ PSI_API_URL = os.getenv("PSI_API_URL", "https://api.psi-engine.dev/v1/predict")
 PSI_API_KEY = os.getenv("PSI_ENGINE_API_KEY")
 RAPIDAPI_HOST = os.getenv("RAPIDAPI_HOST")
 REGIME_TAXONOMY_URL = (
-    "https://raw.githubusercontent.com/user/set-psi-validation"
+    "https://raw.githubusercontent.com/virachai/set-psi-validation"
     "/main/docs/regime-taxonomy.jsonld"
 )
 
