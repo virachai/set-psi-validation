@@ -1,5 +1,5 @@
 # /// script
-# dependencies = ["python-dotenv"]
+# dependencies = ["python-dotenv", "httpx"]
 # ///
 """
 Market Data Capture (ATO / ATC)
@@ -32,11 +32,60 @@ load_dotenv()
 ICT_OFFSET = timedelta(hours=7)
 MARKET_DATA_DIR = "market-data"
 REGIME_TAXONOMY_URL = (
-    "https://raw.githubusercontent.com/user/set-psi-validation"
+    "https://raw.githubusercontent.com/virachai/set-psi-validation"
     "/main/docs/regime-taxonomy.jsonld"
 )
 
 VALID_REGIMES = ["Bullish", "Bearish", "Sideways", "Risk-Off", "Crisis"]
+
+# --- SETSMART API ---
+
+SETSMART_BASE_URL = "https://www.setsmart.com"
+SETSMART_API_KEY = os.getenv("SETSMART_API_KEY")
+SET_INDEX_SYMBOL = os.getenv("SET_INDEX_SYMBOL", "SET")
+
+
+def fetch_setsmart_eod(symbol: str, date: str) -> dict:
+    """Fetch EOD price data from SETSMART API for a given symbol and date."""
+    if not SETSMART_API_KEY:
+        raise EnvironmentError("SETSMART_API_KEY not set.")
+
+    url = f"{SETSMART_BASE_URL}/api/listed-company-api/eod-price-by-symbol"
+    params = {
+        "symbol": symbol,
+        "startDate": date,
+        "endDate": date,
+        "adjustedPriceFlag": "N",
+    }
+    headers = {"api-key": SETSMART_API_KEY, "Accept": "application/json"}
+
+    import httpx
+    with httpx.Client(timeout=30.0) as client:
+        response = client.get(url, params=params, headers=headers)
+        response.raise_for_status()
+        data = response.json()
+
+    if isinstance(data, list) and len(data) > 0:
+        return data[0]
+    raise ValueError(f"No EOD data for {symbol} on {date}")
+
+
+def extract_market_prices(eod: dict) -> tuple[float, float, float]:
+    """Extract ATO/ATC/volatility from SETSMART EOD response.
+
+    Expected fields: open, close/high/low or alternate naming.
+    Returns (ato_price, atc_price, volatility_index).
+    """
+    open_price = eod.get("open") or eod.get("openPrice") or 0.0
+    close_price = eod.get("close") or eod.get("closePrice") or eod.get("last") or 0.0
+    high = eod.get("high") or eod.get("highPrice") or close_price
+    low = eod.get("low") or eod.get("lowPrice") or open_price
+
+    # Volatility proxy: (high - low) / open, capped at 0.05
+    volatility = round((high - low) / open_price, 4) if open_price else 0.01
+    volatility = min(volatility, 0.05)
+
+    return float(open_price), float(close_price), volatility
 
 
 # --- Regime Derivation Logic (mirrors validation_engine.py) ---
@@ -211,11 +260,15 @@ def main() -> None:
         choices=["ato", "atc"],
         help="Capture mode: ato (open) or atc (close).",
     )
-    parser.add_argument("--ato-price", type=float, help="ATO price (required for --mode ato).")
-    parser.add_argument("--atc-price", type=float, help="ATC price (required for --mode atc).")
-    parser.add_argument("--volatility", type=float, default=0.01, help="Intraday volatility proxy.")
+    parser.add_argument("--ato-price", type=float, help="ATO price (manual, required without --symbol).")
+    parser.add_argument("--atc-price", type=float, help="ATC price (manual, required without --symbol for --mode atc).")
+    parser.add_argument("--volatility", type=float, default=0.01, help="Intraday volatility proxy (manual).")
     parser.add_argument(
         "--threshold", type=float, default=0.02, help="30-day rolling volatility threshold mean."
+    )
+    parser.add_argument(
+        "--symbol",
+        help="SETSMART symbol (e.g. SET, SET50). Fetches live data from API instead of manual prices.",
     )
     args = parser.parse_args()
 
@@ -223,14 +276,26 @@ def main() -> None:
     date_str = now_ict.strftime("%Y-%m-%d")
 
     try:
-        if args.mode == "ato":
-            if args.ato_price is None:
-                parser.error("--ato-price is required for --mode ato.")
-            record = handle_ato(date_str, args.ato_price)
-        elif args.mode == "atc":
-            if args.atc_price is None:
-                parser.error("--atc-price is required for --mode atc.")
-            record = handle_atc(date_str, args.atc_price, args.volatility, args.threshold)
+        if args.symbol:
+            print(f"[SETSMART] Fetching EOD data for {args.symbol} on {date_str}...")
+            eod = fetch_setsmart_eod(args.symbol, date_str)
+            ato_price, atc_price, volatility = extract_market_prices(eod)
+            print(f"[SETSMART] ATO={ato_price}, ATC={atc_price}, Vol={volatility}")
+
+            if args.mode == "ato":
+                record = handle_ato(date_str, ato_price)
+            else:
+                record = handle_atc(date_str, atc_price, volatility, args.threshold)
+        else:
+            # Manual mode
+            if args.mode == "ato":
+                if args.ato_price is None:
+                    parser.error("--ato-price is required for --mode ato (or use --symbol).")
+                record = handle_ato(date_str, args.ato_price)
+            else:
+                if args.atc_price is None:
+                    parser.error("--atc-price is required for --mode atc (or use --symbol).")
+                record = handle_atc(date_str, args.atc_price, args.volatility, args.threshold)
 
         save_market_data(record, date_str)
         print(f"[DONE] Market {args.mode.upper()} capture complete.")

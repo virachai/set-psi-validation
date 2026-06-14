@@ -70,18 +70,17 @@ jobs:
         if: steps.step-decider.outputs.step == 'ato' || steps.step-decider.outputs.step == 'all'
         run: |
           echo "Running ATO Capture at 10:00 ICT..."
-          # Requires market data source — pass ATO price via secret or env
-          uv run scripts/python/capture_market.py --mode ato --ato-price ${{ secrets.SET_ATO_PRICE || '0' }}
+          uv run scripts/python/capture_market.py --mode ato --symbol ${{ vars.SET_INDEX_SYMBOL || 'SET' }}
         env:
-          SET_MARKET_API_KEY: ${{ secrets.SET_MARKET_API_KEY }}
+          SETSMART_API_KEY: ${{ secrets.SETSMART_API_KEY }}
 
       - name: Run ATC Capture
         if: steps.step-decider.outputs.step == 'atc' || steps.step-decider.outputs.step == 'all'
         run: |
           echo "Running ATC Capture at 16:30 ICT..."
-          uv run scripts/python/capture_market.py --mode atc --atc-price ${{ secrets.SET_ATC_PRICE || '0' }} --volatility ${{ secrets.SET_VOLATILITY || '0.01' }}
+          uv run scripts/python/capture_market.py --mode atc --symbol ${{ vars.SET_INDEX_SYMBOL || 'SET' }}
         env:
-          SET_MARKET_API_KEY: ${{ secrets.SET_MARKET_API_KEY }}
+          SETSMART_API_KEY: ${{ secrets.SETSMART_API_KEY }}
 
       - name: Run Validation & Metrics
         if: steps.step-decider.outputs.step == 'validation' || steps.step-decider.outputs.step == 'all'

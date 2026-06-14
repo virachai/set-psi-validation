@@ -34,31 +34,38 @@ This project does **not** use `requirements.txt` or `pyproject.toml`. Each Pytho
 
 ---
 
-The pipeline requires **6 secrets** to run the full intraday cycle. Set these in:
+The pipeline requires **4 secrets** and **1 variable** to run the full intraday cycle. Set these in:
 
 > **GitHub UI → Settings → Secrets and variables → Actions → Repository secrets**
+
+### Repository Secrets
 
 | Secret               | Used By                        | Description                                     | Required |
 | :------------------- | :----------------------------- | :---------------------------------------------- | :------- |
 | `PSI_ENGINE_API_KEY` | `predictions_loader.py`        | API key for PSI Engine (prediction generation). | **Yes**  |
 | `PSI_API_URL`        | `predictions_loader.py`        | Full URL to PSI Engine prediction endpoint.     | **Yes**  |
-| `SET_MARKET_API_KEY` | `capture_market.py`            | API key for SET market data source.             | **Yes**  |
-| `SET_ATO_PRICE`      | `capture_market.py` (ATO step) | ATO price for market open.                      | Yes\*    |
-| `SET_ATC_PRICE`      | `capture_market.py` (ATC step) | ATC price for market close.                     | Yes\*    |
-| `SET_VOLATILITY`     | `capture_market.py` (ATC step) | Intraday volatility index.                      | Yes\*    |
+| `RAPIDAPI_HOST`      | `predictions_loader.py`        | RapidAPI host header.                           | **Yes**  |
+| `SETSMART_API_KEY`   | `capture_market.py`            | API key for SETSMART market data source.        | **Yes**  |
 
-> _\* These have fallback defaults (`0`, `0.01`) in the workflow if not set, but should be configured with real data for production._
+### Repository Variables
 
-### Setting Secrets via CLI
+> **GitHub UI → Settings → Secrets and variables → Actions → Variables**
+
+| Variable           | Used By             | Description                                 | Required |
+| :----------------- | :------------------ | :------------------------------------------ | :------- |
+| `SET_INDEX_SYMBOL` | `capture_market.py` | SETSMART symbol for the SET index (default: `SET`). | No  |
+
+### Setting via CLI
 
 ```bash
-# Install GitHub CLI first: https://cli.github.com/
+# Secrets
 gh secret set PSI_ENGINE_API_KEY --repo owner/set-psi-validation
 gh secret set PSI_API_URL --repo owner/set-psi-validation
-gh secret set SET_MARKET_API_KEY --repo owner/set-psi-validation
-gh secret set SET_ATO_PRICE --repo owner/set-psi-validation
-gh secret set SET_ATC_PRICE --repo owner/set-psi-validation
-gh secret set SET_VOLATILITY --repo owner/set-psi-validation
+gh secret set RAPIDAPI_HOST --repo owner/set-psi-validation
+gh secret set SETSMART_API_KEY --repo owner/set-psi-validation
+
+# Variables
+gh variable set SET_INDEX_SYMBOL --repo owner/set-psi-validation
 ```
 
 You will be prompted to paste each value.
