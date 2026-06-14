@@ -222,22 +222,22 @@ Visual Analytics
 
 ---
 
-### Phase 2 — Evaluation Engine
+### Phase 2 — Evaluation Engine (Completed)
 
-* [ ] Confusion matrix implementation
-* [ ] Rolling accuracy (7D / 30D)
-* [ ] Regime-level performance breakdown
-* [ ] Error classification analysis
+* [x] Confusion matrix implementation
+* [x] Rolling accuracy (7D / 30D)
+* [x] Regime-level performance breakdown
+* [x] Error classification analysis
 
 ---
 
-### Phase 3 — Dashboard (GitHub Pages)
+### Phase 3 — Dashboard (GitHub Pages) (Completed)
 
-* [ ] Setup static site
-* [ ] PSI time series visualization
-* [ ] Performance summary UI
-* [ ] Confusion matrix chart
-* [ ] JSON pipeline integration
+* [x] Setup static site
+* [x] PSI time series visualization
+* [x] Performance summary UI
+* [x] Confusion matrix chart
+* [x] JSON pipeline integration
 
 ---
 

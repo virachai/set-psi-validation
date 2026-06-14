@@ -26,7 +26,8 @@ jobs:
 
       - name: Lint with Ruff
         run: |
-          uv run ruff check scripts/ tests/
+          uv run ruff --version
+          uv run ruff check --verbose --show-source scripts/ tests/
 
       - name: Check formatting with Black
         run: |

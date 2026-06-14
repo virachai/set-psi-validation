@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PSI Validation Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <header>
+        <h1>SET PSI Validation Dashboard</h1>
+        <p class="subtitle">Systematic Evaluation of Pressure-Signal Index Regimes</p>
+    </header>
+
+    <main>
+        <section id="kpis">
+            <div class="card">
+                <h3>Overall Accuracy</h3>
+                <div id="accuracy-value" class="kpi-value">--%</div>
+            </div>
+            <div class="card">
+                <h3>7D Rolling</h3>
+                <div id="rolling-7d" class="kpi-value">--%</div>
+            </div>
+            <div class="card">
+                <h3>30D Rolling</h3>
+                <div id="rolling-30d" class="kpi-value">--%</div>
+            </div>
+            <div class="card">
+                <h3>Total Samples</h3>
+                <div id="total-samples" class="kpi-value">0</div>
+            </div>
+        </section>
+
+        <section id="charts">
+            <div class="chart-container">
+                <h3>Accuracy Timeline</h3>
+                <canvas id="accuracyChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <h3>Regime Hit Rates (Recall)</h3>
+                <canvas id="hitRateChart"></canvas>
+            </div>
+        </section>
+
+        <section id="confusion">
+            <div class="chart-container wide">
+                <h3>Confusion Matrix</h3>
+                <div id="confusion-matrix-grid" class="matrix-grid">
+                    <!-- Matrix rendered here via JS -->
+                </div>
+            </div>
+        </section>
+
+        <section id="history">
+            <h3>Recent Validation History</h3>
+            <table id="history-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Predicted</th>
+                        <th>Actual</th>
+                        <th>Result</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- History rows here -->
+                </tbody>
+            </table>
+        </section>
+    </main>
+
+    <footer>
+        <p>Built for SET Market Analysis | <a href="https://github.com/virachai/set-psi-validation">GitHub Repository</a></p>
+        <p id="last-updated">Last updated: --</p>
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+</html>

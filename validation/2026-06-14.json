@@ -1,0 +1,32 @@
+{
+  "@context": "https://schema.org",
+  "@type": "Observation",
+  "name": "Validation Evaluation 2026-06-14",
+  "observationDate": "2026-06-14T17:44:03+07:00",
+  "observationAbout": [
+    {
+      "@id": "predictions/2026-06-14.json"
+    },
+    {
+      "@id": "market-data/2026-06-14.json"
+    }
+  ],
+  "measuredProperty": {
+    "@type": "DefinedTerm",
+    "name": "Regime Prediction Accuracy"
+  },
+  "variableMeasured": {
+    "@type": "PropertyValue",
+    "name": "Is Correct",
+    "value": true
+  },
+  "marginOfError": {
+    "@type": "QuantitativeValue",
+    "value": 0.0
+  },
+  "date": "2026-06-14",
+  "predictedRegime": "Sideways",
+  "actualRegime": "Sideways",
+  "isCorrect": true,
+  "deviationScore": 0.0
+}
