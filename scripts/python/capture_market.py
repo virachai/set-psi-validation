@@ -138,12 +138,14 @@ def load_existing(date_str: str) -> dict:
 def save_market_data(record: dict, date_str: str) -> str:
     """Writes the market data record to market-data/YYYY-MM-DD-HHMMSS.json."""
     os.makedirs(MARKET_DATA_DIR, exist_ok=True)
-    
+
     # Use timestamp from record, or generate now
-    ts_str = record.get("observationDate", datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+07:00"))
+    ts_str = record.get(
+        "observationDate", datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+07:00")
+    )
     # Format to YYYY-MM-DD-HHMMSS
     dt = datetime.fromisoformat(ts_str.replace("Z", "+00:00")).strftime("%Y-%m-%d-%H%M%S")
-    
+
     filepath = os.path.join(MARKET_DATA_DIR, f"{dt}.json")
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(record, f, indent=2, ensure_ascii=False)

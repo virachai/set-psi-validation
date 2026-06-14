@@ -113,6 +113,12 @@ def run_daily_validation(date_str: str) -> Optional[Dict[str, Any]]:
     pred_path = find_latest_file(PREDICTIONS_DIR, date_str)
     market_path = find_latest_file(MARKET_DATA_DIR, date_str)
 
+    if not pred_path or not market_path:
+        print(
+            f"[SKIP] Missing path for {date_str} (Pred: {bool(pred_path)}, Market: {bool(market_path)})"
+        )
+        return None
+
     prediction = load_json(pred_path)
     market = load_json(market_path)
 
