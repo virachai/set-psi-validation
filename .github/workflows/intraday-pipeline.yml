@@ -39,9 +39,8 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install dependencies
-        run: |
-          uv sync
+      # Dependencies are handled per-script via PEP 723 inline metadata.
+      # uv run auto-installs dependencies declared in each script.
 
       - name: Determine Step
         id: step-decider

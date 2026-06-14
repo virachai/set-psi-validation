@@ -44,14 +44,14 @@ The system uses a lean, file-based approach with standardized JSON schemas:
 
 The PSI Validation data model has been formally mapped to [schema.org](https://schema.org) types for semantic interoperability:
 
-| PSI Component | Schema.org Type | Key Mapping |
-| :------------ | :-------------- | :---------- |
-| **Regime Taxonomy** | `DefinedTermSet` + `DefinedTerm` | 5 market regimes as a controlled vocabulary |
-| **Prediction Snapshot** | `Observation` | Pre-ATO forecast with `measurementMethod` |
-| **Market Outcome** | `Observation` | ATO/ATC data via `variableMeasured` |
-| **Validation Evaluation** | `Observation` + `marginOfError` | `deviationScore` → `marginOfError` (direct 1:1) |
-| **Aggregated Metrics** | `Dataset` + `AggregateRating` | Accuracy as rating, F1/precision/recall as PropertyValue |
-| **All Data** | `DataCatalog` | Top-level container for all datasets |
+| PSI Component             | Schema.org Type                  | Key Mapping                                              |
+| :------------------------ | :------------------------------- | :------------------------------------------------------- |
+| **Regime Taxonomy**       | `DefinedTermSet` + `DefinedTerm` | 5 market regimes as a controlled vocabulary              |
+| **Prediction Snapshot**   | `Observation`                    | Pre-ATO forecast with `measurementMethod`                |
+| **Market Outcome**        | `Observation`                    | ATO/ATC data via `variableMeasured`                      |
+| **Validation Evaluation** | `Observation` + `marginOfError`  | `deviationScore` → `marginOfError` (direct 1:1)          |
+| **Aggregated Metrics**    | `Dataset` + `AggregateRating`    | Accuracy as rating, F1/precision/recall as PropertyValue |
+| **All Data**              | `DataCatalog`                    | Top-level container for all datasets                     |
 
 Full mapping in [`docs/research_reports/008-schema-org-mapping-v01.md`](research_reports/008-schema-org-mapping-v01.md).
 

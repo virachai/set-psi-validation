@@ -25,13 +25,16 @@ jobs:
           # If .python-version is missing, fallback to 3.12
           python-version: "3.12"
 
-      - name: Install dependencies
-        run: |
-          uv sync --all-extras --dev
+      # Dependencies are handled per-script via PEP 723 inline metadata.
+      # uv run auto-installs dependencies declared in each script.
 
       - name: Lint with Ruff
         run: |
           uv run ruff check .
+
+      - name: Check formatting with Black
+        run: |
+          uv run black --check .
 
       - name: Check types with Mypy
         run: |
@@ -43,4 +46,4 @@ jobs:
 
       - name: Run tests
         run: |
-          uv run pytest
+          uv run pytest -q
