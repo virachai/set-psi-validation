@@ -1,10 +1,25 @@
----
-name: Project Overview
-description: Initial project structure and status tracking for the PSI validation pipeline.
-type: project
----
+# Project Overview
 
-The PSI (Pressure-Signal Index) validation pipeline for the SET market is currently in its initial phase.
-The repository structure is being established, with key documentation files (`FLOW.md`, `ROADMAP.md`) being reorganized into the `docs/` directory.
-The system aims to validate PSI regime forecasts against actual market outcomes (ATO/ATC).
-Current status: Initial setup, repository structure being cleaned up and reorganized.
+## Metadata
+
+- **Date:** 2026-06-14
+- **Author:** Gemini CLI
+- **Status:** COMPLETED
+
+## Context
+
+Initial project structure and status tracking for the PSI validation pipeline.
+
+## Changes Made
+
+- Established repository structure.
+- Reorganized documentation files (`FLOW.md`, `ROADMAP.md`) into `docs/`.
+
+## Impact
+
+- Clear project structure.
+- Documentation accessible in `docs/`.
+
+## Next Steps
+
+- Implement validation engine and data ingestion scripts.

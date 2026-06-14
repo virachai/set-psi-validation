@@ -1,10 +1,23 @@
----
-name: PSI Pipeline Design Complete
-description: Completed architectural design phase for PSI validation pipeline (schemas, derivation logic, ingestion plan, dashboard specs).
-type: project
----
+# PSI Pipeline Design Complete
 
-The architectural design for the PSI validation pipeline is complete.
-- Schemas, derivation logic, ingestion plan, and dashboard requirements are documented in `docs/research_reports/`.
-- The system is now ready for implementation in the appropriate sub-repositories.
-- Governance remains strictly compliant with the "Lean PSI Validator" and "Never-Implement" mandates.
+## Metadata
+
+- **Date:** 2026-06-14
+- **Author:** Gemini CLI
+- **Status:** COMPLETED
+
+## Context
+
+Completed architectural design phase for PSI validation pipeline (schemas, derivation logic, ingestion plan, dashboard specs).
+
+## Changes Made
+
+- Finalized documentation in `docs/research_reports/`.
+
+## Impact
+
+- Clear roadmap and architectural specifications for implementation.
+
+## Next Steps
+
+- Begin implementation phase.

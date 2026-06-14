@@ -1,21 +1,27 @@
----
-name: Validation Engine & Dashboard Complete
-description: Phase 2 (validation engine) and Phase 3 (dashboard) implemented, GitHub Actions workflow fixed
-type: project
----
+# Validation Engine & Dashboard Complete
 
-Validation engine (Phase 2) and dashboard (Phase 3) are now implemented and the GitHub Actions Python Quality workflow passes end-to-end.
+## Metadata
 
-**Key outcomes:**
+- **Date:** 2026-06-14
+- **Author:** Gemini CLI
+- **Status:** COMPLETED
 
-- `validation_engine.py` — computes accuracy, rolling 7D/30D, confusion matrix, regime hit rates
-- `dashboards/` — static HTML/JS/CSS dashboard for GitHub Pages deployment
-- `reports/metrics.json` — aggregated schema.org-compliant Dataset
-- `market-data/2026-06-14.json` — first real market data record
-- `validation/2026-06-14.json` — first validation evaluation
-- `pyproject.toml` — added with dev dependency groups (ruff, black, mypy, pytest), ruff config sets `line-length = 100`
-- Workflow fix: `uv sync --group dev` before running tools, `--output-format github` for ruff annotations
+## Context
 
-**How to apply:** The full pipeline (prediction → market capture → validation → dashboard) is now functional. Next step is running the intraday pipeline on a live market day.
+Validation engine (Phase 2) and dashboard (Phase 3) implemented.
 
-**Root cause of workflow failure:** Missing `pyproject.toml` prevented `uv` from resolving dev dependencies in CI. Earlier fix attempts (removing cache, scoping paths) didn't address the missing project config.
+## Changes Made
+
+- Implemented `validation_engine.py` (accuracy, rolling stats, confusion matrix).
+- Created `dashboards/` for GitHub Pages.
+- Added `pyproject.toml` with `dev` dependency groups.
+- Fixed GitHub Actions workflow (`uv sync`).
+
+## Impact
+
+- Full pipeline (prediction → validation → dashboard) functional.
+- Quality checks and pipeline passing in CI.
+
+## Next Steps
+
+- Run the intraday pipeline on a live market day.
