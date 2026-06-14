@@ -31,6 +31,8 @@ permissions:
 jobs:
   market-cycle:
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - uses: actions/checkout@v4
 
@@ -69,6 +71,7 @@ jobs:
         env:
           PSI_ENGINE_API_KEY: ${{ secrets.PSI_ENGINE_API_KEY }}
           PSI_API_URL: ${{ secrets.PSI_API_URL }}
+          RAPIDAPI_HOST: ${{ secrets.RAPIDAPI_HOST }}
 
       - name: Run ATO Capture
         if: steps.step-decider.outputs.step == 'ato' || steps.step-decider.outputs.step == 'all'
