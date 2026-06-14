@@ -8,5 +8,6 @@
 - [SETSMART Integration Complete](20260614-180000-setsmart-integration.md) - capture_market.py fetches live SET Index ATO/ATC/volatility from SETSMART API.
 - [Project Quality & CI Restored](20260614-190000-project-quality-and-ci-restored.md) - Fixed ruff CI failure, added pyproject.toml, improved market data resilience, and corrected test assertions.
 - [Decoupled Prediction Capture](20260614-210000-decoupled-prediction-capture.md) - Architectural decision to store predictions independently of market data to improve data completeness.
+- [Secure Local Test Runner](20260614-220000-secure-local-test-runner.md) - Secure local test runner using .tmp/.env and run_tests.sh.
 - [Validation Engine & Dashboard Complete](20260614-190000-validation-engine-complete.md) - Phase 2 validation engine, Phase 3 dashboard, pyproject.toml, workflow fix.
 - [Taxonomy Renamed & CI Green](20260614-200000-taxonomy-rename-ci-green.md) - Renamed to naming convention, all refs updated, API and CI verified passing.
