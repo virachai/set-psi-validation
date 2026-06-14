@@ -17,6 +17,7 @@ Governance: Compliant with "Lean PSI Validator" principles.
 import os
 import json
 import argparse
+import glob
 from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, Optional
 
@@ -97,10 +98,20 @@ def save_json(filepath: str, data: Any) -> None:
 # --- Engine Actions ---
 
 
+def find_latest_file(directory: str, date_str: str) -> Optional[str]:
+    """Finds the latest file matching YYYY-MM-DD-*.json."""
+    files = glob.glob(os.path.join(directory, f"{date_str}-*.json"))
+    if not files:
+        # Fallback to legacy YYYY-MM-DD.json
+        legacy = os.path.join(directory, f"{date_str}.json")
+        return legacy if os.path.exists(legacy) else None
+    return max(files, key=os.path.getmtime)
+
+
 def run_daily_validation(date_str: str) -> Optional[Dict[str, Any]]:
     """Performs validation for a single date."""
-    pred_path = os.path.join(PREDICTIONS_DIR, f"{date_str}.json")
-    market_path = os.path.join(MARKET_DATA_DIR, f"{date_str}.json")
+    pred_path = find_latest_file(PREDICTIONS_DIR, date_str)
+    market_path = find_latest_file(MARKET_DATA_DIR, date_str)
 
     prediction = load_json(pred_path)
     market = load_json(market_path)

@@ -162,10 +162,15 @@ def build_snapshot(raw: dict) -> dict:
 
 
 def save_snapshot(snapshot: dict) -> str:
-    """Writes the prediction snapshot to predictions/YYYY-MM-DD.json."""
+    """Writes the prediction snapshot to predictions/YYYY-MM-DD-HHMMSS.json."""
     os.makedirs(PREDICTIONS_DIR, exist_ok=True)
-    date_str = snapshot["date"]
-    filepath = os.path.join(PREDICTIONS_DIR, f"{date_str}.json")
+    
+    # Use timestamp from the snapshot or generate now
+    ts_str = snapshot.get("timestamp", datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S"))
+    # Format to YYYY-MM-DD-HHMMSS
+    dt = datetime.fromisoformat(ts_str.replace("Z", "+00:00")).strftime("%Y-%m-%d-%H%M%S")
+    
+    filepath = os.path.join(PREDICTIONS_DIR, f"{dt}.json")
 
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(snapshot, f, indent=2, ensure_ascii=False)
