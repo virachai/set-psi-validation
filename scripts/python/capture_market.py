@@ -188,9 +188,7 @@ def handle_atc(
         ato_price = atc_price  # fallback — zero return
 
     return_pct = round((atc_price - ato_price) / ato_price * 100, 2)
-    actual_regime = derive_actual_regime(
-        ato_price, atc_price, volatility_index, threshold_mean
-    )
+    actual_regime = derive_actual_regime(ato_price, atc_price, volatility_index, threshold_mean)
 
     now_ict = datetime.now(timezone.utc) + ICT_OFFSET
     period_start = f"{date_str}T10:00:00+07:00"
@@ -233,9 +231,7 @@ def handle_atc(
             {
                 "@type": "PropertyValue",
                 "name": "Actual Regime",
-                "value": (
-                    actual_regime if actual_regime in VALID_REGIMES else "Unclassified"
-                ),
+                "value": (actual_regime if actual_regime in VALID_REGIMES else "Unclassified"),
             },
         ],
         # --- original fields preserved for backward compatibility ---
@@ -304,18 +300,12 @@ def main() -> None:
             # Manual mode
             if args.mode == "ato":
                 if args.ato_price is None:
-                    parser.error(
-                        "--ato-price is required for --mode ato (or use --symbol)."
-                    )
+                    parser.error("--ato-price is required for --mode ato (or use --symbol).")
                 record = handle_ato(date_str, args.ato_price)
             else:
                 if args.atc_price is None:
-                    parser.error(
-                        "--atc-price is required for --mode atc (or use --symbol)."
-                    )
-                record = handle_atc(
-                    date_str, args.atc_price, args.volatility, args.threshold
-                )
+                    parser.error("--atc-price is required for --mode atc (or use --symbol).")
+                record = handle_atc(date_str, args.atc_price, args.volatility, args.threshold)
 
         save_market_data(record, date_str)
         print(f"[DONE] Market {args.mode.upper()} capture complete.")

@@ -43,9 +43,7 @@ class TestBuildSnapshot:
     def test_psi_score_bounds(self):
         """PSI Score should have explicit min/max."""
         snapshot = build_snapshot(SAMPLE_API_RESPONSE)
-        psi_entry = next(
-            m for m in snapshot["variableMeasured"] if m["name"] == "PSI Score"
-        )
+        psi_entry = next(m for m in snapshot["variableMeasured"] if m["name"] == "PSI Score")
         assert psi_entry["minValue"] == 0
         assert psi_entry["maxValue"] == 1
 

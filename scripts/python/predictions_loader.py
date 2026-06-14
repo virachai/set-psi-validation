@@ -71,6 +71,9 @@ def build_snapshot(raw: dict) -> dict:
     1. Native schema.org response (Lambda) — passthrough with backward-compat fields added.
     2. Legacy RapidAPI format ({status, data: {regime, psi, ...}}) — full transform.
     """
+    if not isinstance(raw, dict):
+        return {}
+
     # Detect native schema.org response from our Lambda
     if raw.get("@type") == "Observation":
         obs = dict(raw)
@@ -100,11 +103,9 @@ def build_snapshot(raw: dict) -> dict:
         return obs
 
     # Legacy: unwrap nested data payload
-    payload = raw.get("data") if isinstance(raw.get("data"), dict) else raw
+    payload = raw.get("data") if isinstance(raw.get("data"), dict) else raw  # type: ignore[union-attr]
 
-    raw_regime = (
-        payload.get("regime") or payload.get("predictedRegime") or "Unclassified"
-    )
+    raw_regime = payload.get("regime") or payload.get("predictedRegime") or "Unclassified"  # type: ignore[union-attr]
     # Normalise case and separators: "SIDEWAYS" → "Sideways", "RISK_OFF" → "Risk-Off"
     regime_map = {}
     for r in VALID_REGIMES:
@@ -112,8 +113,8 @@ def build_snapshot(raw: dict) -> dict:
         regime_map[key] = r
     clean = raw_regime.upper().replace("-", "").replace("_", "")
     predicted_regime = regime_map.get(clean, raw_regime)
-    psi_score = payload.get("psi") or payload.get("psiScore") or 0.0
-    model_id = payload.get("modelId") or payload.get("model_id") or "PSI Engine v1"
+    psi_score = payload.get("psi") or payload.get("psiScore") or 0.0  # type: ignore[union-attr]
+    model_id = payload.get("modelId") or payload.get("model_id") or "PSI Engine v1"  # type: ignore[union-attr]
 
     if predicted_regime not in VALID_REGIMES:
         print(f"[WARN] Unknown regime '{predicted_regime}' from API.")

@@ -1,0 +1,38 @@
+[project]
+name = "set-psi-validation"
+version = "0.1.0"
+description = "Market regime validation pipeline for PSI"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "python-dotenv",
+    "httpx",
+    "pandas",
+    "numpy",
+    "pdfplumber",
+]
+
+[dependency-groups]
+dev = [
+    "ruff",
+    "black",
+    "mypy",
+    "pytest",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.black]
+line-length = 100
+target-version = ['py312']
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = false
+warn_unused_configs = true
+ignore_missing_imports = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = false

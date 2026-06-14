@@ -38,9 +38,7 @@ class TestDeriveActualRegime:
         assert derive_actual_regime(100.0, 97.5, 0.05, self.THRESHOLD) == "Crisis"
 
     def test_unclassified(self):
-        assert (
-            derive_actual_regime(100.0, 101.0, 0.03, self.THRESHOLD) == "Unclassified"
-        )
+        assert derive_actual_regime(100.0, 101.0, 0.03, self.THRESHOLD) == "Unclassified"
 
 
 # --- handle_ato ---

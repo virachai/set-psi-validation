@@ -16,13 +16,11 @@ Governance: Compliant with "Lean PSI Validator" principles.
 
 import os
 import json
-import sys
 import argparse
 from datetime import datetime, timezone, timedelta
-from typing import List, Dict, Any, Optional
+from typing import Dict, Any, Optional
 
 import pandas as pd
-import numpy as np
 
 # --- Constants ---
 
@@ -35,6 +33,7 @@ REPORTS_DIR = "reports"
 VALID_REGIMES = ["Bullish", "Bearish", "Sideways", "Risk-Off", "Crisis"]
 
 # --- Core Logic ---
+
 
 def derive_actual_regime(
     ato_price: float,
@@ -62,9 +61,11 @@ def derive_actual_regime(
     else:
         return "Unclassified"
 
+
 def compare_regimes(predicted: str, actual: str) -> bool:
     """Returns True if prediction matches actual outcome."""
     return predicted == actual
+
 
 def compute_deviation_score(predicted: str, actual: str) -> float:
     """
@@ -75,7 +76,9 @@ def compute_deviation_score(predicted: str, actual: str) -> float:
     """
     return 0.0 if predicted == actual else 1.0
 
+
 # --- File I/O ---
+
 
 def load_json(filepath: str) -> Optional[Dict[str, Any]]:
     if not os.path.exists(filepath):
@@ -83,13 +86,16 @@ def load_json(filepath: str) -> Optional[Dict[str, Any]]:
     with open(filepath, "r", encoding="utf-8") as f:
         return json.load(f)
 
+
 def save_json(filepath: str, data: Any) -> None:
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
     print(f"[SAVE] Written to {filepath}")
 
+
 # --- Engine Actions ---
+
 
 def run_daily_validation(date_str: str) -> Optional[Dict[str, Any]]:
     """Performs validation for a single date."""
@@ -100,7 +106,9 @@ def run_daily_validation(date_str: str) -> Optional[Dict[str, Any]]:
     market = load_json(market_path)
 
     if not prediction or not market:
-        print(f"[SKIP] Missing data for {date_str} (Pred: {bool(prediction)}, Market: {bool(market)})")
+        print(
+            f"[SKIP] Missing data for {date_str} (Pred: {bool(prediction)}, Market: {bool(market)})"
+        )
         return None
 
     # Extract regimes (handle both schema.org and flat formats)
@@ -133,31 +141,22 @@ def run_daily_validation(date_str: str) -> Optional[Dict[str, Any]]:
         "observationDate": timestamp_iso,
         "observationAbout": [
             {"@id": f"predictions/{date_str}.json"},
-            {"@id": f"market-data/{date_str}.json"}
+            {"@id": f"market-data/{date_str}.json"},
         ],
-        "measuredProperty": {
-            "@type": "DefinedTerm",
-            "name": "Regime Prediction Accuracy"
-        },
-        "variableMeasured": {
-            "@type": "PropertyValue",
-            "name": "Is Correct",
-            "value": is_correct
-        },
-        "marginOfError": {
-            "@type": "QuantitativeValue",
-            "value": deviation
-        },
+        "measuredProperty": {"@type": "DefinedTerm", "name": "Regime Prediction Accuracy"},
+        "variableMeasured": {"@type": "PropertyValue", "name": "Is Correct", "value": is_correct},
+        "marginOfError": {"@type": "QuantitativeValue", "value": deviation},
         # --- Internal fields ---
         "date": date_str,
         "predictedRegime": predicted_regime,
         "actualRegime": actual_regime,
         "isCorrect": is_correct,
-        "deviationScore": deviation
+        "deviationScore": deviation,
     }
 
     save_json(os.path.join(VALIDATION_DIR, f"{date_str}.json"), validation_record)
     return validation_record
+
 
 def update_aggregate_metrics() -> None:
     """Scans validation/ directory and updates reports/metrics.json."""
@@ -166,43 +165,45 @@ def update_aggregate_metrics() -> None:
     for f in sorted(all_files):
         data = load_json(os.path.join(VALIDATION_DIR, f))
         if data and "date" in data:
-            records.append({
-                "date": data["date"],
-                "predicted": data["predictedRegime"],
-                "actual": data["actualRegime"],
-                "correct": data["isCorrect"]
-            })
+            records.append(
+                {
+                    "date": data["date"],
+                    "predicted": data["predictedRegime"],
+                    "actual": data["actualRegime"],
+                    "correct": data["isCorrect"],
+                }
+            )
 
     if not records:
         print("[WARN] No validation records found to aggregate.")
         return
 
     df = pd.DataFrame(records)
-    df['date'] = pd.to_datetime(df['date'])
-    df = df.sort_values('date')
+    df["date"] = pd.to_datetime(df["date"])
+    df = df.sort_values("date")
 
     # Overall Accuracy
-    total_accuracy = df['correct'].mean()
+    total_accuracy = df["correct"].mean()
 
     # Rolling Accuracy (7D, 30D)
     # We use min_periods=1 to handle early days
-    df['rolling_7d'] = df['correct'].rolling(window=7, min_periods=1).mean()
-    df['rolling_30d'] = df['correct'].rolling(window=30, min_periods=1).mean()
+    df["rolling_7d"] = df["correct"].rolling(window=7, min_periods=1).mean()
+    df["rolling_30d"] = df["correct"].rolling(window=30, min_periods=1).mean()
 
     # Confusion Matrix
     # Ensure all regimes are present in the matrix
     confusion = pd.crosstab(
-        pd.Categorical(df['predicted'], categories=VALID_REGIMES),
-        pd.Categorical(df['actual'], categories=VALID_REGIMES),
-        dropna=False
+        pd.Categorical(df["predicted"], categories=VALID_REGIMES),
+        pd.Categorical(df["actual"], categories=VALID_REGIMES),
+        dropna=False,
     )
 
     # Regime Hit Rates (Recall per regime)
     hit_rates = {}
     for regime in VALID_REGIMES:
-        regime_actuals = df[df['actual'] == regime]
+        regime_actuals = df[df["actual"] == regime]
         if not regime_actuals.empty:
-            hit_rates[regime] = regime_actuals['correct'].mean()
+            hit_rates[regime] = regime_actuals["correct"].mean()
         else:
             hit_rates[regime] = None
 
@@ -213,29 +214,49 @@ def update_aggregate_metrics() -> None:
         "description": "Rolling performance metrics for PSI regime validation.",
         "datePublished": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+07:00"),
         "variableMeasured": [
-            {"@type": "PropertyValue", "name": "Overall Accuracy", "value": round(float(total_accuracy), 4)},
-            {"@type": "PropertyValue", "name": "Rolling 7D Accuracy", "value": round(float(df['rolling_7d'].iloc[-1]), 4)},
-            {"@type": "PropertyValue", "name": "Rolling 30D Accuracy", "value": round(float(df['rolling_30d'].iloc[-1]), 4)}
+            {
+                "@type": "PropertyValue",
+                "name": "Overall Accuracy",
+                "value": round(float(total_accuracy), 4),
+            },
+            {
+                "@type": "PropertyValue",
+                "name": "Rolling 7D Accuracy",
+                "value": round(float(df["rolling_7d"].iloc[-1]), 4),
+            },
+            {
+                "@type": "PropertyValue",
+                "name": "Rolling 30D Accuracy",
+                "value": round(float(df["rolling_30d"].iloc[-1]), 4),
+            },
         ],
         "metrics": {
             "overall_accuracy": float(total_accuracy),
-            "rolling_7d": float(df['rolling_7d'].iloc[-1]),
-            "rolling_30d": float(df['rolling_30d'].iloc[-1]),
+            "rolling_7d": float(df["rolling_7d"].iloc[-1]),
+            "rolling_30d": float(df["rolling_30d"].iloc[-1]),
             "hit_rates": hit_rates,
-            "total_count": len(df)
+            "total_count": len(df),
         },
         "confusion_matrix": confusion.to_dict(),
-        "history": df.tail(30).assign(date=df['date'].dt.strftime('%Y-%m-%d')).to_dict(orient="records")
+        "history": df.tail(30)
+        .assign(date=df["date"].dt.strftime("%Y-%m-%d"))
+        .to_dict(orient="records"),
     }
 
     save_json(os.path.join(REPORTS_DIR, "metrics.json"), metrics_report)
 
+
 # --- Main ---
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="PSI Validation Engine")
     parser.add_argument("--date", help="Date to validate (YYYY-MM-DD). Defaults to today.")
-    parser.add_argument("--recompute-all", action="store_true", help="Revalidate all dates with prediction & market data.")
+    parser.add_argument(
+        "--recompute-all",
+        action="store_true",
+        help="Revalidate all dates with prediction & market data.",
+    )
     args = parser.parse_args()
 
     if args.recompute_all:
@@ -251,6 +272,7 @@ def main() -> None:
 
     update_aggregate_metrics()
     print("[DONE] Validation engine execution complete.")
+
 
 if __name__ == "__main__":
     main()

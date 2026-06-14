@@ -21,13 +21,12 @@ jobs:
         with:
           python-version: "3.12"
 
-      # Dependencies are handled per-script via PEP 723 inline metadata.
-      # uv run auto-installs dependencies declared in each script.
+      - name: Sync dependencies
+        run: uv sync --group dev
 
       - name: Lint with Ruff
         run: |
-          uv run ruff --version
-          uv run ruff check --verbose --show-source scripts/ tests/
+          uv run ruff check --output-format github scripts/ tests/
 
       - name: Check formatting with Black
         run: |

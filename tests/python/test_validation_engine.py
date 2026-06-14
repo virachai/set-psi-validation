@@ -67,17 +67,17 @@ class TestDeriveActualRegime:
 
 class TestCompareRegimes:
     def test_match(self):
-        assert compare_regimes("Bullish", "Bullish") == "Match"
+        assert compare_regimes("Bullish", "Bullish") is True
 
     def test_mismatch(self):
-        assert compare_regimes("Bullish", "Bearish") == "Mismatch"
+        assert compare_regimes("Bullish", "Bearish") is False
 
     def test_match_risk_off(self):
-        assert compare_regimes("Risk-Off", "Risk-Off") == "Match"
+        assert compare_regimes("Risk-Off", "Risk-Off") is True
 
     def test_mismatch_crisis_bullish(self):
         """Critical failure: Crisis predicted as Bullish."""
-        assert compare_regimes("Bullish", "Crisis") == "Mismatch"
+        assert compare_regimes("Bullish", "Crisis") is False
 
     def test_match_unclassified(self):
-        assert compare_regimes("Unclassified", "Unclassified") == "Match"
+        assert compare_regimes("Unclassified", "Unclassified") is True

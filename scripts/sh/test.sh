@@ -11,8 +11,8 @@ MODE="${1:-all}"
 case "$MODE" in
   all)
     echo "[1/2] Running Python lint + format check..."
-    uv run ruff check scripts/python/ tests/
-    uv run black --check scripts/python/ tests/
+    uv run ruff check scripts/ tests/
+    uv run black --check scripts/ tests/
 
     echo ""
     echo "[2/2] Running all tests..."
@@ -20,8 +20,8 @@ case "$MODE" in
     ;;
   lint)
     echo "Running lint..."
-    uv run ruff check scripts/python/ tests/
-    uv run black --check scripts/python/ tests/
+    uv run ruff check scripts/ tests/
+    uv run black --check scripts/ tests/
     ;;
   test)
     echo "Running tests..."

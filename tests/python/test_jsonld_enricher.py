@@ -48,23 +48,17 @@ class TestEnrichFile:
         filepath = tmp_path / "test.json"
         filepath.write_text(json.dumps({"value": 42}))
 
-        result = enrich_file(
-            str(filepath), DIRECTORY_MAP["predictions"], validate_only=True
-        )
+        result = enrich_file(str(filepath), DIRECTORY_MAP["predictions"], validate_only=True)
         assert result is False
 
     def test_validate_only_pass(self, tmp_path):
         """--validate-only should pass already enriched files."""
         filepath = tmp_path / "test.json"
         filepath.write_text(
-            json.dumps(
-                {"@context": "https://schema.org", "@type": "Observation", "value": 42}
-            )
+            json.dumps({"@context": "https://schema.org", "@type": "Observation", "value": 42})
         )
 
-        result = enrich_file(
-            str(filepath), DIRECTORY_MAP["predictions"], validate_only=True
-        )
+        result = enrich_file(str(filepath), DIRECTORY_MAP["predictions"], validate_only=True)
         assert result is True
 
     def test_not_a_json_object(self, tmp_path):
@@ -88,9 +82,7 @@ class TestEnrichFile:
         result = enrich_file("/nonexistent/path.json", DIRECTORY_MAP["predictions"])
         assert result is False
 
-    @pytest.mark.parametrize(
-        "directory", ["predictions", "market-data", "validation", "reports"]
-    )
+    @pytest.mark.parametrize("directory", ["predictions", "market-data", "validation", "reports"])
     def test_all_directory_types(self, tmp_path, directory):
         """Each directory type should get its correct @type."""
         filepath = tmp_path / "test.json"
