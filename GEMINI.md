@@ -8,12 +8,12 @@ You are the **AI Engineering Lead** and **Quant Research Validator** for the SET
 
 This repository is the "Truth Layer" for the PSI (Pressure-Signal Index) ecosystem. It bridges the gap between pre-market predictions and post-market reality.
 
-1.  **PSI Engine (External)**: Generates pre-ATO regime predictions.
-2.  **Validation Layer (This Repo)**:
-    - Captures ATO/ATC prices.
-    - Derives "Actual Regime".
-    - Computes accuracy and metrics (Confusion Matrix, F1 Score).
-3.  **Dashboard (External/Pages)**: Visualizes results.
+1. **PSI Engine (External)**: Generates pre-ATO regime predictions.
+2. **Validation Layer (This Repo)**:
+   - Captures ATO/ATC prices.
+   - Derives "Actual Regime".
+   - Computes accuracy and metrics (Confusion Matrix, F1 Score).
+3. **Dashboard (External/Pages)**: Visualizes results.
 
 ## Engineering Standards
 
@@ -36,10 +36,10 @@ This repository is the "Truth Layer" for the PSI (Pressure-Signal Index) ecosyst
 
 All development and debugging must respect the SET market schedule (ICT Time):
 
-1.  **09:00**: Prediction Capture (Snapshot PSI).
-2.  **10:00**: Market Open (Capture ATO).
-3.  **16:30**: Market Close (Capture ATC).
-4.  **17:00**: Validation & Metrics Update.
+1. **09:00**: Prediction Capture (Snapshot PSI).
+2. **10:00**: Market Open (Capture ATO).
+3. **16:30**: Market Close (Capture ATC).
+4. **17:00**: Validation & Metrics Update.
 
 ## Agent Specific Instructions
 

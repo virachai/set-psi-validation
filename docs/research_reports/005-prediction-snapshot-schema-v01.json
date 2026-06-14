@@ -1,17 +1,56 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schema.psi-validation.dev/prediction-snapshot/v01",
   "title": "Prediction Snapshot",
-  "description": "Represents the PSI regime forecast before the market opens (Pre-ATO).",
+  "description": "Represents the PSI regime forecast before the market opens (Pre-ATO). Conforms to schema.org Observation type — see 008-schema-org-mapping-v01.md.",
   "type": "object",
   "required": ["timestamp", "date", "predictedRegime", "modelId"],
   "properties": {
+    "@context": {
+      "type": "string",
+      "const": "https://schema.org",
+      "description": "JSON-LD context for schema.org interoperability."
+    },
+    "@type": {
+      "type": "string",
+      "const": "Observation",
+      "description": "Maps to schema.org Observation — a forecast observation captured before market open."
+    },
     "timestamp": { "type": "string", "format": "date-time" },
     "date": { "type": "string", "format": "date" },
     "predictedRegime": {
       "type": "string",
-      "enum": ["Bullish", "Bearish", "Sideways", "Risk-Off", "Crisis"]
+      "enum": ["Bullish", "Bearish", "Sideways", "Risk-Off", "Crisis"],
+      "description": "Forecast regime. Maps to measuredProperty in schema.org, referencing the PSI DefinedTermSet."
     },
-    "modelId": { "type": "string" },
+    "psiScore": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "PSI confidence score [0, 1]. Maps to variableMeasured as PropertyValue in schema.org."
+    },
+    "modelId": {
+      "type": "string",
+      "description": "PSI engine version. Maps to measurementMethod in schema.org."
+    },
     "metadata": { "type": "object" }
-  }
+  },
+  "examples": [
+    {
+      "@context": "https://schema.org",
+      "@type": "Observation",
+      "name": "PSI Prediction 2026-06-14",
+      "observationDate": "2026-06-14T09:00:00+07:00",
+      "measuredProperty": {
+        "@type": "DefinedTerm",
+        "name": "Predicted Regime",
+        "inDefinedTermSet": "psi:market-regimes"
+      },
+      "variableMeasured": [
+        { "@type": "PropertyValue", "name": "PSI Score", "value": 0.41, "minValue": 0, "maxValue": 1 },
+        { "@type": "PropertyValue", "name": "Predicted Regime", "value": "RISK_OFF" }
+      ],
+      "measurementMethod": { "@type": "DefinedTerm", "name": "PSI Engine v1" }
+    }
+  ]
 }

@@ -1,17 +1,63 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schema.psi-validation.dev/market-outcome/v01",
   "title": "Market Outcome",
-  "description": "Represents empirical market behavior captured intraday (ATO/ATC).",
+  "description": "Represents empirical market behavior captured intraday (ATO/ATC). Conforms to schema.org Observation type — see 008-schema-org-mapping-v01.md.",
   "type": "object",
   "required": ["date", "atoPrice", "atcPrice", "volatilityIndex"],
   "properties": {
+    "@context": {
+      "type": "string",
+      "const": "https://schema.org",
+      "description": "JSON-LD context for schema.org interoperability."
+    },
+    "@type": {
+      "type": "string",
+      "const": "Observation",
+      "description": "Maps to schema.org Observation — an observed measurement of market behavior."
+    },
     "date": { "type": "string", "format": "date" },
-    "atoPrice": { "type": "number" },
-    "atcPrice": { "type": "number" },
-    "volatilityIndex": { "type": "number" },
+    "atoPrice": {
+      "type": "number",
+      "description": "Opening price. Maps to variableMeasured[0] as QuantitativeValue in schema.org."
+    },
+    "atcPrice": {
+      "type": "number",
+      "description": "Closing price. Maps to variableMeasured[1] as QuantitativeValue in schema.org."
+    },
+    "volatilityIndex": {
+      "type": "number",
+      "description": "Intraday volatility proxy. Maps to variableMeasured[2] as PropertyValue in schema.org."
+    },
+    "returnPct": {
+      "type": "number",
+      "description": "Intraday return percentage. Maps to variableMeasured[3] as PropertyValue in schema.org."
+    },
     "actualRegime": {
       "type": "string",
-      "enum": ["Bullish", "Bearish", "Sideways", "Risk-Off", "Crisis"]
+      "enum": ["Bullish", "Bearish", "Sideways", "Risk-Off", "Crisis"],
+      "description": "Ground truth regime. Maps to measuredProperty in schema.org, referencing the PSI DefinedTermSet."
     }
-  }
+  },
+  "examples": [
+    {
+      "@context": "https://schema.org",
+      "@type": "Observation",
+      "name": "SET Market Outcome 2026-06-14",
+      "observationDate": "2026-06-14",
+      "observationPeriod": "2026-06-14T10:00:00+07:00/2026-06-14T16:30:00+07:00",
+      "measuredProperty": {
+        "@type": "DefinedTerm",
+        "name": "Actual Regime",
+        "inDefinedTermSet": "psi:market-regimes"
+      },
+      "variableMeasured": [
+        { "@type": "QuantitativeValue", "name": "ATO Price", "value": 1450.20, "unitText": "SET Index Points" },
+        { "@type": "QuantitativeValue", "name": "ATC Price", "value": 1438.10, "unitText": "SET Index Points" },
+        { "@type": "PropertyValue", "name": "Return %", "value": -0.83 },
+        { "@type": "PropertyValue", "name": "Intraday Volatility", "value": 1.95 },
+        { "@type": "PropertyValue", "name": "Actual Regime", "value": "RISK_OFF" }
+      ]
+    }
+  ]
 }

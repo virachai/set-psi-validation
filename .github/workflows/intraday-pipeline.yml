@@ -1,0 +1,95 @@
+name: Intraday Market Cycle
+
+on:
+  schedule:
+    - cron: '0 2 * * 1-5'   # 09:00 ICT - Prediction Capture
+    - cron: '0 3 * * 1-5'   # 10:00 ICT - ATO Capture
+    - cron: '30 9 * * 1-5'  # 16:30 ICT - ATC Capture
+    - cron: '0 10 * * 1-5'  # 17:00 ICT - Validation & Metrics
+  workflow_dispatch:
+    inputs:
+      step:
+        description: 'Step to run'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - prediction
+          - ato
+          - atc
+          - validation
+          - all
+
+permissions:
+  contents: write
+
+jobs:
+  market-cycle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          uv sync
+
+      - name: Determine Step
+        id: step-decider
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "step=${{ github.event.inputs.step }}" >> $GITHUB_OUTPUT
+          else
+            # Determine step based on cron schedule
+            HOUR=$(date -u +%H)
+            MINUTE=$(date -u +%M)
+            if [[ "$HOUR" == "02" ]]; then echo "step=prediction" >> $GITHUB_OUTPUT;
+            elif [[ "$HOUR" == "03" ]]; then echo "step=ato" >> $GITHUB_OUTPUT;
+            elif [[ "$HOUR" == "09" ]]; then echo "step=atc" >> $GITHUB_OUTPUT;
+            elif [[ "$HOUR" == "10" ]]; then echo "step=validation" >> $GITHUB_OUTPUT;
+            else echo "step=all" >> $GITHUB_OUTPUT; fi
+          fi
+
+      - name: Run Prediction Capture
+        if: steps.step-decider.outputs.step == 'prediction' || steps.step-decider.outputs.step == 'all'
+        run: |
+          echo "Running Prediction Capture at 09:00 ICT..."
+          # uv run scripts/python/predictions_loader.py
+        env:
+          PSI_ENGINE_API_KEY: ${{ secrets.PSI_ENGINE_API_KEY }}
+
+      - name: Run ATO Capture
+        if: steps.step-decider.outputs.step == 'ato' || steps.step-decider.outputs.step == 'all'
+        run: |
+          echo "Running ATO Capture at 10:00 ICT..."
+          # uv run scripts/python/capture_market.py --mode ato
+
+      - name: Run ATC Capture
+        if: steps.step-decider.outputs.step == 'atc' || steps.step-decider.outputs.step == 'all'
+        run: |
+          echo "Running ATC Capture at 16:30 ICT..."
+          # uv run scripts/python/capture_market.py --mode atc
+
+      - name: Run Validation & Metrics
+        if: steps.step-decider.outputs.step == 'validation' || steps.step-decider.outputs.step == 'all'
+        run: |
+          echo "Running Validation & Metrics at 17:00 ICT..."
+          uv run scripts/python/validation_engine.py
+
+      - name: Commit and Push changes
+        if: always()
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add market-data/ predictions/ reports/
+          git diff --quiet && git diff --staged --quiet || git commit -m "Automated market data update: $(date +'%Y-%m-%d')"
+          git push

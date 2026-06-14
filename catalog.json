@@ -1,0 +1,44 @@
+{
+  "@context": "https://schema.org",
+  "@type": "DataCatalog",
+  "name": "SET PSI Validation Data Catalog",
+  "description": "Complete catalog of all data artifacts in the PSI (Pressure-Signal Index) validation pipeline for the Stock Exchange of Thailand.",
+  "url": "https://raw.githubusercontent.com/user/set-psi-validation/main/catalog.json",
+  "dataset": [
+    {
+      "@type": "Dataset",
+      "name": "PSI Predictions",
+      "description": "Pre-ATO regime forecast snapshots containing predicted regime and PSI score.",
+      "url": "https://github.com/user/set-psi-validation/tree/main/predictions",
+      "variableMeasured": ["PSI Score", "Predicted Regime"],
+      "measurementTechnique": "PSI Engine v1"
+    },
+    {
+      "@type": "Dataset",
+      "name": "Market Outcomes",
+      "description": "Observed ATO/ATC intraday market data including price, return, and volatility.",
+      "url": "https://github.com/user/set-psi-validation/tree/main/market-data",
+      "variableMeasured": [
+        "ATO Price",
+        "ATC Price",
+        "Return %",
+        "Intraday Volatility"
+      ]
+    },
+    {
+      "@type": "Dataset",
+      "name": "Validation Evaluations",
+      "description": "Prediction vs outcome comparison records with accuracy flags and deviation scores.",
+      "url": "https://github.com/user/set-psi-validation/tree/main/validation",
+      "variableMeasured": ["Is Correct", "Deviation Score"],
+      "measurementTechnique": "Regime comparison against deterministic derivation rules defined in docs/research_reports/001-actual-regime-derivation-logic-v01.md."
+    },
+    {
+      "@type": "Dataset",
+      "name": "Aggregated Metrics",
+      "description": "Rolling accuracy, F1, precision, recall, and confusion matrix data.",
+      "url": "https://github.com/user/set-psi-validation/tree/main/reports",
+      "variableMeasured": ["Accuracy", "F1 Score", "Precision", "Recall"]
+    }
+  ]
+}

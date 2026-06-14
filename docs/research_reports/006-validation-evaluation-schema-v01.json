@@ -1,7 +1,8 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schema.psi-validation.dev/validation-evaluation/v01",
   "title": "Validation Evaluation",
-  "description": "Records the comparison result between the predicted regime and the observed market outcome.",
+  "description": "Records the comparison result between the predicted regime and the observed market outcome. Conforms to schema.org Observation type — see 008-schema-org-mapping-v01.md.",
   "type": "object",
   "required": [
     "date",
@@ -11,14 +12,60 @@
     "deviationScore"
   ],
   "properties": {
+    "@context": {
+      "type": "string",
+      "const": "https://schema.org",
+      "description": "JSON-LD context for schema.org interoperability."
+    },
+    "@type": {
+      "type": "string",
+      "const": "Observation",
+      "description": "Maps to schema.org Observation — an evaluation of prediction accuracy."
+    },
     "date": { "type": "string", "format": "date" },
-    "predictionId": { "type": "string" },
-    "outcomeId": { "type": "string" },
-    "isCorrect": { "type": "boolean" },
+    "predictionId": {
+      "type": "string",
+      "description": "Links to the prediction Observation. Maps to observationAbout[0] in schema.org."
+    },
+    "outcomeId": {
+      "type": "string",
+      "description": "Links to the outcome Observation. Maps to observationAbout[1] in schema.org."
+    },
+    "isCorrect": {
+      "type": "boolean",
+      "description": "Boolean accuracy flag. Maps to variableMeasured as PropertyValue in schema.org."
+    },
     "deviationScore": {
       "type": "number",
-      "description": "Magnitude of error in regime alignment."
+      "description": "Magnitude of error in regime alignment. Maps DIRECTLY to marginOfError in schema.org — see 008-schema-org-mapping-v01.md."
     },
     "notes": { "type": "string" }
-  }
+  },
+  "examples": [
+    {
+      "@context": "https://schema.org",
+      "@type": "Observation",
+      "name": "Validation Evaluation 2026-06-14",
+      "observationDate": "2026-06-14T17:00:00+07:00",
+      "observationAbout": [
+        {"@id": "predictions/2026-06-14.json"},
+        {"@id": "market-data/2026-06-14.json"}
+      ],
+      "measuredProperty": {
+        "@type": "DefinedTerm",
+        "name": "Regime Prediction Accuracy",
+        "inDefinedTermSet": "psi:market-regimes"
+      },
+      "variableMeasured": {
+        "@type": "PropertyValue",
+        "name": "Is Correct",
+        "value": true
+      },
+      "marginOfError": {
+        "@type": "QuantitativeValue",
+        "value": 0.0,
+        "description": "Deviation score: 0 = perfect match."
+      }
+    }
+  ]
 }

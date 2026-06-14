@@ -234,7 +234,22 @@ Actions:
 
 ---
 
-## 5. Core Principle
+## 5. Semantic Layer (Schema.org)
+
+Every data artifact in this flow conforms to [schema.org](https://schema.org) types for semantic interoperability:
+
+| Flow Step | Artifact | Schema.org Type | Key Property Mapping |
+| :-------- | :------- | :-------------- | :------------------- |
+| Step 1 (Prediction) | Pre-ATO forecast | `Observation` | `measurementMethod` = modelId, `variableMeasured` = psiScore |
+| Step 2–4 (Market) | ATO/ATC data | `Observation` | `variableMeasured` = prices, return, volatility |
+| Step 5 (Regime Derivation) | Actual regime | `DefinedTerm` | `inDefinedTermSet` = PSI Regime Taxonomy |
+| Step 6 (Validation) | Comparison result | `Observation` | `observationAbout` links prediction & outcome, `marginOfError` = deviationScore |
+
+Full mapping reference: [`docs/research_reports/008-schema-org-mapping-v01.md`](research_reports/008-schema-org-mapping-v01.md)
+
+---
+
+## 6. Core Principle
 
 > PSI is evaluated only after it is exposed to reality.
 
@@ -247,7 +262,7 @@ This system enforces a strict separation between:
 
 ---
 
-## 6. System Philosophy
+## 7. System Philosophy
 
 * No lookahead bias
 * No price prediction assumption
@@ -256,7 +271,7 @@ This system enforces a strict separation between:
 
 ---
 
-## 7. Final Structure View
+## 8. Final Structure View
 
 ```text id="final"
 PSI Engine

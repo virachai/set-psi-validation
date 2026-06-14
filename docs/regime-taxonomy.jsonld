@@ -1,0 +1,46 @@
+{
+  "@context": {
+    "psi": "https://psi-validation.dev/definitions/"
+  },
+  "@type": "DefinedTermSet",
+  "name": "PSI Market Regime Classification",
+  "description": "Taxonomy of market regime labels used by the PSI (Pressure-Signal Index) system for the SET (Stock Exchange of Thailand) market.",
+  "url": "https://raw.githubusercontent.com/user/set-psi-validation/main/docs/regime-taxonomy.jsonld",
+  "hasDefinedTerm": [
+    {
+      "@type": "DefinedTerm",
+      "@id": "psi:regime/bullish",
+      "name": "Bullish",
+      "termCode": "BULLISH",
+      "description": "Strong positive intraday return with broad-based market strength."
+    },
+    {
+      "@type": "DefinedTerm",
+      "@id": "psi:regime/bearish",
+      "name": "Bearish",
+      "termCode": "BEARISH",
+      "description": "Consistent intraday decline with weak closing relative to ATO."
+    },
+    {
+      "@type": "DefinedTerm",
+      "@id": "psi:regime/sideways",
+      "name": "Sideways",
+      "termCode": "SIDEWAYS",
+      "description": "Low directional movement in a range-bound trading session."
+    },
+    {
+      "@type": "DefinedTerm",
+      "@id": "psi:regime/risk-off",
+      "name": "Risk-Off",
+      "termCode": "RISK_OFF",
+      "description": "Defensive behavior with increased volatility and negative bias."
+    },
+    {
+      "@type": "DefinedTerm",
+      "@id": "psi:regime/crisis",
+      "name": "Crisis",
+      "termCode": "CRISIS",
+      "description": "Sharp downside move with extreme volatility spike."
+    }
+  ]
+}
