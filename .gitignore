@@ -47,3 +47,4 @@ uv.lock
 .agents/
 .claude/
 .tmp/
+.ruff_cache/
