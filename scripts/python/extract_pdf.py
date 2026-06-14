@@ -5,6 +5,7 @@ import pdfplumber
 import os
 from typing import Optional
 
+
 def extract_text_from_pdf(pdf_path: str, output_path: str) -> bool:
     """
     Extracts text from each page of a PDF and saves it to a text file.
@@ -34,6 +35,7 @@ def extract_text_from_pdf(pdf_path: str, output_path: str) -> bool:
     except Exception as e:
         print(f"[ERROR] PDF extraction failed: {e}")
         return False
+
 
 if __name__ == "__main__":
     PDF_FILE: str = ".tmp/Comprehensive Research Plan and Action Guide.pdf"

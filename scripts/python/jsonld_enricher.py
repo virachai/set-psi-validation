@@ -22,7 +22,7 @@ import os
 import json
 import sys
 import argparse
-from typing import Dict, Optional
+from typing import Dict
 
 # --- Directory-to-Type Mapping ---
 

@@ -16,7 +16,6 @@ import os
 import json
 import sys
 from datetime import datetime, timezone, timedelta
-from typing import Optional
 
 import httpx
 from dotenv import load_dotenv
@@ -44,9 +43,7 @@ VALID_REGIMES = ["Bullish", "Bearish", "Sideways", "Risk-Off", "Crisis"]
 def fetch_prediction() -> dict:
     """Calls the PSI Engine API and returns the raw prediction response."""
     if not PSI_API_KEY:
-        raise EnvironmentError(
-            "PSI_ENGINE_API_KEY environment variable is not set."
-        )
+        raise EnvironmentError("PSI_ENGINE_API_KEY environment variable is not set.")
 
     headers = {
         "Accept": "application/json",
@@ -106,9 +103,7 @@ def build_snapshot(raw: dict) -> dict:
     payload = raw.get("data") if isinstance(raw.get("data"), dict) else raw
 
     raw_regime = (
-        payload.get("regime")
-        or payload.get("predictedRegime")
-        or "Unclassified"
+        payload.get("regime") or payload.get("predictedRegime") or "Unclassified"
     )
     # Normalise case and separators: "SIDEWAYS" → "Sideways", "RISK_OFF" → "Risk-Off"
     regime_map = {}

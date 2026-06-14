@@ -1,8 +1,3 @@
-import pandas as pd
-import numpy as np
-import json
-import sys
-
 def derive_actual_regime(ato_price, atc_price, volatility_index, threshold_mean):
     """
     Derives actual regime based on the logic defined in
@@ -23,11 +18,13 @@ def derive_actual_regime(ato_price, atc_price, volatility_index, threshold_mean)
     else:
         return "Unclassified"
 
+
 def compare_regimes(predicted, actual):
     """
     Compares predicted regime with actual regime.
     """
     return "Match" if predicted == actual else "Mismatch"
+
 
 def main():
     # Example logic execution
@@ -37,14 +34,14 @@ def main():
         "atc_price": 101.0,
         "volatility_index": 0.01,
         "threshold_mean": 0.02,
-        "predicted_regime": "Bullish"
+        "predicted_regime": "Bullish",
     }
 
     actual = derive_actual_regime(
         sample_data["ato_price"],
         sample_data["atc_price"],
         sample_data["volatility_index"],
-        sample_data["threshold_mean"]
+        sample_data["threshold_mean"],
     )
 
     comparison = compare_regimes(sample_data["predicted_regime"], actual)
@@ -52,6 +49,7 @@ def main():
     print(f"Predicted: {sample_data['predicted_regime']}")
     print(f"Actual: {actual}")
     print(f"Result: {comparison}")
+
 
 if __name__ == "__main__":
     main()

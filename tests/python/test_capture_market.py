@@ -3,7 +3,6 @@
 import json
 import sys
 import pathlib
-from datetime import datetime, timezone, timedelta
 
 import pytest
 
@@ -16,7 +15,6 @@ from capture_market import (
     VALID_REGIMES,
     REGIME_TAXONOMY_URL,
 )
-
 
 # --- derive_actual_regime (double-check parity with validation_engine) ---
 
@@ -40,7 +38,9 @@ class TestDeriveActualRegime:
         assert derive_actual_regime(100.0, 97.5, 0.05, self.THRESHOLD) == "Crisis"
 
     def test_unclassified(self):
-        assert derive_actual_regime(100.0, 101.0, 0.03, self.THRESHOLD) == "Unclassified"
+        assert (
+            derive_actual_regime(100.0, 101.0, 0.03, self.THRESHOLD) == "Unclassified"
+        )
 
 
 # --- handle_ato ---

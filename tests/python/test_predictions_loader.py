@@ -1,6 +1,5 @@
 """Tests for predictions_loader.py — API response parsing and snapshot building."""
 
-import json
 import sys
 import pathlib
 
@@ -9,7 +8,6 @@ import pytest
 sys.path.insert(0, str(pathlib.Path(__file__).parents[2] / "scripts" / "python"))
 
 from predictions_loader import build_snapshot, VALID_REGIMES, REGIME_TAXONOMY_URL
-
 
 SAMPLE_API_RESPONSE = {
     "predictedRegime": "RISK_OFF",
@@ -45,7 +43,9 @@ class TestBuildSnapshot:
     def test_psi_score_bounds(self):
         """PSI Score should have explicit min/max."""
         snapshot = build_snapshot(SAMPLE_API_RESPONSE)
-        psi_entry = next(m for m in snapshot["variableMeasured"] if m["name"] == "PSI Score")
+        psi_entry = next(
+            m for m in snapshot["variableMeasured"] if m["name"] == "PSI Score"
+        )
         assert psi_entry["minValue"] == 0
         assert psi_entry["maxValue"] == 1
 
@@ -125,7 +125,7 @@ class TestBuildSnapshot:
             ("bearish", "Bearish"),
             ("RISK_OFF", "Risk-Off"),
             ("risk_off", "Risk-Off"),
-            ("RISKOFF", "Risk-Off"),     # no separator
+            ("RISKOFF", "Risk-Off"),  # no separator
             ("CRISIS", "Crisis"),
         ],
     )
@@ -146,7 +146,13 @@ class TestBuildSnapshot:
             "inDefinedTermSet": REGIME_TAXONOMY_URL,
         },
         "variableMeasured": [
-            {"@type": "PropertyValue", "name": "PSI Score", "value": 0.8, "minValue": 0, "maxValue": 1},
+            {
+                "@type": "PropertyValue",
+                "name": "PSI Score",
+                "value": 0.8,
+                "minValue": 0,
+                "maxValue": 1,
+            },
             {"@type": "PropertyValue", "name": "Predicted Regime", "value": "SIDEWAYS"},
             {"@type": "PropertyValue", "name": "VIX Level", "value": 20},
         ],

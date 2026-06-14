@@ -60,6 +60,7 @@ def fetch_setsmart_eod(symbol: str, date: str) -> dict:
     headers = {"api-key": SETSMART_API_KEY, "Accept": "application/json"}
 
     import httpx
+
     with httpx.Client(timeout=30.0) as client:
         response = client.get(url, params=params, headers=headers)
         response.raise_for_status()
@@ -144,9 +145,6 @@ def save_market_data(record: dict, date_str: str) -> str:
 
 def handle_ato(date_str: str, ato_price: float) -> dict:
     """Creates a partial market outcome Observation with ATO price only."""
-    now_ict = datetime.now(timezone.utc) + ICT_OFFSET
-    timestamp_iso = now_ict.strftime("%Y-%m-%dT%H:%M:%S+07:00")
-
     return {
         "@context": "https://schema.org",
         "@type": "Observation",
@@ -235,7 +233,9 @@ def handle_atc(
             {
                 "@type": "PropertyValue",
                 "name": "Actual Regime",
-                "value": actual_regime if actual_regime in VALID_REGIMES else "Unclassified",
+                "value": (
+                    actual_regime if actual_regime in VALID_REGIMES else "Unclassified"
+                ),
             },
         ],
         # --- original fields preserved for backward compatibility ---
@@ -260,11 +260,25 @@ def main() -> None:
         choices=["ato", "atc"],
         help="Capture mode: ato (open) or atc (close).",
     )
-    parser.add_argument("--ato-price", type=float, help="ATO price (manual, required without --symbol).")
-    parser.add_argument("--atc-price", type=float, help="ATC price (manual, required without --symbol for --mode atc).")
-    parser.add_argument("--volatility", type=float, default=0.01, help="Intraday volatility proxy (manual).")
     parser.add_argument(
-        "--threshold", type=float, default=0.02, help="30-day rolling volatility threshold mean."
+        "--ato-price", type=float, help="ATO price (manual, required without --symbol)."
+    )
+    parser.add_argument(
+        "--atc-price",
+        type=float,
+        help="ATC price (manual, required without --symbol for --mode atc).",
+    )
+    parser.add_argument(
+        "--volatility",
+        type=float,
+        default=0.01,
+        help="Intraday volatility proxy (manual).",
+    )
+    parser.add_argument(
+        "--threshold",
+        type=float,
+        default=0.02,
+        help="30-day rolling volatility threshold mean.",
     )
     parser.add_argument(
         "--symbol",
@@ -290,12 +304,18 @@ def main() -> None:
             # Manual mode
             if args.mode == "ato":
                 if args.ato_price is None:
-                    parser.error("--ato-price is required for --mode ato (or use --symbol).")
+                    parser.error(
+                        "--ato-price is required for --mode ato (or use --symbol)."
+                    )
                 record = handle_ato(date_str, args.ato_price)
             else:
                 if args.atc_price is None:
-                    parser.error("--atc-price is required for --mode atc (or use --symbol).")
-                record = handle_atc(date_str, args.atc_price, args.volatility, args.threshold)
+                    parser.error(
+                        "--atc-price is required for --mode atc (or use --symbol)."
+                    )
+                record = handle_atc(
+                    date_str, args.atc_price, args.volatility, args.threshold
+                )
 
         save_market_data(record, date_str)
         print(f"[DONE] Market {args.mode.upper()} capture complete.")
