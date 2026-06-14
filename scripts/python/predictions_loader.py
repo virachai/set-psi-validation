@@ -70,10 +70,39 @@ def fetch_prediction() -> dict:
 def build_snapshot(raw: dict) -> dict:
     """Transforms raw API response into schema.org-compliant Observation.
 
-    Handles both direct responses and wrapped formats (e.g. RapidAPI's
-    {status, data: {regime, psi, ...}}).
+    Handles two formats:
+    1. Native schema.org response (Lambda) — passthrough with backward-compat fields added.
+    2. Legacy RapidAPI format ({status, data: {regime, psi, ...}}) — full transform.
     """
-    # Unwrap nested data payload
+    # Detect native schema.org response from our Lambda
+    if raw.get("@type") == "Observation":
+        obs = dict(raw)
+        now_ict = datetime.now(timezone.utc) + ICT_OFFSET
+        ts = obs.get("observationDate", now_ict.strftime("%Y-%m-%dT%H:%M:%S+07:00"))
+        date_str = now_ict.strftime("%Y-%m-%d")
+        regime = "Unclassified"
+        psi_score = 0.0
+        for pv in obs.get("variableMeasured", []):
+            if pv.get("name") == "Predicted Regime":
+                regime = pv.get("value", regime)
+            elif pv.get("name") == "PSI Score":
+                psi_score = pv.get("value", psi_score)
+        # Backward-compat fields
+        obs["timestamp"] = ts
+        obs["date"] = date_str
+        obs["predictedRegime"] = regime
+        obs["psiScore"] = psi_score
+        obs["modelId"] = "PSI Engine v1 (Lambda)"
+        # Normalise regime naming
+        regime_map = {}
+        for r in VALID_REGIMES:
+            key = r.upper().replace("-", "").replace("_", "")
+            regime_map[key] = r
+        clean = regime.upper().replace("-", "").replace("_", "")
+        obs["predictedRegime"] = regime_map.get(clean, regime)
+        return obs
+
+    # Legacy: unwrap nested data payload
     payload = raw.get("data") if isinstance(raw.get("data"), dict) else raw
 
     raw_regime = (

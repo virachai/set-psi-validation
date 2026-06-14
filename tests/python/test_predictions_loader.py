@@ -132,3 +132,54 @@ class TestBuildSnapshot:
     def test_case_normalisation(self, raw, expected):
         snapshot = build_snapshot({"regime": raw, "psi": 0.5})
         assert snapshot["predictedRegime"] == expected
+
+    # --- Native schema.org (Lambda) format ---
+
+    SAMPLE_LAMBDA_SCHEMA_ORG = {
+        "@context": "https://schema.org",
+        "@type": "Observation",
+        "name": "PSI Prediction 2026-06-14",
+        "observationDate": "2026-06-14T10:00:00.000Z",
+        "measuredProperty": {
+            "@type": "DefinedTerm",
+            "name": "Predicted Regime",
+            "inDefinedTermSet": REGIME_TAXONOMY_URL,
+        },
+        "variableMeasured": [
+            {"@type": "PropertyValue", "name": "PSI Score", "value": 0.8, "minValue": 0, "maxValue": 1},
+            {"@type": "PropertyValue", "name": "Predicted Regime", "value": "SIDEWAYS"},
+            {"@type": "PropertyValue", "name": "VIX Level", "value": 20},
+        ],
+    }
+
+    def test_lambda_schema_org_passthrough(self):
+        """Native schema.org from Lambda should pass through with backward-compat fields added."""
+        snapshot = build_snapshot(self.SAMPLE_LAMBDA_SCHEMA_ORG)
+        assert snapshot["@type"] == "Observation"
+        assert snapshot["name"] == "PSI Prediction 2026-06-14"
+        # Passthrough: @context, measuredProperty, variableMeasured preserved
+        assert snapshot["@context"] == "https://schema.org"
+        assert snapshot["measuredProperty"]["name"] == "Predicted Regime"
+        # Backward-compat fields added
+        assert snapshot["date"] is not None
+        assert snapshot["timestamp"] is not None
+        assert snapshot["predictedRegime"] == "Sideways"  # normalised from SIDEWAYS
+        assert snapshot["psiScore"] == 0.8
+        assert snapshot["modelId"] == "PSI Engine v1 (Lambda)"
+
+    def test_lambda_schema_org_preserves_additional_property(self):
+        """additionalProperty from Lambda must survive passthrough."""
+        data = dict(self.SAMPLE_LAMBDA_SCHEMA_ORG)
+        data["additionalProperty"] = [
+            {"@type": "PropertyValue", "name": "Avg Equity Change", "value": 0.23},
+        ]
+        snapshot = build_snapshot(data)
+        assert "additionalProperty" in snapshot
+        assert snapshot["additionalProperty"][0]["name"] == "Avg Equity Change"
+
+    def test_lambda_schema_org_regime_normalisation(self):
+        """Case/separator normalisation must still apply on passthrough path."""
+        data = dict(self.SAMPLE_LAMBDA_SCHEMA_ORG)
+        data["variableMeasured"][1]["value"] = "RISKOFF"
+        snapshot = build_snapshot(data)
+        assert snapshot["predictedRegime"] == "Risk-Off"
