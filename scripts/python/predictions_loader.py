@@ -31,7 +31,7 @@ PSI_API_KEY = os.getenv("PSI_ENGINE_API_KEY")
 RAPIDAPI_HOST = os.getenv("RAPIDAPI_HOST")
 REGIME_TAXONOMY_URL = (
     "https://raw.githubusercontent.com/virachai/set-psi-validation"
-    "/main/docs/regime-taxonomy.jsonld"
+    "/main/docs/010-regime-taxonomy-v01.json"
 )
 
 VALID_REGIMES = ["Bullish", "Bearish", "Sideways", "Risk-Off", "Crisis"]

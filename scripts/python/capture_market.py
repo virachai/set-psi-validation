@@ -33,7 +33,7 @@ ICT_OFFSET = timedelta(hours=7)
 MARKET_DATA_DIR = "market-data"
 REGIME_TAXONOMY_URL = (
     "https://raw.githubusercontent.com/virachai/set-psi-validation"
-    "/main/docs/regime-taxonomy.jsonld"
+    "/main/docs/010-regime-taxonomy-v01.json"
 )
 
 VALID_REGIMES = ["Bullish", "Bearish", "Sideways", "Risk-Off", "Crisis"]

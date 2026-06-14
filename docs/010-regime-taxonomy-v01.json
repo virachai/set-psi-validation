@@ -5,7 +5,7 @@
   "@type": "DefinedTermSet",
   "name": "PSI Market Regime Classification",
   "description": "Taxonomy of market regime labels used by the PSI (Pressure-Signal Index) system for the SET (Stock Exchange of Thailand) market.",
-  "url": "https://raw.githubusercontent.com/virachai/set-psi-validation/main/docs/regime-taxonomy.jsonld",
+  "url": "https://raw.githubusercontent.com/virachai/set-psi-validation/main/docs/010-regime-taxonomy-v01.json",
   "hasDefinedTerm": [
     {
       "@type": "DefinedTerm",

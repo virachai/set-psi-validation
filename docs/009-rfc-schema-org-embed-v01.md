@@ -75,7 +75,7 @@ The schema.org mapping has been formalized in `docs/research_reports/008-schema-
   "measuredProperty": {
     "@type": "DefinedTerm",
     "name": "Predicted Regime",
-    "inDefinedTermSet": "https://raw.githubusercontent.com/user/set-psi-validation/main/docs/regime-taxonomy.jsonld"
+    "inDefinedTermSet": "https://raw.githubusercontent.com/user/set-psi-validation/main/docs/010-regime-taxonomy-v01.json"
   },
   "variableMeasured": [
     {
@@ -137,7 +137,7 @@ The schema.org mapping has been formalized in `docs/research_reports/008-schema-
   "measuredProperty": {
     "@type": "DefinedTerm",
     "name": "Actual Regime",
-    "inDefinedTermSet": "https://raw.githubusercontent.com/user/set-psi-validation/main/docs/regime-taxonomy.jsonld"
+    "inDefinedTermSet": "https://raw.githubusercontent.com/user/set-psi-validation/main/docs/010-regime-taxonomy-v01.json"
   },
   "variableMeasured": [
     {
@@ -214,7 +214,7 @@ The schema.org mapping has been formalized in `docs/research_reports/008-schema-
   "measuredProperty": {
     "@type": "DefinedTerm",
     "name": "Regime Prediction Accuracy",
-    "inDefinedTermSet": "https://raw.githubusercontent.com/user/set-psi-validation/main/docs/regime-taxonomy.jsonld"
+    "inDefinedTermSet": "https://raw.githubusercontent.com/user/set-psi-validation/main/docs/010-regime-taxonomy-v01.json"
   },
   "variableMeasured": {
     "@type": "PropertyValue",
@@ -241,7 +241,7 @@ The schema.org mapping has been formalized in `docs/research_reports/008-schema-
 
 ### 4.1 Artifact D — Regime Taxonomy (Standalone JSON-LD)
 
-**File:** `docs/regime-taxonomy.jsonld`
+**File:** `docs/010-regime-taxonomy-v01.json`
 
 This file is published once and updated only when the regime taxonomy changes (rare). All other artifacts reference it via `inDefinedTermSet`.
 
@@ -253,7 +253,7 @@ This file is published once and updated only when the regime taxonomy changes (r
   "@type": "DefinedTermSet",
   "name": "PSI Market Regime Classification",
   "description": "Taxonomy of market regime labels used by the PSI (Pressure-Signal Index) system for the SET (Stock Exchange of Thailand) market.",
-  "url": "https://raw.githubusercontent.com/user/set-psi-validation/main/docs/regime-taxonomy.jsonld",
+  "url": "https://raw.githubusercontent.com/user/set-psi-validation/main/docs/010-regime-taxonomy-v01.json",
   "hasDefinedTerm": [
     {
       "@type": "DefinedTerm",
@@ -365,7 +365,7 @@ Per the "Never-Implement" mandate (`.claude/rules/never-implement-mandate.md`), 
 
 | Artifact        | File                          | Action                       | Dependencies |
 | :-------------- | :---------------------------- | :--------------------------- | :----------- |
-| Regime Taxonomy | `docs/regime-taxonomy.jsonld` | Create new file              | None         |
+| Regime Taxonomy | `docs/010-regime-taxonomy-v01.json` | Create new file              | None         |
 | DataCatalog     | `catalog.json`                | Create new file in repo root | None         |
 
 ### Phase 2 — Embedded JSON-LD in Validation Pipeline

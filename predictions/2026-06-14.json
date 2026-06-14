@@ -6,7 +6,7 @@
   "measuredProperty": {
     "@type": "DefinedTerm",
     "name": "Predicted Regime",
-    "inDefinedTermSet": "https://raw.githubusercontent.com/user/set-psi-validation/main/docs/regime-taxonomy.jsonld"
+    "inDefinedTermSet": "https://raw.githubusercontent.com/virachai/set-psi-validation/main/docs/010-regime-taxonomy-v01.json"
   },
   "variableMeasured": [
     {

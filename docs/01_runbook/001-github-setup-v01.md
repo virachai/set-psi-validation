@@ -119,7 +119,7 @@ set-psi-validation/
 ├── .github/workflows/intraday-pipeline.yml   # CI pipeline
 ├── catalog.json                                # DataCatalog (schema.org)
 ├── docs/
-│   ├── regime-taxonomy.jsonld                  # DefinedTermSet (schema.org)
+│   ├── 010-regime-taxonomy-v01.json            # DefinedTermSet (schema.org)
 │   └── 01_runbook/001-github-setup-v01.md     # this file
 ├── predictions/
 │   └── 2026-06-14.json                         # Prediction Observation
