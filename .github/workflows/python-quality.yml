@@ -17,6 +17,7 @@ jobs:
         uses: astral-sh/setup-uv@v3
         with:
           enable-cache: true
+          cache-dependency-glob: ""
 
       - name: Set up Python
         uses: actions/setup-python@v5
