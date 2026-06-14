@@ -3,7 +3,7 @@
   "@type": "Dataset",
   "name": "PSI Aggregated Metrics",
   "description": "Rolling performance metrics for PSI regime validation.",
-  "datePublished": "2026-06-14T13:10:07+07:00",
+  "datePublished": "2026-06-14T13:15:12+07:00",
   "variableMeasured": [
     {
       "@type": "PropertyValue",
