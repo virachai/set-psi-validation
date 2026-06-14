@@ -29,6 +29,7 @@ ICT_OFFSET = timedelta(hours=7)
 PREDICTIONS_DIR = "predictions"
 PSI_API_URL = os.getenv("PSI_API_URL", "https://api.psi-engine.dev/v1/predict")
 PSI_API_KEY = os.getenv("PSI_ENGINE_API_KEY")
+RAPIDAPI_HOST = os.getenv("RAPIDAPI_HOST")
 REGIME_TAXONOMY_URL = (
     "https://raw.githubusercontent.com/user/set-psi-validation"
     "/main/docs/regime-taxonomy.jsonld"
@@ -48,9 +49,14 @@ def fetch_prediction() -> dict:
         )
 
     headers = {
-        "Authorization": f"Bearer {PSI_API_KEY}",
         "Accept": "application/json",
     }
+
+    if RAPIDAPI_HOST:
+        headers["x-rapidapi-host"] = RAPIDAPI_HOST
+        headers["x-rapidapi-key"] = PSI_API_KEY
+    else:
+        headers["Authorization"] = f"Bearer {PSI_API_KEY}"
 
     print(f"[FETCH] Requesting prediction from {PSI_API_URL}...")
     with httpx.Client(timeout=30.0) as client:
@@ -61,9 +67,30 @@ def fetch_prediction() -> dict:
         return data
 
 
-def build_snapshot(data: dict) -> dict:
-    """Transforms raw API response into schema.org-compliant Observation."""
-    predicted_regime = data.get("predictedRegime", "Unclassified")
+def build_snapshot(raw: dict) -> dict:
+    """Transforms raw API response into schema.org-compliant Observation.
+
+    Handles both direct responses and wrapped formats (e.g. RapidAPI's
+    {status, data: {regime, psi, ...}}).
+    """
+    # Unwrap nested data payload
+    payload = raw.get("data") if isinstance(raw.get("data"), dict) else raw
+
+    raw_regime = (
+        payload.get("regime")
+        or payload.get("predictedRegime")
+        or "Unclassified"
+    )
+    # Normalise case and separators: "SIDEWAYS" → "Sideways", "RISK_OFF" → "Risk-Off"
+    regime_map = {}
+    for r in VALID_REGIMES:
+        key = r.upper().replace("-", "").replace("_", "")
+        regime_map[key] = r
+    clean = raw_regime.upper().replace("-", "").replace("_", "")
+    predicted_regime = regime_map.get(clean, raw_regime)
+    psi_score = payload.get("psi") or payload.get("psiScore") or 0.0
+    model_id = payload.get("modelId") or payload.get("model_id") or "PSI Engine v1"
+
     if predicted_regime not in VALID_REGIMES:
         print(f"[WARN] Unknown regime '{predicted_regime}' from API.")
 
@@ -85,7 +112,7 @@ def build_snapshot(data: dict) -> dict:
             {
                 "@type": "PropertyValue",
                 "name": "PSI Score",
-                "value": data.get("psiScore", 0.0),
+                "value": psi_score,
                 "minValue": 0,
                 "maxValue": 1,
             },
@@ -97,14 +124,14 @@ def build_snapshot(data: dict) -> dict:
         ],
         "measurementMethod": {
             "@type": "DefinedTerm",
-            "name": data.get("modelId", "PSI Engine v1"),
+            "name": model_id,
         },
         # --- original fields preserved for backward compatibility ---
         "timestamp": timestamp_iso,
         "date": date_str,
         "predictedRegime": predicted_regime,
-        "psiScore": data.get("psiScore", 0.0),
-        "modelId": data.get("modelId", "PSI Engine v1"),
+        "psiScore": psi_score,
+        "modelId": model_id,
     }
 
 

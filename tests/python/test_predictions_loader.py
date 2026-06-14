@@ -17,6 +17,15 @@ SAMPLE_API_RESPONSE = {
     "modelId": "psi-engine-v1",
 }
 
+SAMPLE_RAPIDAPI_RESPONSE = {
+    "status": "success",
+    "data": {
+        "regime": "SIDEWAYS",
+        "psi": 0.8,
+        "vix_level": 20,
+    },
+}
+
 
 class TestBuildSnapshot:
     def test_valid_regime_output(self):
@@ -25,13 +34,13 @@ class TestBuildSnapshot:
         assert snapshot["@type"] == "Observation"
         assert snapshot["measuredProperty"]["@type"] == "DefinedTerm"
         assert snapshot["measuredProperty"]["inDefinedTermSet"] == REGIME_TAXONOMY_URL
-        assert snapshot["predictedRegime"] == "RISK_OFF"
+        assert snapshot["predictedRegime"] == "Risk-Off"  # normalised from RISK_OFF
 
     def test_psi_score_in_variable_measured(self):
         snapshot = build_snapshot(SAMPLE_API_RESPONSE)
         measures = {m["name"]: m["value"] for m in snapshot["variableMeasured"]}
         assert measures["PSI Score"] == 0.41
-        assert measures["Predicted Regime"] == "RISK_OFF"
+        assert measures["Predicted Regime"] == "Risk-Off"
 
     def test_psi_score_bounds(self):
         """PSI Score should have explicit min/max."""
@@ -49,7 +58,7 @@ class TestBuildSnapshot:
         snapshot = build_snapshot(SAMPLE_API_RESPONSE)
         assert snapshot["timestamp"] is not None
         assert snapshot["date"] is not None
-        assert snapshot["predictedRegime"] == "RISK_OFF"
+        assert snapshot["predictedRegime"] == "Risk-Off"  # normalised from RISK_OFF
         assert snapshot["psiScore"] == 0.41
         assert snapshot["modelId"] == "psi-engine-v1"
 
@@ -88,3 +97,38 @@ class TestBuildSnapshot:
         assert "measuredProperty" in snapshot
         assert "variableMeasured" in snapshot
         assert "measurementMethod" in snapshot
+
+    # --- RapidAPI format ---
+
+    def test_rapidapi_wrapped_format(self):
+        """RapidAPI returns {status, data: {regime, psi}} — must unwrap and normalise case."""
+        snapshot = build_snapshot(SAMPLE_RAPIDAPI_RESPONSE)
+        assert snapshot["predictedRegime"] == "Sideways"  # normalised from SIDEWAYS
+        assert snapshot["psiScore"] == 0.8
+        assert snapshot["modelId"] == "PSI Engine v1"
+
+    def test_rapidapi_regime_in_valid_list(self):
+        snapshot = build_snapshot(SAMPLE_RAPIDAPI_RESPONSE)
+        assert snapshot["predictedRegime"] in VALID_REGIMES
+
+    def test_rapidapi_schema_org_fields(self):
+        snapshot = build_snapshot(SAMPLE_RAPIDAPI_RESPONSE)
+        assert snapshot["@type"] == "Observation"
+        assert snapshot["@context"] == "https://schema.org"
+
+    @pytest.mark.parametrize(
+        "raw, expected",
+        [
+            ("SIDEWAYS", "Sideways"),
+            ("sideways", "Sideways"),
+            ("BULLISH", "Bullish"),
+            ("bearish", "Bearish"),
+            ("RISK_OFF", "Risk-Off"),
+            ("risk_off", "Risk-Off"),
+            ("RISKOFF", "Risk-Off"),     # no separator
+            ("CRISIS", "Crisis"),
+        ],
+    )
+    def test_case_normalisation(self, raw, expected):
+        snapshot = build_snapshot({"regime": raw, "psi": 0.5})
+        assert snapshot["predictedRegime"] == expected
