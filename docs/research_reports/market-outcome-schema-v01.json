@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Market Outcome",
+  "description": "Represents empirical market behavior captured intraday (ATO/ATC).",
+  "type": "object",
+  "required": ["date", "atoPrice", "atcPrice", "volatilityIndex"],
+  "properties": {
+    "date": { "type": "string", "format": "date" },
+    "atoPrice": { "type": "number" },
+    "atcPrice": { "type": "number" },
+    "volatilityIndex": { "type": "number" },
+    "actualRegime": {
+      "type": "string",
+      "enum": ["Bullish", "Bearish", "Sideways", "Risk-Off", "Crisis"]
+    }
+  }
+}

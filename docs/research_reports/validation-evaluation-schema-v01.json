@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Validation Evaluation",
+  "description": "Records the comparison result between the predicted regime and the observed market outcome.",
+  "type": "object",
+  "required": [
+    "date",
+    "predictionId",
+    "outcomeId",
+    "isCorrect",
+    "deviationScore"
+  ],
+  "properties": {
+    "date": { "type": "string", "format": "date" },
+    "predictionId": { "type": "string" },
+    "outcomeId": { "type": "string" },
+    "isCorrect": { "type": "boolean" },
+    "deviationScore": {
+      "type": "number",
+      "description": "Magnitude of error in regime alignment."
+    },
+    "notes": { "type": "string" }
+  }
+}

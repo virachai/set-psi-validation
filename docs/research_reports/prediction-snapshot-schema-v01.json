@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Prediction Snapshot",
+  "description": "Represents the PSI regime forecast before the market opens (Pre-ATO).",
+  "type": "object",
+  "required": ["timestamp", "date", "predictedRegime", "modelId"],
+  "properties": {
+    "timestamp": { "type": "string", "format": "date-time" },
+    "date": { "type": "string", "format": "date" },
+    "predictedRegime": {
+      "type": "string",
+      "enum": ["Bullish", "Bearish", "Sideways", "Risk-Off", "Crisis"]
+    },
+    "modelId": { "type": "string" },
+    "metadata": { "type": "object" }
+  }
+}
