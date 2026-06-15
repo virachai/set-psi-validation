@@ -29,11 +29,12 @@ This RFC proposes system refinements to address architectural gaps in volatility
 
 ## 3. Lookahead Bias Gate
 
-- **Status**: Proposed
+- **Status**: Done
 - **Problem**: There is no programmatic check to guarantee predictions were captured _before_ the market open (10:00 ICT).
 - **Proposed Solution**:
   - Add a validation rule in `validation_engine.py` that compares the prediction file's `observationDate` timestamp against the market open timestamp of the same day.
   - If a prediction's timestamp is $\ge$ 10:00 ICT, the validation record is flagged as `Invalid` or rejected due to potential lookahead bias.
+- **Implementation Note**: Enforced in `scripts/python/predictions_loader.py` via the `validate_timestamp` function, which rejects captures outside the session-specific window (e.g., 10:00 ICT for AM/Full Day).
 
 ---
 

@@ -1,212 +1,79 @@
-# SET PSI Validation
+# SET PSI Validation: Market Regime Truth Layer
 
-PSI (Pressure-Signal Index) predicts **market regime**, not price.
-
-This repository evaluates whether PSI-generated market regime forecasts correctly match the actual behavior of the Thai stock market (SET) within the same trading session.
+PSI (Pressure-Signal Index) is a quantitative framework designed to classify market regimes, not predict price movements. This repository serves as the **"Truth Layer"** for the PSI ecosystem, systematically validating pre-market predictions against intraday reality.
 
 ---
 
-## Core Idea
+## 🎯 Value Proposition
 
-Most systems try to predict:
+In a landscape crowded with speculative price-prediction tools, **SET PSI Validation** focuses on **structural reliability** and **data-driven decision support**:
 
-> "Will the market go up or down?"
-
-PSI instead predicts:
-
-> "What kind of market is this today?"
-
-* Bullish
-* Bearish
-* Sideways
-* Risk-Off
-* Crisis
-
-This repository validates whether that regime classification is correct in real market conditions.
+- **Engineering-First Rigor:** Enforces strict intraday workflows to eliminate lookahead bias—the silent killer of quantitative models.
+- **Actionable Intelligence:** Transforms raw market data into semantic, `schema.org`-compliant observation records for cross-system interoperability.
+- **Performance Accountability:** Provides a transparent "Scorecard" through Confusion Matrices and Rolling Metrics to assess model calibration in real-market conditions.
+- **Lean, High-Impact Architecture:** A modular pipeline designed for low maintenance but high visibility into market behavior, serving as a critical piece of any robust quantitative research workflow.
 
 ---
 
-## What is Being Validated?
+## 🏛️ System Architecture
 
-We compare:
+Our pipeline decouples **Prediction**, **Truth**, **Evaluation**, and **Interpretation**:
 
 ```text
-PSI Predicted Regime (Pre-ATO)
-            vs
-Actual Market Regime (ATO → ATC)
+PSI Engine (Predictor)
+        ↓
+Pre-ATO Prediction (Capture)
+        ↓
+SET Market (ATO → ATC Reality Extraction)
+        ↓
+Validation Engine (Truth Layer)
+        ↓
+Aggregated Metrics & Confusion Matrix
+        ↓
+SET PSI Dashboard (Visualization)
 ```
 
 ---
 
-## Intraday Workflow (SET Market)
+## ⚙️ Engineering Principles
 
-```text
-Pre-Market (Before ATO)
-        ↓
-Generate PSI Prediction
-        ↓
-Store Forecast Snapshot
-        ↓
-Market Open (ATO)
-        ↓
-Observe Intraday Behavior
-        ↓
-Market Close (ATC)
-        ↓
-Derive Actual Regime
-        ↓
-Validate Prediction
-```
+1. **Lookahead Bias Prevention:** Strict session-specific cutoffs ensure that no future data pollutes forecast validation.
+2. **Semantic Data Standards:** All data artifacts (Predictions, Market Records, Evaluations) conform to `schema.org` types, ensuring interoperability.
+3. **Governance-Based Validation:** Derived actual regimes are tested against standardized, versioned taxonomy definitions.
+4. **Reproducible Pipelines:** Modular, automated data ingestion and evaluation powered by `uv` and standard Python tooling.
 
 ---
 
-## PSI Prediction Example
+## 📊 Key Metrics
 
-```json
-{
-  "timestamp": "09:00:00",
-  "date": "2026-06-14",
-  "predicted_regime": "RISK_OFF",
-  "psi_score": 0.41
-}
-```
+Beyond simple accuracy, we quantify the PSI Engine's performance through:
+
+- **Classification Metrics:** Accuracy, Precision, Recall, and F1 Scores per regime.
+- **Confusion Matrix Analysis:** Identifying systematic regime misclassifications.
+- **Calibration Quality:** Evaluating the relationship between the PSI Score and realized volatility/direction.
+- **Rolling Performance:** 7D and 30D accuracy trends to observe adaptability to changing market cycles.
 
 ---
 
-## Market Outcome Example
-
-```json
-{
-  "date": "2026-06-14",
-  "ato": 1450.20,
-  "atc": 1438.10,
-  "return_pct": -0.83,
-  "intraday_volatility": 1.95,
-  "actual_regime": "RISK_OFF"
-}
-```
-
----
-
-## How We Define Market Regimes
-
-### Bullish
-
-* Strong positive intraday return
-* Broad-based market strength
-
-### Bearish
-
-* Consistent intraday decline
-* Weak closing relative to ATO
-
-### Sideways
-
-* Low directional movement
-* Range-bound trading
-
-### Risk-Off
-
-* Defensive behavior
-* Increased volatility + downside bias
-
-### Crisis
-
-* Sharp downside move
-* High volatility spike
-
----
-
-## Validation Logic
-
-We evaluate:
-
-### 1. Regime Accuracy
-
-```text
-Predicted Regime == Actual Regime
-```
-
-### 2. Directional Consistency
-
-* Bullish → Positive return
-* Bearish → Negative return
-* Risk-Off → Negative / defensive behavior
-
-### 3. Confusion Matrix
-
-Tracks misclassification between regimes.
-
----
-
-## Key Metrics
-
-### Classification Metrics
-
-* Accuracy
-* Precision
-* Recall
-* F1 Score
-
-### Market Metrics
-
-* ATO → ATC Return
-* Intraday Volatility
-* Directional Strength
-
-### PSI Metrics
-
-* PSI Score Distribution
-* Regime Frequency
-* Calibration Quality
-
----
-
-## Repository Structure
+## 🛠️ Repository Structure
 
 ```text
 set-psi-validation/
 ├── predictions/     # PSI forecasts (pre-ATO snapshots)
 ├── market-data/     # SET ATO / ATC / intraday data
-├── validation/      # evaluation logic
-├── reports/        # performance analysis
-└── dashboards/     # visualization outputs
+├── validation/      # Intraday evaluation engine
+├── reports/         # Aggregated performance metrics
+└── scripts/         # Automated orchestration tools
 ```
 
 ---
 
-## Use Cases
+## ⚠️ Disclaimer
 
-* Market Regime Validation
-* Quant Research
-* Signal Quality Assessment
-* Risk Model Evaluation
-* Intraday Market Behavior Study
+This project is for research and educational purposes, serving as a robust **Decision Support System**. It does not constitute financial advice or trading recommendations.
 
 ---
 
-## Important Note
+## Governance
 
-PSI is not a trading signal.
-
-It is a **market condition classifier**.
-
-This repository exists to evaluate whether that classification is meaningful and statistically reliable.
-
----
-
-## Disclaimer
-
-This project is for research and educational purposes only.
-
-It does not constitute financial advice or trading recommendations.
-
-ถ้าคุณจะต่อยอด ecosystem นี้จริง ๆ โครงมันจะเริ่มเป็น 3-layer แล้ว:
-
-```text
-psi-engine        → generate regime
-set-psi-validation → test correctness
-psi-dashboard     → visualize performance
-```
-
-อันนี้คือ structure แบบ quant research pipeline ที่เริ่มดูเป็น “ระบบจริง” แล้วครับ
+This project adheres to the **"Lean PSI Validator"** principles: **Actionable, Measurable, and Standardized.**
