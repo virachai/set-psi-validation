@@ -31,32 +31,24 @@ case "$MODE" in
     uv run black --check .
     ;;
   test)
-    echo "Running tests..."
-    shift 2>/dev/null || true
-    uv run pytest -q "$@"
-    ;;
-  fast)
-    echo "Running tests (fast mode — no lint)..."
     shift 2>/dev/null || true
     uv run pytest -q "$@"
     ;;
   one)
     shift
     if [ $# -eq 0 ]; then
-      echo "Usage: ./scripts/sh/test.sh one <test_name_pattern>"
-      echo "   eg: ./scripts/sh/test.sh one test_capture_market"
+      echo "Usage: $0 one <test_name_pattern>"
+      echo "   eg: $0 one test_capture_market"
       exit 1
     fi
-    echo "Running: $*"
     uv run pytest -q -k "$*"
     ;;
   *)
-    echo "Usage: $0 {all|lint|test|fast|one}"
+    echo "Usage: $0 {all|lint|test|one}"
     echo ""
     echo "  all/check — ruff + black + mypy + pytest (default)"
     echo "  lint      — ruff + black only"
     echo "  test      — pytest only"
-    echo "  fast      — pytest only (alias for test)"
     echo "  one       — run single test by name pattern"
     exit 1
     ;;

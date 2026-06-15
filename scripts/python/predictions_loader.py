@@ -28,9 +28,9 @@ load_dotenv()
 ICT_OFFSET = timedelta(hours=7)
 PREDICTIONS_DIR = "predictions"
 MARKET_WINDOWS = {
-    "am": {"cutoff": "10:00:00"},
-    "pm": {"cutoff": "14:30:00"},
-    "full_day": {"cutoff": "10:00:00"},
+    "am": {"cutoff": os.getenv("PSI_CUTOFF_AM", "10:00:00")},
+    "pm": {"cutoff": os.getenv("PSI_CUTOFF_PM", "14:30:00")},
+    "full_day": {"cutoff": os.getenv("PSI_CUTOFF_FULL_DAY", "10:00:00")},
 }
 PSI_API_URL = os.getenv("PSI_API_URL", "https://api.psi-engine.dev/v1/predict")
 PSI_API_KEY = os.getenv("PSI_ENGINE_API_KEY")
@@ -46,13 +46,17 @@ VALID_REGIMES = ["Bullish", "Bearish", "Sideways", "Risk-Off", "Crisis"]
 
 
 def validate_timestamp(timestamp_iso: str, session: str) -> bool:
-    """Ensures prediction timestamp is before the session cutoff."""
+    """Ensures prediction timestamp is before the session cutoff (in ICT)."""
     dt = datetime.fromisoformat(timestamp_iso.replace("Z", "+00:00"))
-    time_str = dt.strftime("%H:%M:%S")
+    # Convert to ICT (UTC+7) for cutoff comparison
+    dt_ict = dt.astimezone(timezone(timedelta(hours=7)))
+    time_str = dt_ict.strftime("%H:%M:%S")
     cutoff = MARKET_WINDOWS.get(session, {}).get("cutoff", "10:00:00")
 
     if time_str > cutoff:
-        error_msg = f"Lookahead Bias: {session} prediction captured at {time_str} (cutoff {cutoff})"
+        error_msg = (
+            f"Lookahead Bias: {session} prediction captured at {time_str} ICT (cutoff {cutoff})"
+        )
         print(f"[ERROR] {error_msg}")
         log_failure("predictions_loader", error_msg)
         return False
@@ -222,7 +226,8 @@ def main() -> None:
             return
         snapshot = build_snapshot(data, session=args.session)
         if not validate_timestamp(snapshot["timestamp"], args.session):
-            sys.exit(1)
+            print(f"[SKIP] Prediction capture skipped — outside {args.session} window.")
+            return
         save_snapshot(snapshot)
         print("[DONE] Prediction capture complete.")
     except httpx.HTTPStatusError as e:
