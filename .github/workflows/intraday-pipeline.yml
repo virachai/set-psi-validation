@@ -6,6 +6,8 @@ on:
     paths:
       - 'scripts/**'
       - 'pyproject.toml'
+      - '.github/workflows/**'
+      - 'predictions/**'
   schedule:
     - cron: '0 2 * * 1-5'   # 09:00 ICT - Prediction Capture
     - cron: '0 3 * * 1-5'   # 10:00 ICT - ATO Capture

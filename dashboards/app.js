@@ -107,7 +107,7 @@ function renderHistoryTable(history) {
     const tbody = document.querySelector('#history-table tbody');
     tbody.innerHTML = history.reverse().slice(0, 10).map(row => `
         <tr>
-            <td>${row.date}</td>
+            <td>${row.file_id || row.date}</td>
             <td>${row.predicted}</td>
             <td>${row.actual}</td>
             <td class="${row.correct ? 'match' : 'mismatch'}">${row.correct ? 'MATCH' : 'MISMATCH'}</td>

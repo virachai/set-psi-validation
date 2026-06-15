@@ -151,27 +151,31 @@ def run_daily_validation(date_str: str) -> Optional[Dict[str, Any]]:
     now_ict = datetime.now(timezone.utc) + ICT_OFFSET
     timestamp_iso = now_ict.strftime("%Y-%m-%dT%H:%M:%S+07:00")
 
+    # Use prediction filename stem for the validation record filename to support multiple snapshots
+    file_id = os.path.splitext(os.path.basename(pred_path))[0]
+
     validation_record = {
         "@context": "https://schema.org",
         "@type": "Observation",
-        "name": f"Validation Evaluation {date_str}",
+        "name": f"Validation Evaluation {file_id}",
         "observationDate": timestamp_iso,
         "observationAbout": [
-            {"@id": f"predictions/{date_str}.json"},
-            {"@id": f"market-data/{date_str}.json"},
+            {"@id": f"predictions/{os.path.basename(pred_path)}"},
+            {"@id": f"market-data/{os.path.basename(market_path)}"},
         ],
         "measuredProperty": {"@type": "DefinedTerm", "name": "Regime Prediction Accuracy"},
         "variableMeasured": {"@type": "PropertyValue", "name": "Is Correct", "value": is_correct},
         "marginOfError": {"@type": "QuantitativeValue", "value": deviation},
         # --- Internal fields ---
         "date": date_str,
+        "file_id": file_id,
         "predictedRegime": predicted_regime,
         "actualRegime": actual_regime,
         "isCorrect": is_correct,
         "deviationScore": deviation,
     }
 
-    save_json(os.path.join(VALIDATION_DIR, f"{date_str}.json"), validation_record)
+    save_json(os.path.join(VALIDATION_DIR, f"{file_id}.json"), validation_record)
     return validation_record
 
 
@@ -185,6 +189,7 @@ def update_aggregate_metrics() -> None:
             records.append(
                 {
                     "date": data["date"],
+                    "file_id": data.get("file_id", data["date"]),
                     "predicted": data["predictedRegime"],
                     "actual": data["actualRegime"],
                     "correct": data["isCorrect"],

@@ -11,3 +11,4 @@
 - [Secure Local Test Runner](20260614-220000-secure-local-test-runner.md) - Secure local test runner using .tmp/.env and run_tests.sh.
 - [Validation Engine & Dashboard Complete](20260614-190000-validation-engine-complete.md) - Phase 2 validation engine, Phase 3 dashboard, pyproject.toml, workflow fix.
 - [Taxonomy Renamed & CI Green](20260614-200000-taxonomy-rename-ci-green.md) - Renamed to naming convention, all refs updated, API and CI verified passing.
+- [Workflow Fix & Granular Validation](20260615-044500-workflow-fix-granular-validation.md) - Fixed workflow trigger paths and updated validation engine to support multiple intraday snapshots.
