@@ -12,3 +12,4 @@
 - [Validation Engine & Dashboard Complete](20260614-190000-validation-engine-complete.md) - Phase 2 validation engine, Phase 3 dashboard, pyproject.toml, workflow fix.
 - [Taxonomy Renamed & CI Green](20260614-200000-taxonomy-rename-ci-green.md) - Renamed to naming convention, all refs updated, API and CI verified passing.
 - [Validation Engine Three-Window Analysis](20260615-195500-validation-engine-three-window.md) - Granular intraday (AM/PM) regime validation engine and rolling metrics aggregator.
+- [2026-06-15 Market Cycle Execution Report](20260615-203000-market-cycle-report.md) - Automated market cycle execution report.
