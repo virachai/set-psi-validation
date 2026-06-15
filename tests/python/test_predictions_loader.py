@@ -7,7 +7,12 @@ import pytest
 
 sys.path.insert(0, str(pathlib.Path(__file__).parents[2] / "scripts" / "python"))
 
-from predictions_loader import build_snapshot, VALID_REGIMES, REGIME_TAXONOMY_URL, validate_timestamp
+from predictions_loader import (
+    build_snapshot,
+    VALID_REGIMES,
+    REGIME_TAXONOMY_URL,
+    validate_timestamp,
+)
 
 SAMPLE_API_RESPONSE = {
     "predictedRegime": "RISK_OFF",

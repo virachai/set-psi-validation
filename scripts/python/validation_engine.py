@@ -119,7 +119,9 @@ def find_latest_prediction_file(directory: str, date_str: str, session: str) -> 
         matching = []
         for f in all_files:
             # Avoid matching files that explicitly have a different suffix
-            if not f.endswith(f"-{session}.json") and any(f.endswith(f"-{s}.json") for s in ["am", "pm", "full_day"]):
+            if not f.endswith(f"-{session}.json") and any(
+                f.endswith(f"-{s}.json") for s in ["am", "pm", "full_day"]
+            ):
                 continue
             data = load_json(f)
             if data and data.get("session") == session:
@@ -203,7 +205,11 @@ def run_daily_validation(date_str: str) -> list[Dict[str, Any]]:
                 {"@id": f"market-data/{os.path.basename(market_path)}"},
             ],
             "measuredProperty": {"@type": "DefinedTerm", "name": "Regime Prediction Accuracy"},
-            "variableMeasured": {"@type": "PropertyValue", "name": "Is Correct", "value": is_correct},
+            "variableMeasured": {
+                "@type": "PropertyValue",
+                "name": "Is Correct",
+                "value": is_correct,
+            },
             "marginOfError": {"@type": "QuantitativeValue", "value": deviation},
             # --- Internal fields ---
             "date": date_str,
@@ -226,7 +232,7 @@ def update_aggregate_metrics() -> None:
     if not os.path.exists(VALIDATION_DIR):
         print("[WARN] Validation directory does not exist.")
         return
-        
+
     all_files = [f for f in os.listdir(VALIDATION_DIR) if f.endswith(".json")]
     records = []
     for f in sorted(all_files):

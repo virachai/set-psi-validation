@@ -206,6 +206,7 @@ def save_snapshot(snapshot: dict) -> str:
 
 def main() -> None:
     import argparse
+
     parser = argparse.ArgumentParser(description="PSI Prediction Loader")
     parser.add_argument(
         "--session",
