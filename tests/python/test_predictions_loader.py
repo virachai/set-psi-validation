@@ -7,7 +7,7 @@ import pytest
 
 sys.path.insert(0, str(pathlib.Path(__file__).parents[2] / "scripts" / "python"))
 
-from predictions_loader import build_snapshot, VALID_REGIMES, REGIME_TAXONOMY_URL
+from predictions_loader import build_snapshot, VALID_REGIMES, REGIME_TAXONOMY_URL, validate_timestamp
 
 SAMPLE_API_RESPONSE = {
     "predictedRegime": "RISK_OFF",
@@ -187,3 +187,13 @@ class TestBuildSnapshot:
         data["variableMeasured"][1]["value"] = "RISKOFF"
         snapshot = build_snapshot(data)
         assert snapshot["predictedRegime"] == "Risk-Off"
+
+    # --- Lookahead Bias Gate ---
+
+    def test_validate_timestamp_accepts_valid(self):
+        assert validate_timestamp("2026-06-15T09:00:00+07:00", "am") is True
+        assert validate_timestamp("2026-06-15T14:00:00+07:00", "pm") is True
+
+    def test_validate_timestamp_rejects_invalid(self):
+        assert validate_timestamp("2026-06-15T11:00:00+07:00", "am") is False
+        assert validate_timestamp("2026-06-15T15:00:00+07:00", "pm") is False

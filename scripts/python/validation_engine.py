@@ -20,6 +20,7 @@ import argparse
 import glob
 from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, Optional
+from utils import log_failure
 
 import pandas as pd
 
@@ -340,37 +341,43 @@ def update_aggregate_metrics() -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="PSI Validation Engine")
-    parser.add_argument("--date", help="Date to validate (YYYY-MM-DD). Defaults to today.")
-    parser.add_argument(
-        "--recompute-all",
-        action="store_true",
-        help="Revalidate all dates with prediction & market data.",
-    )
-    args = parser.parse_args()
+    try:
+        parser = argparse.ArgumentParser(description="PSI Validation Engine")
+        parser.add_argument("--date", help="Date to validate (YYYY-MM-DD). Defaults to today.")
+        parser.add_argument(
+            "--recompute-all",
+            action="store_true",
+            help="Revalidate all dates with prediction & market data.",
+        )
+        args = parser.parse_args()
 
-    if args.recompute_all:
-        print("[INIT] Recomputing all validations...")
-        # Extract YYYY-MM-DD from filenames like YYYY-MM-DD-HHMMSS.json or YYYY-MM-DD.json
-        pred_dates = {
-            os.path.splitext(f)[0][:10]
-            for f in os.listdir(PREDICTIONS_DIR)
-            if f.endswith(".json")
-        }
-        market_dates = {
-            os.path.splitext(f)[0][:10]
-            for f in os.listdir(MARKET_DATA_DIR)
-            if f.endswith(".json")
-        }
-        common_dates = sorted(list(pred_dates.intersection(market_dates)))
-        for d in common_dates:
-            run_daily_validation(d)
-    else:
-        date_str = args.date or (datetime.now(timezone.utc) + ICT_OFFSET).strftime("%Y-%m-%d")
-        run_daily_validation(date_str)
+        if args.recompute_all:
+            print("[INIT] Recomputing all validations...")
+            # Extract YYYY-MM-DD from filenames like YYYY-MM-DD-HHMMSS.json or YYYY-MM-DD.json
+            pred_dates = {
+                os.path.splitext(f)[0][:10]
+                for f in os.listdir(PREDICTIONS_DIR)
+                if f.endswith(".json")
+            }
+            market_dates = {
+                os.path.splitext(f)[0][:10]
+                for f in os.listdir(MARKET_DATA_DIR)
+                if f.endswith(".json")
+            }
+            common_dates = sorted(list(pred_dates.intersection(market_dates)))
+            for d in common_dates:
+                run_daily_validation(d)
+        else:
+            date_str = args.date or (datetime.now(timezone.utc) + ICT_OFFSET).strftime("%Y-%m-%d")
+            run_daily_validation(date_str)
 
-    update_aggregate_metrics()
-    print("[DONE] Validation engine execution complete.")
+        update_aggregate_metrics()
+        print("[DONE] Validation engine execution complete.")
+    except Exception as e:
+        error_msg = f"Validation engine execution failed: {e}"
+        print(f"[ERROR] {error_msg}")
+        log_failure("validation_engine", error_msg)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

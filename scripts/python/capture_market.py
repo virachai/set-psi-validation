@@ -24,6 +24,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional
 
 from dotenv import load_dotenv
+from utils import log_failure
 
 load_dotenv()
 
@@ -335,7 +336,9 @@ def main() -> None:
         save_market_data(record, date_str)
         print(f"[DONE] Market {args.mode.upper()} capture complete.")
     except Exception as e:
-        print(f"[ERROR] Market capture failed: {e}")
+        error_msg = f"Market capture failed: {e}"
+        print(f"[ERROR] {error_msg}")
+        log_failure("capture_market", error_msg)
         sys.exit(1)
 
 
