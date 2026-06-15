@@ -130,8 +130,15 @@ def derive_actual_regime(
 
 def load_existing(date_str: str) -> dict:
     """Loads an existing market data file, or returns a minimal skeleton."""
-    filepath = os.path.join(MARKET_DATA_DIR, f"{date_str}.json")
-    if os.path.exists(filepath):
+    import glob
+    files = glob.glob(os.path.join(MARKET_DATA_DIR, f"{date_str}-*.json"))
+    if not files:
+        legacy = os.path.join(MARKET_DATA_DIR, f"{date_str}.json")
+        filepath = legacy if os.path.exists(legacy) else None
+    else:
+        filepath = max(files, key=os.path.getmtime)
+
+    if filepath and os.path.exists(filepath):
         with open(filepath, "r", encoding="utf-8") as f:
             return json.load(f)
     return {}

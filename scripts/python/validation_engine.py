@@ -108,79 +108,123 @@ def find_latest_file(directory: str, date_str: str) -> Optional[str]:
     return max(files, key=os.path.getmtime)
 
 
-def run_daily_validation(date_str: str) -> Optional[Dict[str, Any]]:
-    """Performs validation for a single date."""
-    pred_path = find_latest_file(PREDICTIONS_DIR, date_str)
+def find_latest_prediction_file(directory: str, date_str: str, session: str) -> Optional[str]:
+    """Finds the latest prediction file matching YYYY-MM-DD-*-session.json."""
+    files = glob.glob(os.path.join(directory, f"{date_str}-*-{session}.json"))
+    if not files:
+        # Fallback to check if the file matches YYYY-MM-DD-*.json and has matching "session" field
+        all_files = glob.glob(os.path.join(directory, f"{date_str}-*.json"))
+        matching = []
+        for f in all_files:
+            # Avoid matching files that explicitly have a different suffix
+            if not f.endswith(f"-{session}.json") and any(f.endswith(f"-{s}.json") for s in ["am", "pm", "full_day"]):
+                continue
+            data = load_json(f)
+            if data and data.get("session") == session:
+                matching.append(f)
+        return max(matching, key=os.path.getmtime) if matching else None
+    return max(files, key=os.path.getmtime)
+
+
+def run_daily_validation(date_str: str) -> list[Dict[str, Any]]:
+    """Performs validation for a single date across all 3 windows (am, pm, full_day)."""
     market_path = find_latest_file(MARKET_DATA_DIR, date_str)
+    if not market_path:
+        print(f"[SKIP] Missing market data path for {date_str}")
+        return []
 
-    if not pred_path or not market_path:
-        print(
-            f"[SKIP] Missing path for {date_str} (Pred: {bool(pred_path)}, Market: {bool(market_path)})"
-        )
-        return None
-
-    prediction = load_json(pred_path)
     market = load_json(market_path)
-
-    if not prediction or not market:
-        print(
-            f"[SKIP] Missing data for {date_str} (Pred: {bool(prediction)}, Market: {bool(market)})"
-        )
-        return None
+    if not market:
+        print(f"[SKIP] Missing market data for {date_str}")
+        return []
 
     # Extract regimes (handle both schema.org and flat formats)
-    predicted_regime = prediction.get("predictedRegime")
-    if not predicted_regime and "variableMeasured" in prediction:
-        for vm in prediction["variableMeasured"]:
-            if vm.get("name") == "Predicted Regime":
-                predicted_regime = vm.get("value")
-
     actual_regime = market.get("actualRegime")
     if not actual_regime and "variableMeasured" in market:
         for vm in market["variableMeasured"]:
             if vm.get("name") == "Actual Regime":
                 actual_regime = vm.get("value")
 
-    if not predicted_regime or not actual_regime:
-        print(f"[ERROR] Could not extract regimes for {date_str}")
-        return None
+    if not actual_regime:
+        print(f"[ERROR] Could not extract actual regime for {date_str}")
+        return []
 
-    is_correct = compare_regimes(predicted_regime, actual_regime)
-    deviation = compute_deviation_score(predicted_regime, actual_regime)
+    records = []
+    # Loop over the 3 sessions
+    for session in ["am", "pm", "full_day"]:
+        pred_path = find_latest_prediction_file(PREDICTIONS_DIR, date_str, session)
+        if not pred_path:
+            # Fallback for full_day to also try the general latest file if no specific full_day exists
+            if session == "full_day":
+                pred_path = find_latest_file(PREDICTIONS_DIR, date_str)
+                # But check that it doesn't belong to another session
+                if pred_path:
+                    p_data = load_json(pred_path)
+                    if p_data and p_data.get("session") in ["am", "pm"]:
+                        pred_path = None
+            if not pred_path:
+                print(f"[SKIP] Missing prediction for {date_str} ({session})")
+                continue
 
-    now_ict = datetime.now(timezone.utc) + ICT_OFFSET
-    timestamp_iso = now_ict.strftime("%Y-%m-%dT%H:%M:%S+07:00")
+        prediction = load_json(pred_path)
+        if not prediction:
+            print(f"[SKIP] Missing prediction data for {date_str} ({session})")
+            continue
 
-    # Use prediction filename stem for the validation record filename to support multiple snapshots
-    file_id = os.path.splitext(os.path.basename(pred_path))[0]
+        predicted_regime = prediction.get("predictedRegime")
+        if not predicted_regime and "variableMeasured" in prediction:
+            for vm in prediction["variableMeasured"]:
+                if vm.get("name") == "Predicted Regime":
+                    predicted_regime = vm.get("value")
 
-    validation_record = {
-        "@context": "https://schema.org",
-        "@type": "Observation",
-        "name": f"Validation Evaluation {file_id}",
-        "observationDate": timestamp_iso,
-        "observationAbout": [
-            {"@id": f"predictions/{os.path.basename(pred_path)}"},
-            {"@id": f"market-data/{os.path.basename(market_path)}"},
-        ],
-        "measuredProperty": {"@type": "DefinedTerm", "name": "Regime Prediction Accuracy"},
-        "variableMeasured": {"@type": "PropertyValue", "name": "Is Correct", "value": is_correct},
-        "marginOfError": {"@type": "QuantitativeValue", "value": deviation},
-        # --- Internal fields ---
-        "date": date_str,
-        "file_id": file_id,
-        "predictedRegime": predicted_regime,
-        "actualRegime": actual_regime,
-        "isCorrect": is_correct,
-        "deviationScore": deviation,
-    }
+        if not predicted_regime:
+            print(f"[ERROR] Could not extract predicted regime from {pred_path}")
+            continue
 
-    save_json(os.path.join(VALIDATION_DIR, f"{file_id}.json"), validation_record)
-    return validation_record
+        is_correct = compare_regimes(predicted_regime, actual_regime)
+        deviation = compute_deviation_score(predicted_regime, actual_regime)
+
+        now_ict = datetime.now(timezone.utc) + ICT_OFFSET
+        timestamp_iso = now_ict.strftime("%Y-%m-%dT%H:%M:%S+07:00")
+
+        # Use prediction filename stem for the validation record filename to support multiple snapshots
+        pred_file_id = os.path.splitext(os.path.basename(pred_path))[0]
+        validation_file_id = pred_file_id
+
+        validation_record = {
+            "@context": "https://schema.org",
+            "@type": "Observation",
+            "name": f"Validation Evaluation {validation_file_id}",
+            "observationDate": timestamp_iso,
+            "observationAbout": [
+                {"@id": f"predictions/{os.path.basename(pred_path)}"},
+                {"@id": f"market-data/{os.path.basename(market_path)}"},
+            ],
+            "measuredProperty": {"@type": "DefinedTerm", "name": "Regime Prediction Accuracy"},
+            "variableMeasured": {"@type": "PropertyValue", "name": "Is Correct", "value": is_correct},
+            "marginOfError": {"@type": "QuantitativeValue", "value": deviation},
+            # --- Internal fields ---
+            "date": date_str,
+            "file_id": validation_file_id,
+            "session": session,
+            "predictedRegime": predicted_regime,
+            "actualRegime": actual_regime,
+            "isCorrect": is_correct,
+            "deviationScore": deviation,
+        }
+
+        save_json(os.path.join(VALIDATION_DIR, f"{validation_file_id}.json"), validation_record)
+        records.append(validation_record)
+
+    return records
 
 
 def update_aggregate_metrics() -> None:
     """Scans validation/ directory and updates reports/metrics.json."""
+    if not os.path.exists(VALIDATION_DIR):
+        print("[WARN] Validation directory does not exist.")
+        return
+        
     all_files = [f for f in os.listdir(VALIDATION_DIR) if f.endswith(".json")]
     records = []
     for f in sorted(all_files):
@@ -190,6 +234,7 @@ def update_aggregate_metrics() -> None:
                 {
                     "date": data["date"],
                     "file_id": data.get("file_id", data["date"]),
+                    "session": data.get("session", "full_day"),
                     "predicted": data["predictedRegime"],
                     "actual": data["actualRegime"],
                     "correct": data["isCorrect"],
@@ -229,6 +274,28 @@ def update_aggregate_metrics() -> None:
         else:
             hit_rates[regime] = None
 
+    # Calculate per-session metrics
+    by_window = {}
+    for s in ["am", "pm", "full_day"]:
+        sdf = df[df["session"] == s]
+        if not sdf.empty:
+            s_acc = sdf["correct"].mean()
+            s_7d = sdf["correct"].rolling(window=7, min_periods=1).mean().iloc[-1]
+            s_30d = sdf["correct"].rolling(window=30, min_periods=1).mean().iloc[-1]
+            by_window[s] = {
+                "overall_accuracy": float(s_acc),
+                "rolling_7d": float(s_7d),
+                "rolling_30d": float(s_30d),
+                "total_count": int(len(sdf)),
+            }
+        else:
+            by_window[s] = {
+                "overall_accuracy": 0.0,
+                "rolling_7d": 0.0,
+                "rolling_30d": 0.0,
+                "total_count": 0,
+            }
+
     metrics_report = {
         "@context": "https://schema.org",
         "@type": "Dataset",
@@ -256,6 +323,7 @@ def update_aggregate_metrics() -> None:
             "overall_accuracy": float(total_accuracy),
             "rolling_7d": float(df["rolling_7d"].iloc[-1]),
             "rolling_30d": float(df["rolling_30d"].iloc[-1]),
+            "by_window": by_window,
             "hit_rates": hit_rates,
             "total_count": len(df),
         },
@@ -283,8 +351,17 @@ def main() -> None:
 
     if args.recompute_all:
         print("[INIT] Recomputing all validations...")
-        pred_dates = {f.split(".")[0] for f in os.listdir(PREDICTIONS_DIR) if f.endswith(".json")}
-        market_dates = {f.split(".")[0] for f in os.listdir(MARKET_DATA_DIR) if f.endswith(".json")}
+        # Extract YYYY-MM-DD from filenames like YYYY-MM-DD-HHMMSS.json or YYYY-MM-DD.json
+        pred_dates = {
+            os.path.splitext(f)[0][:10]
+            for f in os.listdir(PREDICTIONS_DIR)
+            if f.endswith(".json")
+        }
+        market_dates = {
+            os.path.splitext(f)[0][:10]
+            for f in os.listdir(MARKET_DATA_DIR)
+            if f.endswith(".json")
+        }
         common_dates = sorted(list(pred_dates.intersection(market_dates)))
         for d in common_dates:
             run_daily_validation(d)

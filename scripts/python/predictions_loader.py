@@ -67,7 +67,7 @@ def fetch_prediction() -> dict:
         return data
 
 
-def build_snapshot(raw: dict) -> dict:
+def build_snapshot(raw: dict, session: str = "full_day") -> dict:
     """Transforms raw API response into schema.org-compliant Observation.
 
     Handles two formats:
@@ -96,6 +96,7 @@ def build_snapshot(raw: dict) -> dict:
         obs["predictedRegime"] = regime
         obs["psiScore"] = psi_score
         obs["modelId"] = "PSI Engine v1 (Lambda)"
+        obs["session"] = session
         # Normalise regime naming
         regime_map = {}
         for r in VALID_REGIMES:
@@ -160,19 +161,21 @@ def build_snapshot(raw: dict) -> dict:
         "predictedRegime": predicted_regime,
         "psiScore": psi_score,
         "modelId": model_id,
+        "session": session,
     }
 
 
 def save_snapshot(snapshot: dict) -> str:
-    """Writes the prediction snapshot to predictions/YYYY-MM-DD-HHMMSS.json."""
+    """Writes the prediction snapshot to predictions/YYYY-MM-DD-HHMMSS-session.json."""
     os.makedirs(PREDICTIONS_DIR, exist_ok=True)
 
     # Use timestamp from the snapshot or generate now
     ts_str = snapshot.get("timestamp", datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S"))
     # Format to YYYY-MM-DD-HHMMSS
     dt = datetime.fromisoformat(ts_str.replace("Z", "+00:00")).strftime("%Y-%m-%d-%H%M%S")
+    session = snapshot.get("session", "full_day")
 
-    filepath = os.path.join(PREDICTIONS_DIR, f"{dt}.json")
+    filepath = os.path.join(PREDICTIONS_DIR, f"{dt}-{session}.json")
 
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(snapshot, f, indent=2, ensure_ascii=False)
@@ -185,11 +188,21 @@ def save_snapshot(snapshot: dict) -> str:
 
 
 def main() -> None:
+    import argparse
+    parser = argparse.ArgumentParser(description="PSI Prediction Loader")
+    parser.add_argument(
+        "--session",
+        choices=["am", "pm", "full_day"],
+        default="full_day",
+        help="Prediction session window (am, pm, full_day).",
+    )
+    args = parser.parse_args()
+
     try:
         data = fetch_prediction()
         if not data:
             return
-        snapshot = build_snapshot(data)
+        snapshot = build_snapshot(data, session=args.session)
         save_snapshot(snapshot)
         print("[DONE] Prediction capture complete.")
     except httpx.HTTPStatusError as e:
