@@ -1,2 +1,4 @@
 {"timestamp": "2026-06-15T13:08:49.942744+00:00", "component": "predictions_loader", "error": "Lookahead Bias: am prediction captured at 11:00:00 (cutoff 10:00:00)"}
 {"timestamp": "2026-06-15T13:08:49.944399+00:00", "component": "predictions_loader", "error": "Lookahead Bias: pm prediction captured at 15:00:00 (cutoff 14:30:00)"}
+{"timestamp": "2026-06-15T13:13:06.761130+00:00", "component": "predictions_loader", "error": "Lookahead Bias: am prediction captured at 11:00:00 (cutoff 10:00:00)"}
+{"timestamp": "2026-06-15T13:13:06.762711+00:00", "component": "predictions_loader", "error": "Lookahead Bias: pm prediction captured at 15:00:00 (cutoff 14:30:00)"}

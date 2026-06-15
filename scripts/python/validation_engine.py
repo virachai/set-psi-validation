@@ -18,6 +18,7 @@ import os
 import json
 import argparse
 import glob
+import sys
 from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, Optional
 from utils import log_failure
