@@ -10,11 +10,38 @@ sys.path.insert(0, str(pathlib.Path(__file__).parents[2] / "scripts" / "python")
 
 from capture_market import (
     derive_actual_regime,
+    extract_market_prices,
     handle_ato,
     handle_atc,
     VALID_REGIMES,
     REGIME_TAXONOMY_URL,
 )
+
+# --- extract_market_prices ---
+
+class TestExtractMarketPrices:
+    def test_normal_prices(self):
+        eod = {"open": 100.0, "close": 105.0, "high": 110.0, "low": 95.0}
+        ato, atc, vol = extract_market_prices(eod)
+        assert ato == 100.0
+        assert atc == 105.0
+        assert vol == 0.05  # (110-95)/100 = 0.15, capped at 0.05
+
+    def test_open_price_zero(self):
+        """Should not raise DivisionByZero, should return default volatility."""
+        eod = {"open": 0.0, "close": 105.0, "high": 110.0, "low": 95.0}
+        ato, atc, vol = extract_market_prices(eod)
+        assert ato == 0.0
+        assert atc == 105.0
+        assert vol == 0.01  # Default fallback
+
+    def test_alternate_field_names(self):
+        eod = {"openPrice": 100.0, "last": 102.0, "highPrice": 103.0, "lowPrice": 99.0}
+        ato, atc, vol = extract_market_prices(eod)
+        assert ato == 100.0
+        assert atc == 102.0
+        assert vol == 0.04
+
 
 # --- derive_actual_regime (double-check parity with validation_engine) ---
 

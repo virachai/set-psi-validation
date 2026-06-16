@@ -24,7 +24,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional
 
 from dotenv import load_dotenv
-from utils import log_failure
+from utils import log_event, log_failure
 
 load_dotenv()
 
@@ -44,14 +44,17 @@ VALID_REGIMES = ["Bullish", "Bearish", "Sideways", "Risk-Off", "Crisis"]
 SETSMART_BASE_URL = "https://www.setsmart.com"
 SETSMART_API_KEY = os.getenv("SETSMART_API_KEY")
 if SETSMART_API_KEY:
-    print(f"[DEBUG] SETSMART_API_KEY loaded: {SETSMART_API_KEY[:3]}...")
+    masked_key = f"{SETSMART_API_KEY[:3]}***{SETSMART_API_KEY[-3:]}" if len(SETSMART_API_KEY) > 6 else "***"
+    print(f"[DEBUG] SETSMART_API_KEY loaded: {masked_key}")
 SET_INDEX_SYMBOL = os.getenv("SET_INDEX_SYMBOL", "SET")
 
 
 def fetch_setsmart_eod(symbol: str, date: str) -> Optional[dict]:
     """Fetch EOD price data from SETSMART API for a given symbol and date."""
     if not SETSMART_API_KEY:
-        print("[SKIP] SETSMART_API_KEY not set. Skipping market data capture.")
+        msg = "SETSMART_API_KEY not set. Skipping market data capture."
+        print(f"[SKIP] {msg}")
+        log_event("INFO", "capture_market", msg)
         return None
 
     url = f"{SETSMART_BASE_URL}/api/listed-company-api/eod-price-by-symbol"
@@ -66,16 +69,34 @@ def fetch_setsmart_eod(symbol: str, date: str) -> Optional[dict]:
 
     import httpx
 
-    with httpx.Client(timeout=30.0) as client:
-        response = client.get(url, params=params, headers=headers)
-        if response.status_code in [401, 403]:
-            print(f"[SKIP] SETSMART Authentication failed ({response.status_code}). Check secrets.")
-            return None
-        response.raise_for_status()
-        data = response.json()
+    try:
+        with httpx.Client(timeout=30.0) as client:
+            response = client.get(url, params=params, headers=headers)
+            if response.status_code in [401, 403]:
+                msg = f"SETSMART Authentication failed ({response.status_code})."
+                print(f"[SKIP] {msg}")
+                log_event("ERROR", "capture_market", msg)
+                return None
+            response.raise_for_status()
+            data = response.json()
+    except httpx.TimeoutException:
+        msg = f"SETSMART API timeout after 30s for {symbol} on {date}."
+        log_event("ERROR", "capture_market", msg)
+        return None
+    except httpx.HTTPStatusError as e:
+        msg = f"SETSMART API HTTP error: {e}"
+        log_event("ERROR", "capture_market", msg)
+        return None
+    except Exception as e:
+        msg = f"Unexpected error fetching SETSMART data: {e}"
+        log_event("ERROR", "capture_market", msg)
+        return None
 
     if isinstance(data, list) and len(data) > 0:
+        log_event("INFO", "capture_market", f"Successfully fetched data for {symbol}", {"date": date})
         return data[0]
+    
+    log_event("WARN", "capture_market", f"No EOD data returned for {symbol} on {date}")
     return None
 
 
@@ -85,16 +106,20 @@ def extract_market_prices(eod: dict) -> tuple[float, float, float]:
     Expected fields: open, close/high/low or alternate naming.
     Returns (ato_price, atc_price, volatility_index).
     """
-    open_price = eod.get("open") or eod.get("openPrice") or 0.0
-    close_price = eod.get("close") or eod.get("closePrice") or eod.get("last") or 0.0
-    high = eod.get("high") or eod.get("highPrice") or close_price
-    low = eod.get("low") or eod.get("lowPrice") or open_price
+    open_price = float(eod.get("open") or eod.get("openPrice") or 0.0)
+    close_price = float(eod.get("close") or eod.get("closePrice") or eod.get("last") or 0.0)
+    high = float(eod.get("high") or eod.get("highPrice") or close_price)
+    low = float(eod.get("low") or eod.get("lowPrice") or open_price)
 
     # Volatility proxy: (high - low) / open, capped at 0.05
-    volatility = round((high - low) / open_price, 4) if open_price else 0.01
+    if open_price > 0:
+        volatility = round((high - low) / open_price, 4)
+    else:
+        volatility = 0.01  # Default fallback volatility
+    
     volatility = min(volatility, 0.05)
 
-    return float(open_price), float(close_price), volatility
+    return open_price, close_price, volatility
 
 
 # --- Regime Derivation Logic (mirrors validation_engine.py) ---
@@ -160,7 +185,10 @@ def save_market_data(record: dict, date_str: str) -> str:
     filepath = os.path.join(MARKET_DATA_DIR, f"{dt}.json")
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(record, f, indent=2, ensure_ascii=False)
-    print(f"[SAVE] Market data written to {filepath}")
+    
+    msg = f"Market data written to {filepath}"
+    print(f"[SAVE] {msg}")
+    log_event("INFO", "capture_market", msg, {"date": date_str, "status": record.get("status")})
     return filepath
 
 
@@ -169,6 +197,7 @@ def save_market_data(record: dict, date_str: str) -> str:
 
 def handle_ato(date_str: str, ato_price: float) -> dict:
     """Creates a partial market outcome Observation with ATO price only."""
+    log_event("INFO", "capture_market", f"Handling ATO for {date_str}", {"ato_price": ato_price})
     return {
         "@context": "https://schema.org",
         "@type": "Observation",
@@ -208,11 +237,20 @@ def handle_atc(
     ato_price: Optional[float] = existing.get("atoPrice")
 
     if ato_price is None:
-        print("[WARN] No ATO price found for this date. Using ATC as fallback.")
+        msg = f"No ATO price found for {date_str}. Using ATC as fallback."
+        print(f"[WARN] {msg}")
+        log_event("WARN", "capture_market", msg)
         ato_price = atc_price  # fallback — zero return
 
-    return_pct = round((atc_price - ato_price) / ato_price * 100, 2)
+    return_pct = round((atc_price - ato_price) / ato_price * 100, 2) if ato_price > 0 else 0.0
     actual_regime = derive_actual_regime(ato_price, atc_price, volatility_index, threshold_mean)
+
+    log_event("INFO", "capture_market", f"Handling ATC for {date_str}", {
+        "ato_price": ato_price,
+        "atc_price": atc_price,
+        "return_pct": return_pct,
+        "regime": actual_regime
+    })
 
     now_ict = datetime.now(timezone.utc) + ICT_OFFSET
     period_start = f"{date_str}T10:00:00+07:00"
@@ -311,10 +349,10 @@ def main() -> None:
 
     try:
         if args.symbol:
-            print(f"[SETSMART] Fetching EOD data for {args.symbol} on {date_str}...")
+            log_event("INFO", "capture_market", f"Starting SETSMART fetch for {args.symbol}", {"mode": args.mode})
             eod = fetch_setsmart_eod(args.symbol, date_str)
             if eod is None:
-                print(f"[SKIP] No market data for {args.symbol} on {date_str} (non-market day?).")
+                # fetch_setsmart_eod handles skip messages and logging
                 return
             ato_price, atc_price, volatility = extract_market_prices(eod)
             print(f"[SETSMART] ATO={ato_price}, ATC={atc_price}, Vol={volatility}")
@@ -325,6 +363,7 @@ def main() -> None:
                 record = handle_atc(date_str, atc_price, volatility, args.threshold)
         else:
             # Manual mode
+            log_event("INFO", "capture_market", "Starting manual price entry", {"mode": args.mode})
             if args.mode == "ato":
                 if args.ato_price is None:
                     parser.error("--ato-price is required for --mode ato (or use --symbol).")
@@ -338,7 +377,6 @@ def main() -> None:
         print(f"[DONE] Market {args.mode.upper()} capture complete.")
     except Exception as e:
         error_msg = f"Market capture failed: {e}"
-        print(f"[ERROR] {error_msg}")
         log_failure("capture_market", error_msg)
         sys.exit(1)
 

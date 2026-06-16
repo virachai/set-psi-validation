@@ -21,7 +21,7 @@ import glob
 import sys
 from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, Optional
-from utils import log_failure
+from utils import log_event, log_failure
 
 import pandas as pd
 
@@ -94,7 +94,10 @@ def save_json(filepath: str, data: Any) -> None:
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
-    print(f"[SAVE] Written to {filepath}")
+    
+    msg = f"Written to {filepath}"
+    print(f"[SAVE] {msg}")
+    log_event("INFO", "validation_engine", msg)
 
 
 # --- Engine Actions ---
@@ -134,12 +137,16 @@ def run_daily_validation(date_str: str) -> list[Dict[str, Any]]:
     """Performs validation for a single date across all 3 windows (am, pm, full_day)."""
     market_path = find_latest_file(MARKET_DATA_DIR, date_str)
     if not market_path:
-        print(f"[SKIP] Missing market data path for {date_str}")
+        msg = f"Missing market data path for {date_str}"
+        print(f"[SKIP] {msg}")
+        log_event("WARN", "validation_engine", msg)
         return []
 
     market = load_json(market_path)
     if not market:
-        print(f"[SKIP] Missing market data for {date_str}")
+        msg = f"Missing market data for {date_str}"
+        print(f"[SKIP] {msg}")
+        log_event("WARN", "validation_engine", msg)
         return []
 
     # Extract regimes (handle both schema.org and flat formats)
@@ -150,7 +157,9 @@ def run_daily_validation(date_str: str) -> list[Dict[str, Any]]:
                 actual_regime = vm.get("value")
 
     if not actual_regime:
-        print(f"[ERROR] Could not extract actual regime for {date_str}")
+        msg = f"Could not extract actual regime for {date_str}"
+        print(f"[ERROR] {msg}")
+        log_event("ERROR", "validation_engine", msg)
         return []
 
     records = []
@@ -167,12 +176,12 @@ def run_daily_validation(date_str: str) -> list[Dict[str, Any]]:
                     if p_data and p_data.get("session") in ["am", "pm"]:
                         pred_path = None
             if not pred_path:
-                print(f"[SKIP] Missing prediction for {date_str} ({session})")
+                log_event("INFO", "validation_engine", f"No prediction for {date_str} ({session})")
                 continue
 
         prediction = load_json(pred_path)
         if not prediction:
-            print(f"[SKIP] Missing prediction data for {date_str} ({session})")
+            log_event("WARN", "validation_engine", f"Missing prediction data for {date_str} ({session})")
             continue
 
         predicted_regime = prediction.get("predictedRegime")
@@ -182,11 +191,17 @@ def run_daily_validation(date_str: str) -> list[Dict[str, Any]]:
                     predicted_regime = vm.get("value")
 
         if not predicted_regime:
-            print(f"[ERROR] Could not extract predicted regime from {pred_path}")
+            log_event("ERROR", "validation_engine", f"Could not extract predicted regime from {pred_path}")
             continue
 
         is_correct = compare_regimes(predicted_regime, actual_regime)
         deviation = compute_deviation_score(predicted_regime, actual_regime)
+
+        log_event("INFO", "validation_engine", f"Validated {date_str} ({session})", {
+            "predicted": predicted_regime,
+            "actual": actual_regime,
+            "is_correct": is_correct
+        })
 
         now_ict = datetime.now(timezone.utc) + ICT_OFFSET
         timestamp_iso = now_ict.strftime("%Y-%m-%dT%H:%M:%S+07:00")
@@ -230,7 +245,7 @@ def run_daily_validation(date_str: str) -> list[Dict[str, Any]]:
 def update_aggregate_metrics() -> None:
     """Scans validation/ directory and updates reports/metrics.json."""
     if not os.path.exists(VALIDATION_DIR):
-        print("[WARN] Validation directory does not exist.")
+        log_event("WARN", "validation_engine", "Validation directory does not exist.")
         return
 
     all_files = [f for f in os.listdir(VALIDATION_DIR) if f.endswith(".json")]
@@ -250,8 +265,10 @@ def update_aggregate_metrics() -> None:
             )
 
     if not records:
-        print("[WARN] No validation records found to aggregate.")
+        log_event("WARN", "validation_engine", "No validation records found to aggregate.")
         return
+
+    log_event("INFO", "validation_engine", f"Aggregating {len(records)} records...")
 
     df = pd.DataFrame(records)
     df["date"] = pd.to_datetime(df["date"])
@@ -348,6 +365,7 @@ def update_aggregate_metrics() -> None:
 
     # Maintain a symlink/copy for the latest report for dashboard compatibility
     save_json(os.path.join(REPORTS_DIR, "metrics.json"), metrics_report)
+    log_event("INFO", "validation_engine", "Metrics aggregation complete.")
 
 
 # --- Main ---
@@ -366,6 +384,7 @@ def main() -> None:
 
         if args.recompute_all:
             print("[INIT] Recomputing all validations...")
+            log_event("INFO", "validation_engine", "Recomputing all validations")
             # Extract YYYY-MM-DD from filenames like YYYY-MM-DD-HHMMSS.json or YYYY-MM-DD.json
             pred_dates = {
                 os.path.splitext(f)[0][:10]
@@ -378,17 +397,19 @@ def main() -> None:
                 if f.endswith(".json")
             }
             common_dates = sorted(list(pred_dates.intersection(market_dates)))
+            log_event("INFO", "validation_engine", f"Found {len(common_dates)} common dates for recomputation")
             for d in common_dates:
                 run_daily_validation(d)
         else:
             date_str = args.date or (datetime.now(timezone.utc) + ICT_OFFSET).strftime("%Y-%m-%d")
+            log_event("INFO", "validation_engine", f"Running validation for {date_str}")
             run_daily_validation(date_str)
 
         update_aggregate_metrics()
         print("[DONE] Validation engine execution complete.")
+        log_event("INFO", "validation_engine", "Execution complete")
     except Exception as e:
         error_msg = f"Validation engine execution failed: {e}"
-        print(f"[ERROR] {error_msg}")
         log_failure("validation_engine", error_msg)
         sys.exit(1)
 
