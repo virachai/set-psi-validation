@@ -341,6 +341,12 @@ def update_aggregate_metrics() -> None:
         .to_dict(orient="records"),
     }
 
+    # Generate timestamped filename
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    report_filename = f"metrics-{timestamp}.json"
+    save_json(os.path.join(REPORTS_DIR, report_filename), metrics_report)
+
+    # Maintain a symlink/copy for the latest report for dashboard compatibility
     save_json(os.path.join(REPORTS_DIR, "metrics.json"), metrics_report)
 
 
