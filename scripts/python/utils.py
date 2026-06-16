@@ -17,7 +17,7 @@ def log_event(
 ):
     """Logs a structured event to a JSONL file."""
     os.makedirs(LOG_DIR, exist_ok=True)
-    entry = {
+    entry: dict[str, Any] = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "level": level.upper(),
         "module": module,

@@ -19,6 +19,7 @@ from capture_market import (
 
 # --- extract_market_prices ---
 
+
 class TestExtractMarketPrices:
     def test_normal_prices(self):
         eod = {"open": 100.0, "close": 105.0, "high": 110.0, "low": 95.0}

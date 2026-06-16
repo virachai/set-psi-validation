@@ -210,6 +210,12 @@ class TestThreeWindowValidation:
         assert "by_window" in metrics_data["metrics"]
         by_window = metrics_data["metrics"]["by_window"]
 
+        assert by_window["am"]["overall_accuracy"] == 1.0
+        assert by_window["am"]["total_count"] == 1
+        assert by_window["pm"]["overall_accuracy"] == 0.0
+        assert by_window["pm"]["total_count"] == 1
+        assert by_window["full_day"]["total_count"] == 0
+
     def test_update_aggregate_metrics_rolling_and_hit_rates(self):
         # Create 10 days of data to test rolling 7D
         for i in range(1, 11):
@@ -240,10 +246,12 @@ class TestThreeWindowValidation:
         assert metrics["overall_accuracy"] == 0.5
         # Rolling 7D at day 10: days 4,5 (correct) and 6,7,8,9,10 (incorrect) -> 2/7 approx 0.2857
         assert round(metrics["rolling_7d"], 4) == round(2 / 7, 4)
-        
+
         # Hit rates
-        assert metrics["hit_rates"]["Bullish"] == 1.0 # All predicted bullish when actual was bullish were correct
-        assert metrics["hit_rates"]["Bearish"] == 0.0 # All actual bearish were predicted bullish
+        assert (
+            metrics["hit_rates"]["Bullish"] == 1.0
+        )  # All predicted bullish when actual was bullish were correct
+        assert metrics["hit_rates"]["Bearish"] == 0.0  # All actual bearish were predicted bullish
 
     def test_empty_validation_dir(self):
         """Should handle empty directory gracefully."""
@@ -266,12 +274,12 @@ class TestThreeWindowValidation:
                 },
                 f,
             )
-        
+
         update_aggregate_metrics()
         metrics_file = os.path.join(self.rep_dir, "metrics.json")
         with open(metrics_file, "r") as f:
             data = json.load(f)
-        
+
         # Unclassified is not in VALID_REGIMES so it won't be in hit_rates or confusion_matrix rows
         # but it will be in the actuals if it was an actual regime.
         # Here it was predicted.

@@ -94,7 +94,7 @@ def save_json(filepath: str, data: Any) -> None:
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
-    
+
     msg = f"Written to {filepath}"
     print(f"[SAVE] {msg}")
     log_event("INFO", "validation_engine", msg)
@@ -181,7 +181,9 @@ def run_daily_validation(date_str: str) -> list[Dict[str, Any]]:
 
         prediction = load_json(pred_path)
         if not prediction:
-            log_event("WARN", "validation_engine", f"Missing prediction data for {date_str} ({session})")
+            log_event(
+                "WARN", "validation_engine", f"Missing prediction data for {date_str} ({session})"
+            )
             continue
 
         predicted_regime = prediction.get("predictedRegime")
@@ -191,17 +193,20 @@ def run_daily_validation(date_str: str) -> list[Dict[str, Any]]:
                     predicted_regime = vm.get("value")
 
         if not predicted_regime:
-            log_event("ERROR", "validation_engine", f"Could not extract predicted regime from {pred_path}")
+            log_event(
+                "ERROR", "validation_engine", f"Could not extract predicted regime from {pred_path}"
+            )
             continue
 
         is_correct = compare_regimes(predicted_regime, actual_regime)
         deviation = compute_deviation_score(predicted_regime, actual_regime)
 
-        log_event("INFO", "validation_engine", f"Validated {date_str} ({session})", {
-            "predicted": predicted_regime,
-            "actual": actual_regime,
-            "is_correct": is_correct
-        })
+        log_event(
+            "INFO",
+            "validation_engine",
+            f"Validated {date_str} ({session})",
+            {"predicted": predicted_regime, "actual": actual_regime, "is_correct": is_correct},
+        )
 
         now_ict = datetime.now(timezone.utc) + ICT_OFFSET
         timestamp_iso = now_ict.strftime("%Y-%m-%dT%H:%M:%S+07:00")
@@ -397,7 +402,11 @@ def main() -> None:
                 if f.endswith(".json")
             }
             common_dates = sorted(list(pred_dates.intersection(market_dates)))
-            log_event("INFO", "validation_engine", f"Found {len(common_dates)} common dates for recomputation")
+            log_event(
+                "INFO",
+                "validation_engine",
+                f"Found {len(common_dates)} common dates for recomputation",
+            )
             for d in common_dates:
                 run_daily_validation(d)
         else:

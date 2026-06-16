@@ -44,7 +44,9 @@ VALID_REGIMES = ["Bullish", "Bearish", "Sideways", "Risk-Off", "Crisis"]
 SETSMART_BASE_URL = "https://www.setsmart.com"
 SETSMART_API_KEY = os.getenv("SETSMART_API_KEY")
 if SETSMART_API_KEY:
-    masked_key = f"{SETSMART_API_KEY[:3]}***{SETSMART_API_KEY[-3:]}" if len(SETSMART_API_KEY) > 6 else "***"
+    masked_key = (
+        f"{SETSMART_API_KEY[:3]}***{SETSMART_API_KEY[-3:]}" if len(SETSMART_API_KEY) > 6 else "***"
+    )
     print(f"[DEBUG] SETSMART_API_KEY loaded: {masked_key}")
 SET_INDEX_SYMBOL = os.getenv("SET_INDEX_SYMBOL", "SET")
 
@@ -93,9 +95,11 @@ def fetch_setsmart_eod(symbol: str, date: str) -> Optional[dict]:
         return None
 
     if isinstance(data, list) and len(data) > 0:
-        log_event("INFO", "capture_market", f"Successfully fetched data for {symbol}", {"date": date})
+        log_event(
+            "INFO", "capture_market", f"Successfully fetched data for {symbol}", {"date": date}
+        )
         return data[0]
-    
+
     log_event("WARN", "capture_market", f"No EOD data returned for {symbol} on {date}")
     return None
 
@@ -116,7 +120,7 @@ def extract_market_prices(eod: dict) -> tuple[float, float, float]:
         volatility = round((high - low) / open_price, 4)
     else:
         volatility = 0.01  # Default fallback volatility
-    
+
     volatility = min(volatility, 0.05)
 
     return open_price, close_price, volatility
@@ -185,7 +189,7 @@ def save_market_data(record: dict, date_str: str) -> str:
     filepath = os.path.join(MARKET_DATA_DIR, f"{dt}.json")
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(record, f, indent=2, ensure_ascii=False)
-    
+
     msg = f"Market data written to {filepath}"
     print(f"[SAVE] {msg}")
     log_event("INFO", "capture_market", msg, {"date": date_str, "status": record.get("status")})
@@ -245,12 +249,17 @@ def handle_atc(
     return_pct = round((atc_price - ato_price) / ato_price * 100, 2) if ato_price > 0 else 0.0
     actual_regime = derive_actual_regime(ato_price, atc_price, volatility_index, threshold_mean)
 
-    log_event("INFO", "capture_market", f"Handling ATC for {date_str}", {
-        "ato_price": ato_price,
-        "atc_price": atc_price,
-        "return_pct": return_pct,
-        "regime": actual_regime
-    })
+    log_event(
+        "INFO",
+        "capture_market",
+        f"Handling ATC for {date_str}",
+        {
+            "ato_price": ato_price,
+            "atc_price": atc_price,
+            "return_pct": return_pct,
+            "regime": actual_regime,
+        },
+    )
 
     now_ict = datetime.now(timezone.utc) + ICT_OFFSET
     period_start = f"{date_str}T10:00:00+07:00"
@@ -349,7 +358,12 @@ def main() -> None:
 
     try:
         if args.symbol:
-            log_event("INFO", "capture_market", f"Starting SETSMART fetch for {args.symbol}", {"mode": args.mode})
+            log_event(
+                "INFO",
+                "capture_market",
+                f"Starting SETSMART fetch for {args.symbol}",
+                {"mode": args.mode},
+            )
             eod = fetch_setsmart_eod(args.symbol, date_str)
             if eod is None:
                 # fetch_setsmart_eod handles skip messages and logging
