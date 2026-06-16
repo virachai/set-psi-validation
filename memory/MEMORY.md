@@ -13,3 +13,4 @@
 - [Taxonomy Renamed & CI Green](20260614-200000-taxonomy-rename-ci-green.md) - Renamed to naming convention, all refs updated, API and CI verified passing.
 - [Validation Engine Three-Window Analysis](20260615-195500-validation-engine-three-window.md) - Granular intraday (AM/PM) regime validation engine and rolling metrics aggregator.
 - [2026-06-15 Market Cycle Execution Report](20260615-203000-market-cycle-report.md) - Automated market cycle execution report.
+- [Memory: Community Standards Adoption](20260616-150000-community-standards-adoption.md) - Adoption of MIT license and community governance files.
