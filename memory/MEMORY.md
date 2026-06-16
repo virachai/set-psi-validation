@@ -14,3 +14,4 @@
 - [Validation Engine Three-Window Analysis](20260615-195500-validation-engine-three-window.md) - Granular intraday (AM/PM) regime validation engine and rolling metrics aggregator.
 - [2026-06-15 Market Cycle Execution Report](20260615-203000-market-cycle-report.md) - Automated market cycle execution report.
 - [Memory: Community Standards Adoption](20260616-150000-community-standards-adoption.md) - Adoption of MIT license and community governance files.
+- [Workflow Scheduling Fixed](20260616-193000-workflow-scheduling-fixed.md) - Fixed incorrect cron times and Lookahead Bias error handling.

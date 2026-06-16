@@ -102,3 +102,101 @@
 {"timestamp": "2026-06-16T06:22:37.697046+00:00", "level": "INFO", "module": "validation_engine", "message": "Written to reports\\metrics.json"}
 {"timestamp": "2026-06-16T06:22:37.703343+00:00", "level": "INFO", "module": "validation_engine", "message": "Metrics aggregation complete."}
 {"timestamp": "2026-06-16T06:22:37.707367+00:00", "level": "INFO", "module": "validation_engine", "message": "Execution complete"}
+{"timestamp": "2026-06-16T12:43:04.150777+00:00", "level": "WARNING", "module": "predictions_loader", "message": "Lookahead Bias: am prediction captured at 11:00:00 ICT (cutoff 10:00:00)"}
+{"timestamp": "2026-06-16T12:43:04.151708+00:00", "level": "WARNING", "module": "predictions_loader", "message": "Lookahead Bias: pm prediction captured at 15:00:00 ICT (cutoff 14:30:00)"}
+{"timestamp": "2026-06-16T12:43:21.180941+00:00", "level": "INFO", "module": "capture_market", "message": "Handling ATO for 2026-06-14", "context": {"ato_price": 1450.2}}
+{"timestamp": "2026-06-16T12:43:21.210350+00:00", "level": "INFO", "module": "capture_market", "message": "Handling ATO for 2026-06-14", "context": {"ato_price": 0.0}}
+{"timestamp": "2026-06-16T12:43:21.218766+00:00", "level": "INFO", "module": "capture_market", "message": "Handling ATO for 2026-06-14", "context": {"ato_price": 1500.0}}
+{"timestamp": "2026-06-16T12:43:21.866075+00:00", "level": "WARNING", "module": "predictions_loader", "message": "Lookahead Bias: am prediction captured at 11:00:00 ICT (cutoff 10:00:00)"}
+{"timestamp": "2026-06-16T12:43:21.875988+00:00", "level": "WARNING", "module": "predictions_loader", "message": "Lookahead Bias: pm prediction captured at 15:00:00 ICT (cutoff 14:30:00)"}
+{"timestamp": "2026-06-16T12:43:21.948156+00:00", "level": "INFO", "module": "validation_engine", "message": "Validated 2026-06-16 (am)", "context": {"predicted": "Bullish", "actual": "Bullish", "is_correct": true}}
+{"timestamp": "2026-06-16T12:43:21.960763+00:00", "level": "INFO", "module": "validation_engine", "message": "Written to C:\\Users\\User\\AppData\\Local\\Temp\\tmpcp1rdjlh\\validation\\2026-06-16-090000-am.json"}
+{"timestamp": "2026-06-16T12:43:21.968503+00:00", "level": "INFO", "module": "validation_engine", "message": "Validated 2026-06-16 (pm)", "context": {"predicted": "Bearish", "actual": "Bullish", "is_correct": false}}
+{"timestamp": "2026-06-16T12:43:21.977390+00:00", "level": "INFO", "module": "validation_engine", "message": "Written to C:\\Users\\User\\AppData\\Local\\Temp\\tmpcp1rdjlh\\validation\\2026-06-16-140000-pm.json"}
+{"timestamp": "2026-06-16T12:43:21.988533+00:00", "level": "INFO", "module": "validation_engine", "message": "Validated 2026-06-16 (full_day)", "context": {"predicted": "Bullish", "actual": "Bullish", "is_correct": true}}
+{"timestamp": "2026-06-16T12:43:22.019535+00:00", "level": "INFO", "module": "validation_engine", "message": "Written to C:\\Users\\User\\AppData\\Local\\Temp\\tmpcp1rdjlh\\validation\\2026-06-16-090000-full_day.json"}
+{"timestamp": "2026-06-16T12:43:22.044801+00:00", "level": "INFO", "module": "validation_engine", "message": "Aggregating 2 records..."}
+{"timestamp": "2026-06-16T12:43:22.230408+00:00", "level": "INFO", "module": "validation_engine", "message": "Written to C:\\Users\\User\\AppData\\Local\\Temp\\tmpya__dmru\\reports\\metrics-20260616-124322.json"}
+{"timestamp": "2026-06-16T12:43:22.239352+00:00", "level": "INFO", "module": "validation_engine", "message": "Written to C:\\Users\\User\\AppData\\Local\\Temp\\tmpya__dmru\\reports\\metrics.json"}
+{"timestamp": "2026-06-16T12:43:22.244760+00:00", "level": "INFO", "module": "validation_engine", "message": "Metrics aggregation complete."}
+{"timestamp": "2026-06-16T12:43:22.294037+00:00", "level": "INFO", "module": "validation_engine", "message": "Aggregating 10 records..."}
+{"timestamp": "2026-06-16T12:43:22.326982+00:00", "level": "INFO", "module": "validation_engine", "message": "Written to C:\\Users\\User\\AppData\\Local\\Temp\\tmpopyj7yky\\reports\\metrics-20260616-124322.json"}
+{"timestamp": "2026-06-16T12:43:22.334117+00:00", "level": "INFO", "module": "validation_engine", "message": "Written to C:\\Users\\User\\AppData\\Local\\Temp\\tmpopyj7yky\\reports\\metrics.json"}
+{"timestamp": "2026-06-16T12:43:22.344486+00:00", "level": "INFO", "module": "validation_engine", "message": "Metrics aggregation complete."}
+{"timestamp": "2026-06-16T12:43:22.377305+00:00", "level": "WARN", "module": "validation_engine", "message": "No validation records found to aggregate."}
+{"timestamp": "2026-06-16T12:43:22.398361+00:00", "level": "INFO", "module": "validation_engine", "message": "Aggregating 1 records..."}
+{"timestamp": "2026-06-16T12:43:22.460616+00:00", "level": "INFO", "module": "validation_engine", "message": "Written to C:\\Users\\User\\AppData\\Local\\Temp\\tmp11tdn5b7\\reports\\metrics-20260616-124322.json"}
+{"timestamp": "2026-06-16T12:43:22.472419+00:00", "level": "INFO", "module": "validation_engine", "message": "Written to C:\\Users\\User\\AppData\\Local\\Temp\\tmp11tdn5b7\\reports\\metrics.json"}
+{"timestamp": "2026-06-16T12:43:22.484073+00:00", "level": "INFO", "module": "validation_engine", "message": "Metrics aggregation complete."}
+{"timestamp": "2026-06-16T12:45:28.021245+00:00", "level": "WARNING", "module": "predictions_loader", "message": "Lookahead Bias: full_day prediction captured at 19:45:29 ICT (cutoff 10:00:00)"}
+{"timestamp": "2026-06-16T12:45:29.412409+00:00", "level": "INFO", "module": "validation_engine", "message": "Running validation for 2026-06-16"}
+{"timestamp": "2026-06-16T12:45:29.416858+00:00", "level": "WARN", "module": "validation_engine", "message": "Missing market data path for 2026-06-16"}
+{"timestamp": "2026-06-16T12:45:29.422223+00:00", "level": "INFO", "module": "validation_engine", "message": "Aggregating 6 records..."}
+{"timestamp": "2026-06-16T12:45:29.464011+00:00", "level": "INFO", "module": "validation_engine", "message": "Written to reports\\metrics-20260616-124529.json"}
+{"timestamp": "2026-06-16T12:45:29.469538+00:00", "level": "INFO", "module": "validation_engine", "message": "Written to reports\\metrics.json"}
+{"timestamp": "2026-06-16T12:45:29.474077+00:00", "level": "INFO", "module": "validation_engine", "message": "Metrics aggregation complete."}
+{"timestamp": "2026-06-16T12:45:29.481546+00:00", "level": "INFO", "module": "validation_engine", "message": "Execution complete"}
+{"timestamp": "2026-06-16T12:45:49.949984+00:00", "level": "INFO", "module": "capture_market", "message": "Handling ATO for 2026-06-14", "context": {"ato_price": 1450.2}}
+{"timestamp": "2026-06-16T12:45:49.965449+00:00", "level": "INFO", "module": "capture_market", "message": "Handling ATO for 2026-06-14", "context": {"ato_price": 0.0}}
+{"timestamp": "2026-06-16T12:45:49.980971+00:00", "level": "INFO", "module": "capture_market", "message": "Handling ATO for 2026-06-14", "context": {"ato_price": 1500.0}}
+{"timestamp": "2026-06-16T12:45:50.517321+00:00", "level": "WARNING", "module": "predictions_loader", "message": "Lookahead Bias: am prediction captured at 11:00:00 ICT (cutoff 10:00:00)"}
+{"timestamp": "2026-06-16T12:45:50.533284+00:00", "level": "WARNING", "module": "predictions_loader", "message": "Lookahead Bias: pm prediction captured at 15:00:00 ICT (cutoff 14:30:00)"}
+{"timestamp": "2026-06-16T12:45:50.643958+00:00", "level": "INFO", "module": "validation_engine", "message": "Validated 2026-06-16 (am)", "context": {"predicted": "Bullish", "actual": "Bullish", "is_correct": true}}
+{"timestamp": "2026-06-16T12:45:50.650342+00:00", "level": "INFO", "module": "validation_engine", "message": "Written to C:\\Users\\User\\AppData\\Local\\Temp\\tmpz_d4w3p2\\validation\\2026-06-16-090000-am.json"}
+{"timestamp": "2026-06-16T12:45:50.662916+00:00", "level": "INFO", "module": "validation_engine", "message": "Validated 2026-06-16 (pm)", "context": {"predicted": "Bearish", "actual": "Bullish", "is_correct": false}}
+{"timestamp": "2026-06-16T12:45:50.671792+00:00", "level": "INFO", "module": "validation_engine", "message": "Written to C:\\Users\\User\\AppData\\Local\\Temp\\tmpz_d4w3p2\\validation\\2026-06-16-140000-pm.json"}
+{"timestamp": "2026-06-16T12:45:50.681567+00:00", "level": "INFO", "module": "validation_engine", "message": "Validated 2026-06-16 (full_day)", "context": {"predicted": "Bullish", "actual": "Bullish", "is_correct": true}}
+{"timestamp": "2026-06-16T12:45:50.691696+00:00", "level": "INFO", "module": "validation_engine", "message": "Written to C:\\Users\\User\\AppData\\Local\\Temp\\tmpz_d4w3p2\\validation\\2026-06-16-090000-full_day.json"}
+{"timestamp": "2026-06-16T12:45:50.713117+00:00", "level": "INFO", "module": "validation_engine", "message": "Aggregating 2 records..."}
+{"timestamp": "2026-06-16T12:45:50.755219+00:00", "level": "INFO", "module": "validation_engine", "message": "Written to C:\\Users\\User\\AppData\\Local\\Temp\\tmpj46x79oa\\reports\\metrics-20260616-124550.json"}
+{"timestamp": "2026-06-16T12:45:50.763026+00:00", "level": "INFO", "module": "validation_engine", "message": "Written to C:\\Users\\User\\AppData\\Local\\Temp\\tmpj46x79oa\\reports\\metrics.json"}
+{"timestamp": "2026-06-16T12:45:50.768099+00:00", "level": "INFO", "module": "validation_engine", "message": "Metrics aggregation complete."}
+{"timestamp": "2026-06-16T12:45:50.821117+00:00", "level": "INFO", "module": "validation_engine", "message": "Aggregating 10 records..."}
+{"timestamp": "2026-06-16T12:45:50.853152+00:00", "level": "INFO", "module": "validation_engine", "message": "Written to C:\\Users\\User\\AppData\\Local\\Temp\\tmpva0r76vv\\reports\\metrics-20260616-124550.json"}
+{"timestamp": "2026-06-16T12:45:50.861027+00:00", "level": "INFO", "module": "validation_engine", "message": "Written to C:\\Users\\User\\AppData\\Local\\Temp\\tmpva0r76vv\\reports\\metrics.json"}
+{"timestamp": "2026-06-16T12:45:50.866194+00:00", "level": "INFO", "module": "validation_engine", "message": "Metrics aggregation complete."}
+{"timestamp": "2026-06-16T12:45:50.883301+00:00", "level": "WARN", "module": "validation_engine", "message": "No validation records found to aggregate."}
+{"timestamp": "2026-06-16T12:45:50.907973+00:00", "level": "INFO", "module": "validation_engine", "message": "Aggregating 1 records..."}
+{"timestamp": "2026-06-16T12:45:50.947751+00:00", "level": "INFO", "module": "validation_engine", "message": "Written to C:\\Users\\User\\AppData\\Local\\Temp\\tmp9d6x9bft\\reports\\metrics-20260616-124550.json"}
+{"timestamp": "2026-06-16T12:45:50.962463+00:00", "level": "INFO", "module": "validation_engine", "message": "Written to C:\\Users\\User\\AppData\\Local\\Temp\\tmp9d6x9bft\\reports\\metrics.json"}
+{"timestamp": "2026-06-16T12:45:50.967951+00:00", "level": "INFO", "module": "validation_engine", "message": "Metrics aggregation complete."}
+{"timestamp": "2026-06-16T12:45:52.467412+00:00", "level": "WARNING", "module": "predictions_loader", "message": "Lookahead Bias: full_day prediction captured at 19:45:29 ICT (cutoff 10:00:00)"}
+{"timestamp": "2026-06-16T12:45:53.629914+00:00", "level": "INFO", "module": "validation_engine", "message": "Running validation for 2026-06-16"}
+{"timestamp": "2026-06-16T12:45:53.636688+00:00", "level": "WARN", "module": "validation_engine", "message": "Missing market data path for 2026-06-16"}
+{"timestamp": "2026-06-16T12:45:53.643596+00:00", "level": "INFO", "module": "validation_engine", "message": "Aggregating 6 records..."}
+{"timestamp": "2026-06-16T12:45:53.679756+00:00", "level": "INFO", "module": "validation_engine", "message": "Written to reports\\metrics-20260616-124553.json"}
+{"timestamp": "2026-06-16T12:45:53.686673+00:00", "level": "INFO", "module": "validation_engine", "message": "Written to reports\\metrics.json"}
+{"timestamp": "2026-06-16T12:45:53.693575+00:00", "level": "INFO", "module": "validation_engine", "message": "Metrics aggregation complete."}
+{"timestamp": "2026-06-16T12:45:53.699838+00:00", "level": "INFO", "module": "validation_engine", "message": "Execution complete"}
+{"timestamp": "2026-06-16T12:46:06.614663+00:00", "level": "INFO", "module": "capture_market", "message": "Handling ATO for 2026-06-14", "context": {"ato_price": 1450.2}}
+{"timestamp": "2026-06-16T12:46:06.627484+00:00", "level": "INFO", "module": "capture_market", "message": "Handling ATO for 2026-06-14", "context": {"ato_price": 0.0}}
+{"timestamp": "2026-06-16T12:46:06.639385+00:00", "level": "INFO", "module": "capture_market", "message": "Handling ATO for 2026-06-14", "context": {"ato_price": 1500.0}}
+{"timestamp": "2026-06-16T12:46:07.098077+00:00", "level": "WARNING", "module": "predictions_loader", "message": "Lookahead Bias: am prediction captured at 11:00:00 ICT (cutoff 10:00:00)"}
+{"timestamp": "2026-06-16T12:46:07.109268+00:00", "level": "WARNING", "module": "predictions_loader", "message": "Lookahead Bias: pm prediction captured at 15:00:00 ICT (cutoff 14:30:00)"}
+{"timestamp": "2026-06-16T12:46:07.225212+00:00", "level": "INFO", "module": "validation_engine", "message": "Validated 2026-06-16 (am)", "context": {"predicted": "Bullish", "actual": "Bullish", "is_correct": true}}
+{"timestamp": "2026-06-16T12:46:07.236087+00:00", "level": "INFO", "module": "validation_engine", "message": "Written to C:\\Users\\User\\AppData\\Local\\Temp\\tmptoc049md\\validation\\2026-06-16-090000-am.json"}
+{"timestamp": "2026-06-16T12:46:07.244305+00:00", "level": "INFO", "module": "validation_engine", "message": "Validated 2026-06-16 (pm)", "context": {"predicted": "Bearish", "actual": "Bullish", "is_correct": false}}
+{"timestamp": "2026-06-16T12:46:07.253684+00:00", "level": "INFO", "module": "validation_engine", "message": "Written to C:\\Users\\User\\AppData\\Local\\Temp\\tmptoc049md\\validation\\2026-06-16-140000-pm.json"}
+{"timestamp": "2026-06-16T12:46:07.261602+00:00", "level": "INFO", "module": "validation_engine", "message": "Validated 2026-06-16 (full_day)", "context": {"predicted": "Bullish", "actual": "Bullish", "is_correct": true}}
+{"timestamp": "2026-06-16T12:46:07.270181+00:00", "level": "INFO", "module": "validation_engine", "message": "Written to C:\\Users\\User\\AppData\\Local\\Temp\\tmptoc049md\\validation\\2026-06-16-090000-full_day.json"}
+{"timestamp": "2026-06-16T12:46:07.288797+00:00", "level": "INFO", "module": "validation_engine", "message": "Aggregating 2 records..."}
+{"timestamp": "2026-06-16T12:46:07.329600+00:00", "level": "INFO", "module": "validation_engine", "message": "Written to C:\\Users\\User\\AppData\\Local\\Temp\\tmpv8593zbj\\reports\\metrics-20260616-124607.json"}
+{"timestamp": "2026-06-16T12:46:07.337257+00:00", "level": "INFO", "module": "validation_engine", "message": "Written to C:\\Users\\User\\AppData\\Local\\Temp\\tmpv8593zbj\\reports\\metrics.json"}
+{"timestamp": "2026-06-16T12:46:07.342912+00:00", "level": "INFO", "module": "validation_engine", "message": "Metrics aggregation complete."}
+{"timestamp": "2026-06-16T12:46:07.388699+00:00", "level": "INFO", "module": "validation_engine", "message": "Aggregating 10 records..."}
+{"timestamp": "2026-06-16T12:46:07.418276+00:00", "level": "INFO", "module": "validation_engine", "message": "Written to C:\\Users\\User\\AppData\\Local\\Temp\\tmpobppvlmg\\reports\\metrics-20260616-124607.json"}
+{"timestamp": "2026-06-16T12:46:07.425532+00:00", "level": "INFO", "module": "validation_engine", "message": "Written to C:\\Users\\User\\AppData\\Local\\Temp\\tmpobppvlmg\\reports\\metrics.json"}
+{"timestamp": "2026-06-16T12:46:07.431345+00:00", "level": "INFO", "module": "validation_engine", "message": "Metrics aggregation complete."}
+{"timestamp": "2026-06-16T12:46:07.447861+00:00", "level": "WARN", "module": "validation_engine", "message": "No validation records found to aggregate."}
+{"timestamp": "2026-06-16T12:46:07.468408+00:00", "level": "INFO", "module": "validation_engine", "message": "Aggregating 1 records..."}
+{"timestamp": "2026-06-16T12:46:07.503434+00:00", "level": "INFO", "module": "validation_engine", "message": "Written to C:\\Users\\User\\AppData\\Local\\Temp\\tmpv6w_d098\\reports\\metrics-20260616-124607.json"}
+{"timestamp": "2026-06-16T12:46:07.510538+00:00", "level": "INFO", "module": "validation_engine", "message": "Written to C:\\Users\\User\\AppData\\Local\\Temp\\tmpv6w_d098\\reports\\metrics.json"}
+{"timestamp": "2026-06-16T12:46:07.517841+00:00", "level": "INFO", "module": "validation_engine", "message": "Metrics aggregation complete."}
+{"timestamp": "2026-06-16T12:46:09.654606+00:00", "level": "WARNING", "module": "predictions_loader", "message": "Lookahead Bias: full_day prediction captured at 19:46:10 ICT (cutoff 10:00:00)"}
+{"timestamp": "2026-06-16T12:46:10.756576+00:00", "level": "INFO", "module": "validation_engine", "message": "Running validation for 2026-06-16"}
+{"timestamp": "2026-06-16T12:46:10.763273+00:00", "level": "WARN", "module": "validation_engine", "message": "Missing market data path for 2026-06-16"}
+{"timestamp": "2026-06-16T12:46:10.769448+00:00", "level": "INFO", "module": "validation_engine", "message": "Aggregating 6 records..."}
+{"timestamp": "2026-06-16T12:46:10.805564+00:00", "level": "INFO", "module": "validation_engine", "message": "Written to reports\\metrics-20260616-124610.json"}
+{"timestamp": "2026-06-16T12:46:10.812766+00:00", "level": "INFO", "module": "validation_engine", "message": "Written to reports\\metrics.json"}
+{"timestamp": "2026-06-16T12:46:10.819715+00:00", "level": "INFO", "module": "validation_engine", "message": "Metrics aggregation complete."}
+{"timestamp": "2026-06-16T12:46:10.831360+00:00", "level": "INFO", "module": "validation_engine", "message": "Execution complete"}

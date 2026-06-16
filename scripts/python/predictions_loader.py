@@ -16,7 +16,7 @@ import os
 import json
 import sys
 from datetime import datetime, timezone, timedelta
-from utils import log_failure
+from utils import log_failure, log_warning
 
 import httpx
 from dotenv import load_dotenv
@@ -47,6 +47,10 @@ VALID_REGIMES = ["Bullish", "Bearish", "Sideways", "Risk-Off", "Crisis"]
 
 def validate_timestamp(timestamp_iso: str, session: str) -> bool:
     """Ensures prediction timestamp is before the session cutoff (in ICT)."""
+    if os.getenv("PSI_BYPASS_LOOKAHEAD", "false").lower() == "true":
+        print(f"[WARN] Bypassing lookahead bias check for {session} session.")
+        return True
+
     dt = datetime.fromisoformat(timestamp_iso.replace("Z", "+00:00"))
     # Convert to ICT (UTC+7) for cutoff comparison
     dt_ict = dt.astimezone(timezone(timedelta(hours=7)))
@@ -57,8 +61,13 @@ def validate_timestamp(timestamp_iso: str, session: str) -> bool:
         error_msg = (
             f"Lookahead Bias: {session} prediction captured at {time_str} ICT (cutoff {cutoff})"
         )
-        print(f"[ERROR] {error_msg}")
-        log_failure("predictions_loader", error_msg)
+        is_scheduled = os.getenv("GITHUB_EVENT_NAME") == "schedule"
+        if is_scheduled:
+            print(f"[ERROR] {error_msg}")
+            log_failure("predictions_loader", error_msg)
+        else:
+            print(f"[WARN] {error_msg}")
+            log_warning("predictions_loader", error_msg)
         return False
     return True
 

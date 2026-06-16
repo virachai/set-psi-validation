@@ -45,3 +45,8 @@ def log_failure(component: str, error_msg: str):
     log_event("ERROR", component, error_msg, log_file=FAILURE_LOG)
     # Also log to app log for continuity
     log_event("ERROR", component, error_msg)
+
+
+def log_warning(component: str, warn_msg: str):
+    """Logs a warning event to the app log."""
+    log_event("WARNING", component, warn_msg)
