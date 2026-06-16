@@ -13,3 +13,5 @@
 {"timestamp": "2026-06-15T13:24:33.009483+00:00", "component": "predictions_loader", "error": "Lookahead Bias: full_day prediction captured at 20:24:33 ICT (cutoff 10:00:00)"}
 {"timestamp": "2026-06-15T13:25:46.105634+00:00", "component": "predictions_loader", "error": "Lookahead Bias: full_day prediction captured at 20:25:46 ICT (cutoff 10:00:00)"}
 {"timestamp": "2026-06-15T13:27:25.852066+00:00", "component": "predictions_loader", "error": "Lookahead Bias: am prediction captured at 20:27:25 ICT (cutoff 10:00:00)"}
+{"timestamp": "2026-06-16T04:43:56.868022+00:00", "component": "predictions_loader", "error": "Lookahead Bias: full_day prediction captured at 11:43:57 ICT (cutoff 10:00:00)"}
+{"timestamp": "2026-06-16T04:44:40.234966+00:00", "component": "predictions_loader", "error": "Lookahead Bias: full_day prediction captured at 11:44:41 ICT (cutoff 10:00:00)"}
