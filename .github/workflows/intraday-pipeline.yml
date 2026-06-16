@@ -117,6 +117,12 @@ jobs:
           echo 'Adding schema.org @context/@type to data artifacts...'
           uv run scripts/python/jsonld_enricher.py
 
+      - name: Pre-commit Data Validation
+        if: success()
+        run: |
+          echo 'Verifying data integrity and logic before commit...'
+          uv run pytest tests/python/test_capture_market.py tests/python/test_validation_engine.py -q
+
       - name: Commit and Push changes
         if: success()
         run: |
@@ -127,3 +133,4 @@ jobs:
           git add catalog.json docs/010-regime-taxonomy-v01.json || true
           git diff --quiet && git diff --staged --quiet || git commit -m "Automated market data update: $(date +'%Y-%m-%d') (${{ github.event_name }})"
           git push
+
