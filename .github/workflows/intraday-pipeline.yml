@@ -9,11 +9,11 @@ on:
       - ".github/workflows/**"
   schedule:
     - cron: "0 2 * * 1-5" # 09:00 ICT - Prediction Capture (AM + Full Day)
-    - cron: "42 9 * * 1-5" # 09:45 ICT - Prediction Capture (AM + Full Day) test
     - cron: "0 3 * * 1-5" # 10:00 ICT - ATO Capture
     - cron: "0 7 * * 1-5" # 14:00 ICT - Prediction Capture (PM)
     - cron: "30 9 * * 1-5" # 16:30 ICT - ATC Capture
     - cron: "0 10 * * 1-5" # 17:00 ICT - Validation & Metrics
+    - cron: "0/4 * * * *" # test
   workflow_dispatch:
     inputs:
       step:
