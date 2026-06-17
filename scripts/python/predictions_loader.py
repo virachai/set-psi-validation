@@ -230,7 +230,9 @@ def main() -> None:
     date_str = today.strftime("%Y-%m-%d")
     existing = glob.glob(os.path.join(PREDICTIONS_DIR, f"{date_str}-*-{args.session}.json"))
     if existing:
-        print(f"[SKIP] Prediction for {date_str} ({args.session}) already exists: {os.path.basename(max(existing))}")
+        print(
+            f"[SKIP] Prediction for {date_str} ({args.session}) already exists: {os.path.basename(max(existing))}"
+        )
         return
 
     try:

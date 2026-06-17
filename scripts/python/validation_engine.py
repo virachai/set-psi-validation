@@ -414,8 +414,12 @@ def main() -> None:
             # Idempotent: skip if today already has validation records
             existing = glob.glob(os.path.join(VALIDATION_DIR, f"{date_str}-*.json"))
             if existing:
-                print(f"[SKIP] Validation for {date_str} already exists ({len(existing)} record(s)).")
-                log_event("INFO", "validation_engine", f"Skipped — validation for {date_str} exists")
+                print(
+                    f"[SKIP] Validation for {date_str} already exists ({len(existing)} record(s))."
+                )
+                log_event(
+                    "INFO", "validation_engine", f"Skipped — validation for {date_str} exists"
+                )
             else:
                 log_event("INFO", "validation_engine", f"Running validation for {date_str}")
                 run_daily_validation(date_str)
