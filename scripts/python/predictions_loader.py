@@ -61,7 +61,6 @@ def validate_timestamp(timestamp_iso: str, session: str) -> bool:
         error_msg = (
             f"Lookahead Bias: {session} prediction captured at {time_str} ICT (cutoff {cutoff})"
         )
-        is_scheduled = os.getenv("GITHUB_EVENT_NAME") == "schedule"
         print(f"[WARN] {error_msg}")
         log_warning("predictions_loader", error_msg)
         return False
