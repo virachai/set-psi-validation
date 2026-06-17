@@ -8,11 +8,7 @@ on:
       - "pyproject.toml"
       - ".github/workflows/**"
   schedule:
-    - cron: "0 2 * * 1-5" # 09:00 ICT - Prediction Capture (AM + Full Day)
-    - cron: "0 3 * * 1-5" # 10:00 ICT - ATO Capture
-    - cron: "0 7 * * 1-5" # 14:00 ICT - Prediction Capture (PM)
-    - cron: "30 9 * * 1-5" # 16:30 ICT - ATC Capture
-    - cron: "0 10 * * 1-5" # 17:00 ICT - Validation & Metrics
+    - cron: "*/30 1-11 * * 1-5" # Every 30 min 08:00-18:59 ICT — wide window to tolerate Actions queue delay
   workflow_dispatch:
     inputs:
       step:
@@ -63,16 +59,15 @@ jobs:
             echo "Trigger: Push (all)"
             echo 'step=all' >> $GITHUB_OUTPUT
           else
-            # Dual-Zone Check: ICT (Bangkok) and UTC (System)
+            # Range-based windows: tolerate cron delay up to several hours
             H_ICT=$(TZ='Asia/Bangkok' date +%H)
-            H_UTC=$(date -u +%H)
-            echo "Verification -> ICT: $H_ICT | UTC: $H_UTC"
+            echo "Verification -> ICT: $H_ICT"
 
-            if [[ "$H_ICT" == "09" || "$H_UTC" == "02" ]]; then echo 'step=prediction-am' >> $GITHUB_OUTPUT;
-            elif [[ "$H_ICT" == "10" || "$H_UTC" == "03" ]]; then echo 'step=ato' >> $GITHUB_OUTPUT;
-            elif [[ "$H_ICT" == "14" || "$H_UTC" == "07" ]]; then echo 'step=prediction-pm' >> $GITHUB_OUTPUT;
-            elif [[ "$H_ICT" == "16" || "$H_UTC" == "09" ]]; then echo 'step=atc' >> $GITHUB_OUTPUT;
-            elif [[ "$H_ICT" == "17" || "$H_UTC" == "10" ]]; then echo 'step=validation' >> $GITHUB_OUTPUT;
+            if [[ "$H_ICT" -ge 8 && "$H_ICT" -le 9 ]]; then echo 'step=prediction-am' >> $GITHUB_OUTPUT;
+            elif [[ "$H_ICT" -ge 10 && "$H_ICT" -le 11 ]]; then echo 'step=ato' >> $GITHUB_OUTPUT;
+            elif [[ "$H_ICT" -ge 12 && "$H_ICT" -le 15 ]]; then echo 'step=prediction-pm' >> $GITHUB_OUTPUT;
+            elif [[ "$H_ICT" == "16" ]]; then echo 'step=atc' >> $GITHUB_OUTPUT;
+            elif [[ "$H_ICT" -ge 17 && "$H_ICT" -le 18 ]]; then echo 'step=validation' >> $GITHUB_OUTPUT;
             else echo 'step=none' >> $GITHUB_OUTPUT; fi
           fi
 

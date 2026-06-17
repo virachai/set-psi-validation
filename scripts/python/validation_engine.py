@@ -411,8 +411,14 @@ def main() -> None:
                 run_daily_validation(d)
         else:
             date_str = args.date or (datetime.now(timezone.utc) + ICT_OFFSET).strftime("%Y-%m-%d")
-            log_event("INFO", "validation_engine", f"Running validation for {date_str}")
-            run_daily_validation(date_str)
+            # Idempotent: skip if today already has validation records
+            existing = glob.glob(os.path.join(VALIDATION_DIR, f"{date_str}-*.json"))
+            if existing:
+                print(f"[SKIP] Validation for {date_str} already exists ({len(existing)} record(s)).")
+                log_event("INFO", "validation_engine", f"Skipped — validation for {date_str} exists")
+            else:
+                log_event("INFO", "validation_engine", f"Running validation for {date_str}")
+                run_daily_validation(date_str)
 
         update_aggregate_metrics()
         print("[DONE] Validation engine execution complete.")

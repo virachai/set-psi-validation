@@ -18,6 +18,7 @@ Governance: Compliant with "Lean PSI Validator" principles.
 
 import os
 import json
+import glob
 import sys
 import argparse
 from datetime import datetime, timezone, timedelta
@@ -160,7 +161,6 @@ def derive_actual_regime(
 
 def load_existing(date_str: str) -> dict:
     """Loads an existing market data file, or returns a minimal skeleton."""
-    import glob
 
     files = glob.glob(os.path.join(MARKET_DATA_DIR, f"{date_str}-*.json"))
     if not files:
@@ -355,6 +355,15 @@ def main() -> None:
 
     now_ict = datetime.now(timezone.utc) + ICT_OFFSET
     date_str = now_ict.strftime("%Y-%m-%d")
+
+    # Idempotent: skip if today already has market data for this mode
+    existing = load_existing(date_str)
+    if args.mode == "ato" and existing.get("atoPrice") is not None:
+        print(f"[SKIP] ATO data for {date_str} already exists (atoPrice={existing['atoPrice']}).")
+        return
+    if args.mode == "atc" and existing.get("status") == "complete":
+        print(f"[SKIP] ATC data for {date_str} already exists (status=complete).")
+        return
 
     try:
         if args.symbol:

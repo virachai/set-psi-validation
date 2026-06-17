@@ -14,6 +14,7 @@ Governance: Compliant with "Lean PSI Validator" principles.
 
 import os
 import json
+import glob
 import sys
 from datetime import datetime, timezone, timedelta
 from utils import log_failure, log_warning
@@ -223,6 +224,14 @@ def main() -> None:
         help="Prediction session window (am, pm, full_day).",
     )
     args = parser.parse_args()
+
+    # Idempotent: skip if today already has prediction for this session
+    today = datetime.now(timezone.utc) + ICT_OFFSET
+    date_str = today.strftime("%Y-%m-%d")
+    existing = glob.glob(os.path.join(PREDICTIONS_DIR, f"{date_str}-*-{args.session}.json"))
+    if existing:
+        print(f"[SKIP] Prediction for {date_str} ({args.session}) already exists: {os.path.basename(max(existing))}")
+        return
 
     try:
         data = fetch_prediction()
