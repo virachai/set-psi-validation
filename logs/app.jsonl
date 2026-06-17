@@ -344,3 +344,4 @@
 {"timestamp": "2026-06-17T03:42:45.794230+00:00", "level": "INFO", "module": "validation_engine", "message": "Written to reports\\metrics.json"}
 {"timestamp": "2026-06-17T03:42:45.800966+00:00", "level": "INFO", "module": "validation_engine", "message": "Metrics aggregation complete."}
 {"timestamp": "2026-06-17T03:42:45.809204+00:00", "level": "INFO", "module": "validation_engine", "message": "Execution complete"}
+{"timestamp": "2026-06-17T06:04:23.159679+00:00", "level": "WARNING", "module": "predictions_loader", "message": "Lookahead Bias: am prediction captured at 13:04:25 ICT (cutoff 10:00:00)"}
