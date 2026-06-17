@@ -16,3 +16,4 @@
 - [Memory: Community Standards Adoption](20260616-150000-community-standards-adoption.md) - Adoption of MIT license and community governance files.
 - [Workflow Scheduling Fixed](20260616-193000-workflow-scheduling-fixed.md) - Fixed incorrect cron times and Lookahead Bias error handling.
 - [Workflow Timezone & Observability](20260617-110000-workflow-timezone-observability.md) - Dual-zone ICT/UTC logic, enhanced logging, and execution safety guards.
+- [Agents vs Claude Directory Audit](20260617-113900-agents-claude-audit.md) - Full audit of .agents/ and .claude/ duplicates. Decision: .agents/ is canonical shared location, .claude/ is Claude-specific config.
