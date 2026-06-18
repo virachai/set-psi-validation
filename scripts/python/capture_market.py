@@ -116,9 +116,10 @@ def extract_market_prices(eod: dict) -> tuple[float, float, float]:
     high = float(eod.get("high") or eod.get("highPrice") or close_price)
     low = float(eod.get("low") or eod.get("lowPrice") or open_price)
 
-    # Volatility proxy: (high - low) / open, capped at 0.05
-    if open_price > 0:
-        volatility = round((high - low) / open_price, 4)
+    # Volatility proxy: (high - low) / mid_price, capped at 0.05
+    mid_price = (high + low) / 2
+    if mid_price > 0:
+        volatility = round((high - low) / mid_price, 4)
     else:
         volatility = 0.01  # Default fallback volatility
 
@@ -144,7 +145,7 @@ def derive_actual_regime(
 
     if return_pct > 0.005 and volatility_index < threshold_mean:
         return "Bullish"
-    elif return_pct < -0.02 and volatility_index > (threshold_mean * 2):
+    elif return_pct < -0.02 and volatility_index >= (threshold_mean * 2):
         return "Crisis"
     elif return_pct < -0.005 and volatility_index > threshold_mean:
         return "Risk-Off"

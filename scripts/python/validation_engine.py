@@ -52,7 +52,7 @@ def derive_actual_regime(
 
     if return_pct > 0.005 and volatility_index < threshold_mean:
         return "Bullish"
-    elif return_pct < -0.02 and volatility_index > (threshold_mean * 2):
+    elif return_pct < -0.02 and volatility_index >= (threshold_mean * 2):
         return "Crisis"
     elif return_pct < -0.005 and volatility_index > threshold_mean:
         return "Risk-Off"

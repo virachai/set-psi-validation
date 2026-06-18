@@ -34,14 +34,14 @@ class TestExtractMarketPrices:
         ato, atc, vol = extract_market_prices(eod)
         assert ato == 0.0
         assert atc == 105.0
-        assert vol == 0.01  # Default fallback
+        assert vol == 0.05  # (110-95) / 102.5 = 0.146, capped at 0.05
 
     def test_alternate_field_names(self):
         eod = {"openPrice": 100.0, "last": 102.0, "highPrice": 103.0, "lowPrice": 99.0}
         ato, atc, vol = extract_market_prices(eod)
         assert ato == 100.0
         assert atc == 102.0
-        assert vol == 0.04
+        assert vol == 0.0396  # (103-99) / 101 = 0.039603...
 
 
 # --- derive_actual_regime (double-check parity with validation_engine) ---
