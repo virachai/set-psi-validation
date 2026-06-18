@@ -66,8 +66,8 @@ jobs:
             if [[ "$H_ICT" -ge 8 && "$H_ICT" -le 9 ]]; then echo 'step=prediction-am' >> $GITHUB_OUTPUT;
             elif [[ "$H_ICT" -ge 10 && "$H_ICT" -le 11 ]]; then echo 'step=ato' >> $GITHUB_OUTPUT;
             elif [[ "$H_ICT" -ge 12 && "$H_ICT" -le 15 ]]; then echo 'step=prediction-pm' >> $GITHUB_OUTPUT;
-            elif [[ "$H_ICT" == "16" ]]; then echo 'step=atc' >> $GITHUB_OUTPUT;
-            elif [[ "$H_ICT" -ge 17 && "$H_ICT" -le 18 ]]; then echo 'step=validation' >> $GITHUB_OUTPUT;
+            elif [[ "$H_ICT" -ge 16 ]]; then echo 'step=atc' >> $GITHUB_OUTPUT;
+            elif [[ "$H_ICT" -ge 17 ]]; then echo 'step=validation' >> $GITHUB_OUTPUT;
             else echo 'step=none' >> $GITHUB_OUTPUT; fi
           fi
 
