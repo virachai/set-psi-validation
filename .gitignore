@@ -48,3 +48,4 @@ uv.lock
 .claude/
 .tmp/
 .ruff_cache/
+app.jsonl
