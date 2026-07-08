@@ -1,0 +1,53 @@
+{
+  "@context": "https://schema.org",
+  "@type": "Observation",
+  "name": "PSI Prediction 2026-07-08",
+  "observationDate": "2026-07-08T02:27:59.377Z",
+  "measuredProperty": {
+    "@type": "DefinedTerm",
+    "name": "Predicted Regime",
+    "inDefinedTermSet": "https://raw.githubusercontent.com/virachai/set-psi-validation/main/docs/010-regime-taxonomy-v01.json"
+  },
+  "variableMeasured": [
+    {
+      "@type": "PropertyValue",
+      "name": "PSI Score",
+      "value": 0.8,
+      "minValue": 0,
+      "maxValue": 1
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "Predicted Regime",
+      "value": "SIDEWAYS"
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "VIX Level",
+      "value": 20
+    }
+  ],
+  "additionalProperty": [
+    {
+      "@type": "PropertyValue",
+      "name": "Avg Equity Change",
+      "value": 0
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "DXY Change",
+      "value": 0
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "USD/THB Change",
+      "value": 0
+    }
+  ],
+  "timestamp": "2026-07-08T02:27:59.377Z",
+  "date": "2026-07-08",
+  "predictedRegime": "Sideways",
+  "psiScore": 0.8,
+  "modelId": "PSI Engine v1 (Lambda)",
+  "session": "pm"
+}
