@@ -49,6 +49,12 @@
       "skillPath": "skills/engineering/improve-codebase-architecture/SKILL.md",
       "computedHash": "016f12709bff30a27419e8add978a9be70f5ca1fb6738b3be6793038e0aba631"
     },
+    "longbridge-quant": {
+      "source": "longbridge/skills",
+      "sourceType": "github",
+      "skillPath": "skills/longbridge-quant/SKILL.md",
+      "computedHash": "ec7498718d8a119e2b7e52e14e16bc359a09e206f6c56be7edba048ddb7912fe"
+    },
     "prompt-engineering-patterns": {
       "source": "wshobson/agents",
       "sourceType": "github",
@@ -78,6 +84,12 @@
       "sourceType": "github",
       "skillPath": "plugins/python-development/skills/python-testing-patterns/SKILL.md",
       "computedHash": "f4de9bdbf2db1c1f8e8211e6af463ad49956f15aa604e2f08ae716c71e71f64b"
+    },
+    "quant-analyst": {
+      "source": "sickn33/agentic-awesome-skills",
+      "sourceType": "github",
+      "skillPath": "skills/quant-analyst/SKILL.md",
+      "computedHash": "79ad1bb0833f1b57810a3eb175ba2272bc8ac0b5af8145e230ab9038af84ebb1"
     },
     "setup-pre-commit": {
       "source": "mattpocock/skills",
