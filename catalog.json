@@ -31,7 +31,7 @@
       "description": "Prediction vs outcome comparison records with accuracy flags and deviation scores.",
       "url": "https://github.com/user/set-psi-validation/tree/main/validation",
       "variableMeasured": ["Is Correct", "Deviation Score"],
-      "measurementTechnique": "Regime comparison against deterministic derivation rules defined in docs/research_reports/001-actual-regime-derivation-logic-v01.md."
+      "measurementTechnique": "Regime comparison against deterministic derivation rules defined in docs/02_research_reports/001-actual-regime-derivation-logic-v01.md."
     },
     {
       "@type": "Dataset",
@@ -42,3 +42,4 @@
     }
   ]
 }
+

@@ -128,7 +128,7 @@ jobs:
         if: success() && steps.step-decider.outputs.step != 'none'
         run: |
           echo 'Verifying data integrity and logic before commit...'
-          uv run pytest tests/python/test_capture_market.py tests/python/test_validation_engine.py -q
+          uv run pytest tests/python/test_capture_market.py tests/python/test_validation_engine.py tests/python/test_setsmart_integration.py -q
 
       - name: Commit and Push changes
         if: success() && steps.step-decider.outputs.step != 'none'

@@ -33,7 +33,7 @@ MARKET_DATA_DIR = "market-data"
 VALIDATION_DIR = "validation"
 REPORTS_DIR = "reports"
 
-VALID_REGIMES = ["Bullish", "Bearish", "Sideways", "Risk-Off", "Crisis"]
+VALID_REGIMES = ["Bullish", "Bearish", "Sideways", "Risk-Off", "Crisis", "Unclassified"]
 
 # --- Core Logic ---
 
@@ -289,9 +289,11 @@ def update_aggregate_metrics() -> None:
 
     # Confusion Matrix
     # Ensure all regimes are present in the matrix
+    pred_cat = pd.Categorical(df["predicted"], categories=VALID_REGIMES)
+    actual_cat = pd.Categorical(df["actual"], categories=VALID_REGIMES)
     confusion = pd.crosstab(
-        pd.Categorical(df["predicted"], categories=VALID_REGIMES),
-        pd.Categorical(df["actual"], categories=VALID_REGIMES),
+        pred_cat,
+        actual_cat,
         dropna=False,
     )
 
@@ -326,12 +328,14 @@ def update_aggregate_metrics() -> None:
                 "total_count": 0,
             }
 
+    now_ict = datetime.now(timezone.utc) + ICT_OFFSET
     metrics_report = {
         "@context": "https://schema.org",
         "@type": "Dataset",
         "name": "PSI Aggregated Metrics",
         "description": "Rolling performance metrics for PSI regime validation.",
-        "datePublished": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+07:00"),
+        "measuredProperty": {"@type": "DefinedTerm", "name": "Regime Prediction Accuracy"},
+        "datePublished": now_ict.strftime("%Y-%m-%dT%H:%M:%S+07:00"),
         "variableMeasured": [
             {
                 "@type": "PropertyValue",
@@ -363,9 +367,8 @@ def update_aggregate_metrics() -> None:
         .to_dict(orient="records"),
     }
 
-    # Generate timestamped filename
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-    report_filename = f"metrics-{timestamp}.json"
+    # Timestamped copy, named like market-data/predictions: {YYYY-MM-DD}-{HHMMSS}-metrics.json
+    report_filename = now_ict.strftime("%Y-%m-%d-%H%M%S-metrics.json")
     save_json(os.path.join(REPORTS_DIR, report_filename), metrics_report)
 
     # Maintain a symlink/copy for the latest report for dashboard compatibility

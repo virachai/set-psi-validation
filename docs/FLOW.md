@@ -8,14 +8,12 @@ The system is designed to evaluate **market regime prediction accuracy**, not pr
 
 ## 1. High-Level Architecture Flow
 
-```text id="flow0"
-PSI Engine (External API)
-        ↓
-SET PSI Validation (Truth Layer)
-        ↓
-Validated Dataset + Metrics
-        ↓
-SET PSI Dashboard (Visualization Layer)
+```mermaid id="flow0"
+flowchart TD
+    A["PSI Engine<br/>(External API)"] -->|regime prediction| B["SET PSI Validation<br/>Truth Layer"]
+    C["SET Market<br/>(ATO → ATC)"] -->|price + volatility| B
+    B -->|Observation JSON-LD| D["Validated Dataset + Metrics"]
+    D --> E["SET PSI Dashboard<br/>(GitHub Pages)"]
 ```
 
 ---
@@ -181,20 +179,32 @@ Actions:
 
 ## 3. End-to-End Flow Summary
 
-```text id="flow1"
-09:00  PSI Prediction (Pre-ATO)
-   ↓
-10:00  Market Open (ATO captured)
-   ↓
-16:30  Market Close (ATC captured)
-   ↓
-       Regime Derivation
-   ↓
-       Validation Engine
-   ↓
-       Metrics Aggregation
-   ↓
-       Dashboard Visualization
+```mermaid id="flow1"
+sequenceDiagram
+    autonumber
+    participant GH as GitHub Actions
+    participant PE as PSI Engine API
+    participant SS as SETSMART API
+    participant FS as Filesystem (JSONL)
+    participant VE as Validation Engine
+    participant D as Dashboard
+
+    Note over GH: 09:00 ICT — Pre-ATO
+    GH->>PE: fetch regime prediction
+    PE-->>FS: predictions/*.json
+    Note over GH: 10:00 ICT — ATO
+    GH->>SS: capture ATO price
+    SS-->>FS: market-data/*ato.json
+    Note over GH: 14:00 ICT — PM
+    GH->>PE: fetch PM prediction
+    PE-->>FS: predictions/*.json
+    Note over GH: 16:30 ICT — ATC
+    GH->>SS: capture ATC price
+    SS-->>FS: market-data/*atc.json
+    GH->>VE: derive actual regime + compare
+    VE-->>FS: validation/*.json + metrics
+    Note over GH: 17:00 ICT — Validation & Deploy
+    GH->>D: export JSON → GitHub Pages
 ```
 
 ---
