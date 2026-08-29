@@ -96,7 +96,7 @@ def fetch_setsmart_eod(
         msg = f"SETSMART API HTTP error: {e}"
         log_event("ERROR", "capture_market", msg)
         return None
-    except Exception as e:
+    except httpx.RequestError as e:
         msg = f"Unexpected error fetching SETSMART data: {e}"
         log_event("ERROR", "capture_market", msg)
         return None
@@ -442,7 +442,7 @@ def main() -> None:
         save_market_data(record, date_str, args.mode)
         print(f"[DONE] Market {args.mode.upper()} capture complete.")
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         error_msg = f"Market capture failed: {e}"
         log_failure("capture_market", error_msg)
         sys.exit(1)

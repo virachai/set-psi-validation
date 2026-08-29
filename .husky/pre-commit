@@ -1,1 +1,2 @@
+uv run ruff check --output-format github scripts/ tests/
 uv run pytest
