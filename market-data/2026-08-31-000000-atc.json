@@ -3,7 +3,7 @@
   "@type": "Observation",
   "name": "SET Market Outcome 2026-08-31",
   "observationDate": "2026-08-31",
-  "observationPeriod": "2026-08-31T10:00:00+07:00/2026-08-31T09:28:04+07:00",
+  "observationPeriod": "2026-08-31T10:00:00+07:00/2026-08-31T09:57:58+07:00",
   "measuredProperty": {
     "@type": "DefinedTerm",
     "name": "Actual Regime",
