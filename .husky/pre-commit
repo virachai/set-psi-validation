@@ -1,6 +1,4 @@
 #!/usr/bin/env sh
-. "$(dirname -- "$0")/_/husky.sh"
-
 echo "🛡️ [Husky LV99 Enterprise Pre-Commit] Initiating strict determinism gate..."
 
 # 1. Environment & uv validation
