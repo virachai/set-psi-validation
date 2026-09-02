@@ -1,2 +1,33 @@
-uv run ruff check --output-format github scripts/ tests/
-uv run pytest
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo "🛡️ [Husky LV99 Enterprise Pre-Commit] Initiating strict determinism gate..."
+
+# 1. Environment & uv validation
+if ! command -v uv >/dev/null 2>&1; then
+  echo "❌ Error: 'uv' package manager not found in PATH. Aborting commit." >&2
+  exit 1
+fi
+
+# 2. Lint & Code Quality (Ruff with strict rules)
+echo "🔍 Running Ruff lint & quality checks..."
+uv run ruff check --output-format concise scripts/ tests/ || {
+  echo "❌ Ruff lint check failed. Fix lint issues before committing." >&2
+  exit 1
+}
+
+# 3. Type Checking & Safety
+echo "📐 Running Mypy type validation..."
+uv run mypy scripts/ || {
+  echo "❌ Mypy type check failed. Fix type errors before committing." >&2
+  exit 1
+}
+
+# 4. Test Suite Execution (pytest with 100% pass guarantee)
+echo "🧪 Executing deterministic test suite..."
+uv run pytest || {
+  echo "❌ Test suite execution failed. All tests must pass before commit." >&2
+  exit 1
+}
+
+echo "✅ [Husky LV99 Enterprise Pre-Commit] All gates passed successfully. Proceeding with commit."
