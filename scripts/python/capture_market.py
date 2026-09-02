@@ -1,5 +1,5 @@
 # /// script
-# dependencies = ["python-dotenv", "httpx"]
+# dependencies = ["python-dotenv", "httpx", "yfinance"]
 # ///
 """
 Market Data Capture (ATO / ATC)
@@ -16,19 +16,17 @@ Output: market-data/YYYY-MM-DD.json
 Governance: Compliant with "Lean PSI Validator" principles.
 """
 
-import os
-import json
-import glob
-import sys
 import argparse
-from datetime import datetime, timezone, timedelta
-from typing import Optional
+from datetime import UTC, datetime, timedelta
+import glob
+import json
+import os
+import sys
 
-import httpx
 from dotenv import load_dotenv
-
-from utils import log_event, log_failure
+import httpx
 from providers import fetch_finnhub_quote, fetch_yahoo_quote
+from utils import log_event, log_failure
 
 load_dotenv()
 
@@ -56,8 +54,8 @@ SET_INDEX_SYMBOL = os.getenv("SET_INDEX_SYMBOL", "SET")
 
 
 def fetch_setsmart_eod(
-    symbol: str, date: str, transport: Optional[httpx.BaseTransport] = None
-) -> Optional[dict]:
+    symbol: str, date: str, transport: httpx.BaseTransport | None = None
+) -> dict | None:
     """Fetch EOD price data from SETSMART API for a given symbol and date.
 
     transport: optional httpx transport for injecting a test stub (MockTransport).
@@ -188,7 +186,7 @@ def save_market_data(record: dict, date_str: str, mode: str) -> str:
 
     # Use timestamp from record, or generate now
     ts_str = record.get(
-        "observationDate", datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+07:00")
+        "observationDate", datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S+07:00")
     )
     # Format to YYYY-MM-DD-HHMMSS
     dt = datetime.fromisoformat(ts_str.replace("Z", "+00:00")).strftime("%Y-%m-%d-%H%M%S")
@@ -245,7 +243,7 @@ def handle_atc(
     Merges with existing ATO data if present.
     """
     existing = load_existing(date_str)
-    ato_price: Optional[float] = existing.get("atoPrice")
+    ato_price: float | None = existing.get("atoPrice")
 
     if ato_price is None:
         msg = f"No ATO price found for {date_str}. Using ATC as fallback."
@@ -268,7 +266,7 @@ def handle_atc(
         },
     )
 
-    now_ict = datetime.now(timezone.utc) + ICT_OFFSET
+    now_ict = datetime.now(UTC) + ICT_OFFSET
     period_start = f"{date_str}T10:00:00+07:00"
     period_end = now_ict.strftime("%Y-%m-%dT%H:%M:%S+07:00")
 
@@ -366,7 +364,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    now_ict = datetime.now(timezone.utc) + ICT_OFFSET
+    now_ict = datetime.now(UTC) + ICT_OFFSET
     date_str = now_ict.strftime("%Y-%m-%d")
 
     # Idempotent: skip if today already has market data for this mode

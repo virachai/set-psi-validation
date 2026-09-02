@@ -1,9 +1,9 @@
 # /// script
 # dependencies = ["pdfplumber"]
 # ///
-import pdfplumber
 import os
-from typing import Optional
+
+import pdfplumber
 
 
 def extract_text_from_pdf(pdf_path: str, output_path: str) -> bool:
@@ -21,7 +21,7 @@ def extract_text_from_pdf(pdf_path: str, output_path: str) -> bool:
             total_pages: int = len(pdf.pages)
             for i, page in enumerate(pdf.pages):
                 print(f"Extracting page {i+1}/{total_pages}...")
-                page_text: Optional[str] = page.extract_text()
+                page_text: str | None = page.extract_text()
                 if page_text:
                     text += f"--- Page {i+1} ---\n"
                     text += page_text + "\n\n"
@@ -33,11 +33,14 @@ def extract_text_from_pdf(pdf_path: str, output_path: str) -> bool:
         print(f"Done! Text saved to {output_path}")
         return True
     except Exception as e:
-        print(f"[ERROR] PDF extraction failed: {e}")
+        print(f"[ERROR] Failed to extract text: {e}")
         return False
 
 
 if __name__ == "__main__":
-    PDF_FILE: str = ".tmp/Comprehensive Research Plan and Action Guide.pdf"
-    OUTPUT_FILE: str = ".tmp/research_plan_extracted.txt"
-    extract_text_from_pdf(PDF_FILE, OUTPUT_FILE)
+    import sys
+
+    if len(sys.argv) < 3:
+        print("Usage: uv run extract_pdf.py <pdf_path> <output_path>")
+        sys.exit(1)
+    extract_text_from_pdf(sys.argv[1], sys.argv[2])

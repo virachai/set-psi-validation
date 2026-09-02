@@ -1,3 +1,6 @@
+# /// script
+# dependencies = ["python-dotenv", "httpx", "yfinance"]
+# ///
 import os
 import httpx
 from typing import Optional, Dict, Any
@@ -47,7 +50,6 @@ def fetch_yahoo_quote(symbol: str) -> Optional[Dict[str, Any]]:
         high_p = float(latest["High"])
         low_p = float(latest["Low"])
 
-        # Finnhub-compatible dictionary structure: c: close, o: open, h: high, l: low, pc: previous close
         pc_p = float(df.iloc[-2]["Close"]) if len(df) > 1 else open_p
 
         data = {
