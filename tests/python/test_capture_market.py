@@ -11,12 +11,13 @@ sys.path.insert(0, str(pathlib.Path(__file__).parents[2] / "scripts" / "python")
 from capture_market import (
     REGIME_TAXONOMY_URL,
     VALID_REGIMES,
-    derive_actual_regime,
+    _fetch_live_prices,
     extract_market_prices,
     handle_atc,
     handle_ato,
     load_existing,
 )
+from regime_rules import derive_actual_regime
 
 # --- extract_market_prices ---
 
@@ -218,3 +219,20 @@ class TestHandleAtc:
 
         loaded = load_existing("2026-06-14")
         assert loaded.get("atoPrice") == 1550.0
+
+    def test_fetch_live_prices_fails_closed(self, monkeypatch):
+        """Ensure _fetch_live_prices raises RuntimeError if provider returns no data."""
+        # Finnhub returning empty
+        monkeypatch.setattr("capture_market.fetch_finnhub_quote", lambda sym: {})
+        with pytest.raises(RuntimeError, match="Finnhub API returned no valid quote"):
+            _fetch_live_prices("finnhub", "SET", "2026-06-14", "atc")
+
+        # Yahoo returning empty
+        monkeypatch.setattr("capture_market.fetch_yahoo_quote", lambda sym: {})
+        with pytest.raises(RuntimeError, match="Yahoo Finance returned no valid quote"):
+            _fetch_live_prices("yahoo", "^SET.BK", "2026-06-14", "atc")
+
+        # SETSMART returning None
+        monkeypatch.setattr("capture_market.fetch_setsmart_eod", lambda sym, dt: None)
+        with pytest.raises(RuntimeError, match="SETSMART API returned no data"):
+            _fetch_live_prices("setsmart", "SET", "2026-06-14", "atc")

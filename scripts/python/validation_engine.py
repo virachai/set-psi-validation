@@ -21,6 +21,11 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
+from regime_rules import (
+    VALID_REGIMES,
+    compare_regimes,
+    compute_deviation_score,
+)
 from utils import log_event, log_failure
 
 # --- Constants ---
@@ -31,59 +36,7 @@ MARKET_DATA_DIR = "market-data"
 VALIDATION_DIR = "validation"
 REPORTS_DIR = "reports"
 
-VALID_REGIMES = ["Bullish", "Bearish", "Sideways", "Risk-Off", "Crisis", "Unclassified"]
-
 SESSIONS = ("am", "pm", "full_day")
-
-# Regime derivation thresholds (mirrors capture_market.py)
-BULLISH_MIN_RETURN = 0.005
-CRISIS_RETURN = -0.02
-DOWN_MOVE_MAX_RETURN = -0.005
-SIDEWAYS_BAND = 0.005
-
-# --- Core Logic ---
-
-
-def derive_actual_regime(
-    ato_price: float,
-    atc_price: float,
-    volatility_index: float,
-    threshold_mean: float,
-) -> str:
-    """Derive the actual market regime based on intraday return and volatility.
-
-    Matches logic in capture_market.py and docs/001-actual-regime-derivation-logic-v01.md.
-    """
-    return_pct = (atc_price - ato_price) / ato_price
-
-    if return_pct > BULLISH_MIN_RETURN and volatility_index < threshold_mean:
-        return "Bullish"
-    if return_pct < CRISIS_RETURN and volatility_index >= (threshold_mean * 2):
-        return "Crisis"
-    if return_pct < DOWN_MOVE_MAX_RETURN and volatility_index > threshold_mean:
-        return "Risk-Off"
-    if return_pct < DOWN_MOVE_MAX_RETURN and volatility_index < threshold_mean:
-        return "Bearish"
-    if abs(return_pct) <= SIDEWAYS_BAND and volatility_index < threshold_mean:
-        # Note: SIDEWAYS_BAND is inclusive for Sideways
-        return "Sideways"
-    return "Unclassified"
-
-
-def compare_regimes(predicted: str, actual: str) -> bool:
-    """Return True if the prediction matches the actual outcome."""
-    return predicted == actual
-
-
-def compute_deviation_score(predicted: str, actual: str) -> float:
-    """Compute a simple deviation score.
-
-    0.0 = perfect match.
-    1.0 = mismatch.
-    (Future: could be weighted based on regime proximity).
-    """
-    return 0.0 if predicted == actual else 1.0
-
 
 # --- File I/O ---
 
@@ -475,12 +428,8 @@ def update_aggregate_metrics() -> None:
         .to_dict(orient="records"),
     }
 
-    # Timestamped copy, named like market-data/predictions: {YYYY-MM-DD}-{HHMMSS}-metrics.json
-    report_filename = now_ict.strftime("%Y-%m-%d-%H%M%S-metrics.json")
+    # Write canonical metrics report for dashboard consumption
     reports_dir = Path(REPORTS_DIR)
-    save_json(str(reports_dir / report_filename), metrics_report)
-
-    # Maintain a symlink/copy for the latest report for dashboard compatibility
     save_json(str(reports_dir / "metrics.json"), metrics_report)
     log_event("INFO", "validation_engine", "Metrics aggregation complete.")
 

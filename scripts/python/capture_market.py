@@ -25,6 +25,7 @@ from pathlib import Path
 import httpx
 from dotenv import load_dotenv
 from providers import fetch_finnhub_quote, fetch_yahoo_quote
+from regime_rules import VALID_REGIMES, derive_actual_regime
 from utils import log_event, log_failure
 
 load_dotenv()
@@ -38,20 +39,7 @@ REGIME_TAXONOMY_URL = (
     "/main/docs/010-regime-taxonomy-v01.json"
 )
 
-VALID_REGIMES = ["Bullish", "Bearish", "Sideways", "Risk-Off", "Crisis"]
-
-# Regime derivation thresholds (mirrors validation_engine.py)
-BULLISH_MIN_RETURN = 0.005
-CRISIS_RETURN = -0.02
-DOWN_MOVE_MAX_RETURN = -0.005
-SIDEWAYS_BAND = 0.005
-
-# Fallback market values when a live provider returns no data
-FALLBACK_ATO = 1500.0
-FALLBACK_ATC = 1500.0
-FALLBACK_VOLATILITY = 0.01
 MAX_INTRADAY_VOLATILITY = 0.05
-
 MASK_KEY_MIN_LENGTH = 6  # longer keys show first/last 3 chars
 
 # --- SETSMART API ---
@@ -143,38 +131,10 @@ def extract_market_prices(eod: dict) -> tuple[float, float, float]:
 
     # Volatility proxy: (high - low) / mid_price, capped at 0.05
     mid_price = (high + low) / 2
-    volatility = round((high - low) / mid_price, 4) if mid_price > 0 else FALLBACK_VOLATILITY
+    volatility = round((high - low) / mid_price, 4) if mid_price > 0 else 0.01
     volatility = min(volatility, MAX_INTRADAY_VOLATILITY)
 
     return open_price, close_price, volatility
-
-
-# --- Regime Derivation Logic (mirrors validation_engine.py) ---
-
-
-def derive_actual_regime(
-    ato_price: float,
-    atc_price: float,
-    volatility_index: float,
-    threshold_mean: float,
-) -> str:
-    """Derive the actual market regime based on intraday return and volatility.
-
-    Logic defined in docs/research_reports/001-actual-regime-derivation-logic-v01.md.
-    """
-    return_pct = (atc_price - ato_price) / ato_price
-
-    if return_pct > BULLISH_MIN_RETURN and volatility_index < threshold_mean:
-        return "Bullish"
-    if return_pct < CRISIS_RETURN and volatility_index >= (threshold_mean * 2):
-        return "Crisis"
-    if return_pct < DOWN_MOVE_MAX_RETURN and volatility_index > threshold_mean:
-        return "Risk-Off"
-    if return_pct < DOWN_MOVE_MAX_RETURN and volatility_index < threshold_mean:
-        return "Bearish"
-    if abs(return_pct) <= SIDEWAYS_BAND and volatility_index < threshold_mean:
-        return "Sideways"
-    return "Unclassified"
 
 
 # --- I/O Helpers ---
@@ -413,20 +373,13 @@ def _already_captured(date_str: str, mode: str) -> bool:
     return False
 
 
-def _log_fallback_and_return(msg: str) -> tuple[float, float, float]:
-    """Log a warning and return the static fallback price tuple."""
-    print(f"[WARN] {msg}")
-    log_event("WARN", "capture_market", msg)
-    return FALLBACK_ATO, FALLBACK_ATC, FALLBACK_VOLATILITY
-
-
 def _fetch_live_prices(
     provider: str,
     symbol: str,
     date_str: str,
     mode: str,
 ) -> tuple[float, float, float]:
-    """Fetch ATO/ATC/volatility from the chosen provider, with graceful fallback."""
+    """Fetch ATO/ATC/volatility from the chosen provider, enforcing fail-closed integrity."""
     if provider == "finnhub":
         log_event(
             "INFO",
@@ -435,12 +388,13 @@ def _fetch_live_prices(
             {"mode": mode},
         )
         data = fetch_finnhub_quote(symbol)
-        if not data or data.get("c", 0) == 0:
-            msg = f"Finnhub API returned no data for {symbol}. Using fallback market data."
-            return _log_fallback_and_return(msg)
+        if not data or float(data.get("c", 0.0)) == 0.0:
+            error_msg = f"Finnhub API returned no valid quote for {symbol} on {date_str}."
+            log_event("ERROR", "capture_market", error_msg)
+            raise RuntimeError(error_msg)
         ato_price = float(data.get("o", 0.0))
         atc_price = float(data.get("c", 0.0))
-        volatility = FALLBACK_VOLATILITY
+        volatility = 0.01
         print(f"[FINNHUB] ATO={ato_price}, ATC={atc_price}, Vol={volatility}")
         return ato_price, atc_price, volatility
 
@@ -452,9 +406,10 @@ def _fetch_live_prices(
             {"mode": mode},
         )
         data = fetch_yahoo_quote(symbol)
-        if not data or data.get("c", 0) == 0:
-            msg = f"Yahoo Finance returned no data for {symbol}. Using fallback market data."
-            return _log_fallback_and_return(msg)
+        if not data or float(data.get("c", 0.0)) == 0.0:
+            error_msg = f"Yahoo Finance returned no valid quote for {symbol} on {date_str}."
+            log_event("ERROR", "capture_market", error_msg)
+            raise RuntimeError(error_msg)
         ato_price = float(data.get("o", 0.0))
         atc_price = float(data.get("c", 0.0))
         high_p = float(data.get("h", atc_price))
@@ -474,13 +429,11 @@ def _fetch_live_prices(
     )
     eod = fetch_setsmart_eod(symbol, date_str)
     if eod is None:
-        msg = (
-            f"API returned no data for {date_str}. "
-            "Using fallback/estimated market data to keep pipeline running."
-        )
-        return _log_fallback_and_return(msg)
+        error_msg = f"SETSMART API returned no data for {symbol} on {date_str}."
+        log_event("ERROR", "capture_market", error_msg)
+        raise RuntimeError(error_msg)
     ato_price, atc_price, volatility = extract_market_prices(eod)
-    print(f"[SETSMART/FALLBACK] ATO={ato_price}, ATC={atc_price}, Vol={volatility}")
+    print(f"[SETSMART] ATO={ato_price}, ATC={atc_price}, Vol={volatility}")
     return ato_price, atc_price, volatility
 
 

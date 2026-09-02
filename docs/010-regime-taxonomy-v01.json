@@ -41,6 +41,13 @@
       "name": "Crisis",
       "termCode": "CRISIS",
       "description": "Sharp downside move with extreme volatility spike."
+    },
+    {
+      "@type": "DefinedTerm",
+      "@id": "psi:regime/unclassified",
+      "name": "Unclassified",
+      "termCode": "UNCLASSIFIED",
+      "description": "Market outcome does not satisfy the criteria of standard regimes (e.g. high volatility with positive return or missing parameters)."
     }
   ]
 }

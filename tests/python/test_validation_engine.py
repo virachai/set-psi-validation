@@ -9,9 +9,8 @@ import pytest
 # Ensure scripts/python is importable
 sys.path.insert(0, str(Path(__file__).parents[2] / "scripts" / "python"))
 
+from regime_rules import compare_regimes, derive_actual_regime
 from validation_engine import (
-    compare_regimes,
-    derive_actual_regime,
     find_latest_market_file,
     find_latest_prediction_file,
     prune_orphan_validations,

@@ -68,7 +68,7 @@ jobs:
               echo 'step=none' >> $GITHUB_OUTPUT
               echo "Outside market hours, exiting."
             elif [[ "$H_ICT" -ge 17 ]]; then echo 'step=validation' >> $GITHUB_OUTPUT;
-            elif [[ "$H_ICT" -ge 16 ]]; then echo 'step=atc' >> $GITHUB_OUTPUT;
+            elif [[ "$H_ICT" -eq 16 && "$M_ICT" -ge 45 ]]; then echo 'step=atc' >> $GITHUB_OUTPUT;
             elif [[ "$H_ICT" -ge 12 ]]; then echo 'step=prediction-pm' >> $GITHUB_OUTPUT;
             elif [[ "$H_ICT" -ge 10 ]]; then echo 'step=ato' >> $GITHUB_OUTPUT;
             elif [[ "$H_ICT" -ge 8 ]]; then echo 'step=prediction-am' >> $GITHUB_OUTPUT;
