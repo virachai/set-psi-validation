@@ -27,3 +27,4 @@
 - [Yahoo Finance Provider Integration](20260902-143000-yfinance-provider.md) - Configured yfinance as default provider for SET index capture.
 - [Ruff ALL Lint Standard](20260902-163000-ruff-all-lint-standard.md) - select=ALL in pyproject; scripts/python has no __init__.py (mypy module collision); tuple-row dict fix in stress_test_regime.
 - [Ruff Lint Fixes v2](20260902-183000-ruff-lint-fixes-v2.md) - Resolved CPY001 and PLR0917 lint errors in CI.
+- [Enterprise Husky Pre-Commit](20260902-190000-enterprise-husky-pre-commit.md) - Upgraded pre-commit hook to LV99 enterprise-grade validation.
