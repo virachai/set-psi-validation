@@ -1,8 +1,4 @@
-# /// script
-# dependencies = []
-# ///
-"""
-JSON-LD Enricher
+"""JSON-LD Enricher.
 
 Post-processing step that reads existing JSON files in predictions/, market-data/,
 validation/, and reports/ directories, then injects or validates schema.org
@@ -18,15 +14,14 @@ Usage:
 Governance: Compliant with "Lean PSI Validator" principles.
 """
 
-import os
+import argparse
 import json
 import sys
-import argparse
-from typing import Dict
+from pathlib import Path
 
 # --- Directory-to-Type Mapping ---
 
-DIRECTORY_MAP: Dict[str, dict] = {
+DIRECTORY_MAP: dict[str, dict[str, str]] = {
     "predictions": {
         "@context": "https://schema.org",
         "@type": "Observation",
@@ -48,13 +43,18 @@ DIRECTORY_MAP: Dict[str, dict] = {
 REQUIRED_CONTEXT = "https://schema.org"
 
 
-def enrich_file(filepath: str, schema_meta: dict, validate_only: bool = False) -> bool:
-    """
-    Reads a JSON file and injects @context/@type if missing.
+def enrich_file(
+    filepath: str,
+    schema_meta: dict[str, str],
+    *,
+    validate_only: bool = False,
+) -> bool:
+    """Read a JSON file and inject @context/@type if missing.
+
     Returns True if the file is valid/enriched, False on error.
     """
     try:
-        with open(filepath, "r", encoding="utf-8") as f:
+        with Path(filepath).open(encoding="utf-8") as f:
             data = json.load(f)
     except (json.JSONDecodeError, FileNotFoundError) as e:
         print(f"[FAIL] {filepath} — {e}")
@@ -86,34 +86,34 @@ def enrich_file(filepath: str, schema_meta: dict, validate_only: bool = False) -
     enriched["@type"] = schema_meta["@type"]
     enriched.update(data)
 
-    with open(filepath, "w", encoding="utf-8") as f:
+    with Path(filepath).open("w", encoding="utf-8") as f:
         json.dump(enriched, f, indent=2, ensure_ascii=False)
 
     print(f"[ENRICH] {filepath} — added @context/@type")
     return True
 
 
-def process_directory(directory: str, validate_only: bool = False) -> int:
+def process_directory(directory: str, *, validate_only: bool = False) -> int:
+    """Process all .json files in a directory.
+
+    Returns the count of files that failed.
     """
-    Processes all .json files in a directory.
-    Returns count of files that failed.
-    """
-    if not os.path.isdir(directory):
+    path = Path(directory)
+    if not path.is_dir():
         print(f"[SKIP] Directory not found: {directory}")
         return 0
 
-    dirname = os.path.basename(os.path.normpath(directory))
+    dirname = path.name
     schema_meta = DIRECTORY_MAP.get(dirname, {})
     if not schema_meta:
         print(f"[SKIP] No schema mapping for directory '{directory}'")
         return 0
 
     failures = 0
-    for filename in sorted(os.listdir(directory)):
-        if not filename.endswith(".json"):
+    for entry in sorted(path.iterdir()):
+        if entry.suffix != ".json":
             continue
-        filepath = os.path.join(directory, filename)
-        if not enrich_file(filepath, schema_meta, validate_only):
+        if not enrich_file(str(entry), schema_meta, validate_only=validate_only):
             failures += 1
 
     return failures
@@ -123,8 +123,9 @@ def process_directory(directory: str, validate_only: bool = False) -> int:
 
 
 def main() -> None:
+    """Enrich or validate schema.org metadata across all output directories."""
     parser = argparse.ArgumentParser(
-        description="Enrich JSON files with schema.org @context/@type."
+        description="Enrich JSON files with schema.org @context/@type.",
     )
     parser.add_argument(
         "--validate-only",
@@ -141,7 +142,7 @@ def main() -> None:
 
     total_failures = 0
     for directory in args.dirs:
-        failures = process_directory(directory, args.validate_only)
+        failures = process_directory(directory, validate_only=args.validate_only)
         total_failures += failures
 
     action = "Validation" if args.validate_only else "Enrichment"

@@ -1,14 +1,14 @@
 """Tests for jsonld_enricher.py — schema.org JSON-LD enrichment and validation."""
 
 import json
-import sys
 import pathlib
+import sys
 
 import pytest
 
 sys.path.insert(0, str(pathlib.Path(__file__).parents[2] / "scripts" / "python"))
 
-from jsonld_enricher import enrich_file, process_directory, DIRECTORY_MAP
+from jsonld_enricher import DIRECTORY_MAP, enrich_file, process_directory
 
 # --- enrich_file ---
 
@@ -55,7 +55,7 @@ class TestEnrichFile:
         """--validate-only should pass already enriched files."""
         filepath = tmp_path / "test.json"
         filepath.write_text(
-            json.dumps({"@context": "https://schema.org", "@type": "Observation", "value": 42})
+            json.dumps({"@context": "https://schema.org", "@type": "Observation", "value": 42}),
         )
 
         result = enrich_file(str(filepath), DIRECTORY_MAP["predictions"], validate_only=True)
@@ -110,7 +110,7 @@ class TestProcessDirectory:
 
         # Already enriched
         (workdir / "already.json").write_text(
-            json.dumps({"@context": "https://schema.org", "@type": "Observation"})
+            json.dumps({"@context": "https://schema.org", "@type": "Observation"}),
         )
         # Needs enrichment
         (workdir / "plain.json").write_text(json.dumps({"value": 1}))

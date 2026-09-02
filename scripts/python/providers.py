@@ -1,14 +1,20 @@
-# /// script
-# dependencies = ["python-dotenv", "httpx", "yfinance"]
-# ///
+"""Market data providers: Finnhub REST API and Yahoo Finance (yfinance).
+
+Both providers return a normalized quote dict {c, o, h, l, pc} so callers
+(capture_market.py) can treat the data source uniformly.
+"""
+
 import os
+from typing import Any
+
 import httpx
-from typing import Optional, Dict, Any
 import yfinance as yf
 
+DEFAULT_TIMEOUT = 30.0
 
-def fetch_finnhub_quote(symbol: str) -> Optional[Dict[str, Any]]:
-    """Fetches real-time quote data from Finnhub."""
+
+def fetch_finnhub_quote(symbol: str) -> dict[str, Any] | None:
+    """Fetch a real-time quote from the Finnhub API."""
     api_key = os.getenv("FINNHUB_API_KEY")
     if not api_key:
         print("[ERROR] FINNHUB_API_KEY not found in environment variables.")
@@ -18,20 +24,26 @@ def fetch_finnhub_quote(symbol: str) -> Optional[Dict[str, Any]]:
     url = f"https://finnhub.io/api/v1/quote?symbol={symbol}&token={api_key}"
 
     try:
-        with httpx.Client(timeout=30.0) as client:
+        with httpx.Client(timeout=DEFAULT_TIMEOUT) as client:
             response = client.get(url)
             response.raise_for_status()
             data = response.json()
             if data and data.get("c", 0) > 0:
-                print(f"[FINNHUB] Successfully fetched live quote for {symbol}: c={data.get('c')}, o={data.get('o')}")
+                quote = data.get("c")
+                open_p = data.get("o")
+                msg = (
+                    f"[FINNHUB] Successfully fetched live quote for {symbol}: "
+                    f"c={quote}, o={open_p}"
+                )
+                print(msg)
             return data
     except Exception as e:
         print(f"[ERROR] Error fetching Finnhub data: {e}")
         return None
 
 
-def fetch_yahoo_quote(symbol: str) -> Optional[Dict[str, Any]]:
-    """Fetches SET / Thai stock market data from Yahoo Finance (e.g. ^SET.BK)."""
+def fetch_yahoo_quote(symbol: str) -> dict[str, Any] | None:
+    """Fetch SET / Thai stock market data from Yahoo Finance (e.g. ^SET.BK)."""
     # Normalize common aliases
     if symbol.upper() in ["SET", "^SET"]:
         symbol = "^SET.BK"
@@ -58,10 +70,12 @@ def fetch_yahoo_quote(symbol: str) -> Optional[Dict[str, Any]]:
             "h": high_p,
             "l": low_p,
             "pc": pc_p,
-            "source": "yfinance"
+            "source": "yfinance",
         }
-        print(f"[YFINANCE] Successfully fetched for {symbol}: o={open_p}, c={close_p}, h={high_p}, l={low_p}")
-        return data
     except Exception as e:
         print(f"[ERROR] Error fetching Yahoo Finance data for {symbol}: {e}")
         return None
+
+    fmt = f"o={open_p}, c={close_p}, h={high_p}, l={low_p}"
+    print(f"[YFINANCE] Successfully fetched for {symbol}: {fmt}")
+    return data

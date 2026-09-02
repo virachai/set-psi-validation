@@ -7,22 +7,22 @@ with output schema assertions (schema.org Observation JSON-LD).
 """
 
 import json
-import pathlib
 import sys
+from pathlib import Path
 
 import httpx
 import pytest
 
-sys.path.insert(0, str(pathlib.Path(__file__).parents[2] / "scripts" / "python"))
+sys.path.insert(0, str(Path(__file__).parents[2] / "scripts" / "python"))
 
 import capture_market
 from capture_market import (
-    extract_market_prices,
-    fetch_setsmart_eod,
-    handle_ato,
-    handle_atc,
     REGIME_TAXONOMY_URL,
     VALID_REGIMES,
+    extract_market_prices,
+    fetch_setsmart_eod,
+    handle_atc,
+    handle_ato,
 )
 
 EOD_PAYLOAD = {
@@ -58,7 +58,7 @@ class TestSetsmartRequestContract:
 
     def test_auth_failure_returns_none(self, set_api_key):
         transport = httpx.MockTransport(
-            lambda r: httpx.Response(401, json={"error": "unauthorized"})
+            lambda r: httpx.Response(401, json={"error": "unauthorized"}),
         )
         assert fetch_setsmart_eod("SET", "2026-08-28", transport=transport) is None
 
@@ -72,7 +72,8 @@ class TestSetsmartRequestContract:
 
     def test_timeout_returns_none(self, set_api_key):
         def handler(request):
-            raise httpx.ReadTimeout("simulated timeout")
+            exc_msg = "simulated timeout"
+            raise httpx.ReadTimeout(exc_msg)
 
         transport = httpx.MockTransport(handler)
         assert fetch_setsmart_eod("SET", "2026-08-28", transport=transport) is None
@@ -138,5 +139,5 @@ class TestFullPipelineAgainstStub:
         )
 
         # Persisted file round-trips
-        with open(filepath, "r", encoding="utf-8") as f:
+        with Path(filepath).open(encoding="utf-8") as f:
             assert json.load(f) == atc_record

@@ -1,16 +1,16 @@
 """Tests for predictions_loader.py — API response parsing and snapshot building."""
 
-import sys
 import pathlib
+import sys
 
 import pytest
 
 sys.path.insert(0, str(pathlib.Path(__file__).parents[2] / "scripts" / "python"))
 
 from predictions_loader import (
-    build_snapshot,
-    VALID_REGIMES,
     REGIME_TAXONOMY_URL,
+    VALID_REGIMES,
+    build_snapshot,
     validate_timestamp,
 )
 
@@ -27,6 +27,29 @@ SAMPLE_RAPIDAPI_RESPONSE = {
         "psi": 0.8,
         "vix_level": 20,
     },
+}
+
+SAMPLE_LAMBDA_SCHEMA_ORG = {
+    "@context": "https://schema.org",
+    "@type": "Observation",
+    "name": "PSI Prediction 2026-06-14",
+    "observationDate": "2026-06-14T10:00:00.000Z",
+    "measuredProperty": {
+        "@type": "DefinedTerm",
+        "name": "Predicted Regime",
+        "inDefinedTermSet": REGIME_TAXONOMY_URL,
+    },
+    "variableMeasured": [
+        {
+            "@type": "PropertyValue",
+            "name": "PSI Score",
+            "value": 0.8,
+            "minValue": 0,
+            "maxValue": 1,
+        },
+        {"@type": "PropertyValue", "name": "Predicted Regime", "value": "SIDEWAYS"},
+        {"@type": "PropertyValue", "name": "VIX Level", "value": 20},
+    ],
 }
 
 
@@ -120,7 +143,7 @@ class TestBuildSnapshot:
         assert snapshot["@context"] == "https://schema.org"
 
     @pytest.mark.parametrize(
-        "raw, expected",
+        ("raw", "expected"),
         [
             ("SIDEWAYS", "Sideways"),
             ("sideways", "Sideways"),
@@ -138,32 +161,9 @@ class TestBuildSnapshot:
 
     # --- Native schema.org (Lambda) format ---
 
-    SAMPLE_LAMBDA_SCHEMA_ORG = {
-        "@context": "https://schema.org",
-        "@type": "Observation",
-        "name": "PSI Prediction 2026-06-14",
-        "observationDate": "2026-06-14T10:00:00.000Z",
-        "measuredProperty": {
-            "@type": "DefinedTerm",
-            "name": "Predicted Regime",
-            "inDefinedTermSet": REGIME_TAXONOMY_URL,
-        },
-        "variableMeasured": [
-            {
-                "@type": "PropertyValue",
-                "name": "PSI Score",
-                "value": 0.8,
-                "minValue": 0,
-                "maxValue": 1,
-            },
-            {"@type": "PropertyValue", "name": "Predicted Regime", "value": "SIDEWAYS"},
-            {"@type": "PropertyValue", "name": "VIX Level", "value": 20},
-        ],
-    }
-
     def test_lambda_schema_org_passthrough(self):
         """Native schema.org from Lambda should pass through with backward-compat fields added."""
-        snapshot = build_snapshot(self.SAMPLE_LAMBDA_SCHEMA_ORG)
+        snapshot = build_snapshot(SAMPLE_LAMBDA_SCHEMA_ORG)
         assert snapshot["@type"] == "Observation"
         assert snapshot["name"] == "PSI Prediction 2026-06-14"
         # Passthrough: @context, measuredProperty, variableMeasured preserved
@@ -177,8 +177,8 @@ class TestBuildSnapshot:
         assert snapshot["modelId"] == "PSI Engine v1 (Lambda)"
 
     def test_lambda_schema_org_preserves_additional_property(self):
-        """additionalProperty from Lambda must survive passthrough."""
-        data = dict(self.SAMPLE_LAMBDA_SCHEMA_ORG)
+        """AdditionalProperty from Lambda must survive passthrough."""
+        data = dict(SAMPLE_LAMBDA_SCHEMA_ORG)
         data["additionalProperty"] = [
             {"@type": "PropertyValue", "name": "Avg Equity Change", "value": 0.23},
         ]
@@ -188,7 +188,7 @@ class TestBuildSnapshot:
 
     def test_lambda_schema_org_regime_normalisation(self):
         """Case/separator normalisation must still apply on passthrough path."""
-        data = dict(self.SAMPLE_LAMBDA_SCHEMA_ORG)
+        data = dict(SAMPLE_LAMBDA_SCHEMA_ORG)
         data["variableMeasured"][1]["value"] = "RISKOFF"
         snapshot = build_snapshot(data)
         assert snapshot["predictedRegime"] == "Risk-Off"

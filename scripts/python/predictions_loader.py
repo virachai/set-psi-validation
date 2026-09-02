@@ -1,8 +1,7 @@
 # /// script
 # dependencies = ["httpx", "python-dotenv"]
 # ///
-"""
-PSI Prediction Loader
+"""PSI Prediction Loader.
 
 Fetches the PSI regime prediction from the external PSI Engine API (Pre-ATO)
 and saves it as a schema.org-compliant Observation JSON-LD file.
@@ -12,15 +11,16 @@ Output: predictions/YYYY-MM-DD.json
 Governance: Compliant with "Lean PSI Validator" principles.
 """
 
-import os
+import argparse
 import json
-import glob
+import os
 import sys
-from datetime import datetime, timezone, timedelta
-from utils import log_failure, log_warning
+from datetime import UTC, datetime, timedelta, timezone
+from pathlib import Path
 
 import httpx
 from dotenv import load_dotenv
+from utils import log_failure, log_warning
 
 load_dotenv()
 
@@ -47,12 +47,12 @@ VALID_REGIMES = ["Bullish", "Bearish", "Sideways", "Risk-Off", "Crisis"]
 
 
 def validate_timestamp(timestamp_iso: str, session: str) -> bool:
-    """Ensures prediction timestamp is before the session cutoff (in ICT)."""
+    """Ensure the prediction timestamp is before the session cutoff (in ICT)."""
     if os.getenv("PSI_BYPASS_LOOKAHEAD", "false").lower() == "true":
         print(f"[WARN] Bypassing lookahead bias check for {session} session.")
         return True
 
-    dt = datetime.fromisoformat(timestamp_iso.replace("Z", "+00:00"))
+    dt = datetime.fromisoformat(timestamp_iso)
     # Convert to ICT (UTC+7) for cutoff comparison
     dt_ict = dt.astimezone(timezone(timedelta(hours=7)))
     time_str = dt_ict.strftime("%H:%M:%S")
@@ -69,7 +69,7 @@ def validate_timestamp(timestamp_iso: str, session: str) -> bool:
 
 
 def fetch_prediction() -> dict:
-    """Calls the PSI Engine API and returns the raw prediction response."""
+    """Call the PSI Engine API and return the raw prediction response."""
     if not PSI_API_KEY:
         print("[SKIP] PSI_ENGINE_API_KEY not set. Skipping prediction capture.")
         return {}
@@ -94,7 +94,7 @@ def fetch_prediction() -> dict:
 
 
 def build_snapshot(raw: dict, session: str = "full_day") -> dict:
-    """Transforms raw API response into schema.org-compliant Observation.
+    """Transform the raw API response into a schema.org-compliant Observation.
 
     Handles two formats:
     1. Native schema.org response (Lambda) — passthrough with backward-compat fields added.
@@ -106,7 +106,7 @@ def build_snapshot(raw: dict, session: str = "full_day") -> dict:
     # Detect native schema.org response from our Lambda
     if raw.get("@type") == "Observation":
         obs = dict(raw)
-        now_ict = datetime.now(timezone.utc) + ICT_OFFSET
+        now_ict = datetime.now(UTC) + ICT_OFFSET
         ts = obs.get("observationDate", now_ict.strftime("%Y-%m-%dT%H:%M:%S+07:00"))
         date_str = now_ict.strftime("%Y-%m-%d")
         regime = "Unclassified"
@@ -149,7 +149,7 @@ def build_snapshot(raw: dict, session: str = "full_day") -> dict:
     if predicted_regime not in VALID_REGIMES:
         print(f"[WARN] Unknown regime '{predicted_regime}' from API.")
 
-    now_ict = datetime.now(timezone.utc) + ICT_OFFSET
+    now_ict = datetime.now(UTC) + ICT_OFFSET
     date_str = now_ict.strftime("%Y-%m-%d")
     timestamp_iso = now_ict.strftime("%Y-%m-%dT%H:%M:%S+07:00")
 
@@ -192,30 +192,30 @@ def build_snapshot(raw: dict, session: str = "full_day") -> dict:
 
 
 def save_snapshot(snapshot: dict) -> str:
-    """Writes the prediction snapshot to predictions/YYYY-MM-DD-HHMMSS-session.json."""
-    os.makedirs(PREDICTIONS_DIR, exist_ok=True)
+    """Write the prediction snapshot to predictions/YYYY-MM-DD-HHMMSS-session.json."""
+    predictions_dir = Path(PREDICTIONS_DIR)
+    predictions_dir.mkdir(exist_ok=True)
 
     # Use timestamp from the snapshot or generate now
-    ts_str = snapshot.get("timestamp", datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S"))
+    ts_str = snapshot.get("timestamp", datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S"))
     # Format to YYYY-MM-DD-HHMMSS
-    dt = datetime.fromisoformat(ts_str.replace("Z", "+00:00")).strftime("%Y-%m-%d-%H%M%S")
+    dt = datetime.fromisoformat(ts_str).strftime("%Y-%m-%d-%H%M%S")
     session = snapshot.get("session", "full_day")
 
-    filepath = os.path.join(PREDICTIONS_DIR, f"{dt}-{session}.json")
+    filepath = predictions_dir / f"{dt}-{session}.json"
 
-    with open(filepath, "w", encoding="utf-8") as f:
+    with filepath.open("w", encoding="utf-8") as f:
         json.dump(snapshot, f, indent=2, ensure_ascii=False)
 
     print(f"[SAVE] Prediction written to {filepath}")
-    return filepath
+    return str(filepath)
 
 
 # --- Entry Point ---
 
 
 def main() -> None:
-    import argparse
-
+    """Load today's PSI prediction snapshot for the requested session window."""
     parser = argparse.ArgumentParser(description="PSI Prediction Loader")
     parser.add_argument(
         "--session",
@@ -226,12 +226,13 @@ def main() -> None:
     args = parser.parse_args()
 
     # Idempotent: skip if today already has prediction for this session
-    today = datetime.now(timezone.utc) + ICT_OFFSET
+    today = datetime.now(UTC) + ICT_OFFSET
     date_str = today.strftime("%Y-%m-%d")
-    existing = glob.glob(os.path.join(PREDICTIONS_DIR, f"{date_str}-*-{args.session}.json"))
+    existing = sorted(Path(PREDICTIONS_DIR).glob(f"{date_str}-*-{args.session}.json"))
     if existing:
+        latest = existing[-1].name
         print(
-            f"[SKIP] Prediction for {date_str} ({args.session}) already exists: {os.path.basename(max(existing))}"
+            f"[SKIP] Prediction for {date_str} ({args.session}) already exists: {latest}",
         )
         return
 

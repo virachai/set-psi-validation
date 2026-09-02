@@ -1,8 +1,7 @@
 # /// script
 # dependencies = ["python-dotenv", "httpx", "yfinance"]
 # ///
-"""
-Market Data Capture (ATO / ATC)
+"""Market Data Capture (ATO / ATC).
 
 Captures SET market open (ATO) and close (ATC) data, computes intraday metrics,
 derives the actual regime, and saves as a schema.org-compliant Observation JSON-LD file.
@@ -17,14 +16,14 @@ Governance: Compliant with "Lean PSI Validator" principles.
 """
 
 import argparse
-from datetime import UTC, datetime, timedelta
-import glob
 import json
 import os
 import sys
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
-from dotenv import load_dotenv
 import httpx
+from dotenv import load_dotenv
 from providers import fetch_finnhub_quote, fetch_yahoo_quote
 from utils import log_event, log_failure
 
@@ -41,22 +40,49 @@ REGIME_TAXONOMY_URL = (
 
 VALID_REGIMES = ["Bullish", "Bearish", "Sideways", "Risk-Off", "Crisis"]
 
+# Regime derivation thresholds (mirrors validation_engine.py)
+BULLISH_MIN_RETURN = 0.005
+CRISIS_RETURN = -0.02
+DOWN_MOVE_MAX_RETURN = -0.005
+SIDEWAYS_BAND = 0.005
+
+# Fallback market values when a live provider returns no data
+FALLBACK_ATO = 1500.0
+FALLBACK_ATC = 1500.0
+FALLBACK_VOLATILITY = 0.01
+MAX_INTRADAY_VOLATILITY = 0.05
+
+MASK_KEY_MIN_LENGTH = 6  # longer keys show first/last 3 chars
+
 # --- SETSMART API ---
 
 SETSMART_BASE_URL = "https://www.setsmart.com"
 SETSMART_API_KEY = os.getenv("SETSMART_API_KEY")
 if SETSMART_API_KEY:
     masked_key = (
-        f"{SETSMART_API_KEY[:3]}***{SETSMART_API_KEY[-3:]}" if len(SETSMART_API_KEY) > 6 else "***"
+        f"{SETSMART_API_KEY[:3]}***{SETSMART_API_KEY[-3:]}"
+        if len(SETSMART_API_KEY) > MASK_KEY_MIN_LENGTH
+        else "***"
     )
     print(f"[DEBUG] SETSMART_API_KEY loaded: {masked_key}")
 SET_INDEX_SYMBOL = os.getenv("SET_INDEX_SYMBOL", "SET")
 
 
+def _describe_setsmart_error(exc: httpx.HTTPError, symbol: str, date: str) -> str:
+    """Map an httpx failure to the matching SETSMART error message."""
+    if isinstance(exc, httpx.TimeoutException):
+        return f"SETSMART API timeout after 30s for {symbol} on {date}."
+    if isinstance(exc, httpx.HTTPStatusError):
+        return f"SETSMART API HTTP error: {exc}"
+    return f"Unexpected error fetching SETSMART data: {exc}"
+
+
 def fetch_setsmart_eod(
-    symbol: str, date: str, transport: httpx.BaseTransport | None = None
+    symbol: str,
+    date: str,
+    transport: httpx.BaseTransport | None = None,
 ) -> dict | None:
-    """Fetch EOD price data from SETSMART API for a given symbol and date.
+    """Fetch EOD price data from the SETSMART API for a given symbol and date.
 
     transport: optional httpx transport for injecting a test stub (MockTransport).
     """
@@ -86,22 +112,17 @@ def fetch_setsmart_eod(
                 return None
             response.raise_for_status()
             data = response.json()
-    except httpx.TimeoutException:
-        msg = f"SETSMART API timeout after 30s for {symbol} on {date}."
-        log_event("ERROR", "capture_market", msg)
-        return None
-    except httpx.HTTPStatusError as e:
-        msg = f"SETSMART API HTTP error: {e}"
-        log_event("ERROR", "capture_market", msg)
-        return None
-    except httpx.RequestError as e:
-        msg = f"Unexpected error fetching SETSMART data: {e}"
+    except httpx.HTTPError as e:
+        msg = _describe_setsmart_error(e, symbol, date)
         log_event("ERROR", "capture_market", msg)
         return None
 
     if isinstance(data, list) and len(data) > 0:
         log_event(
-            "INFO", "capture_market", f"Successfully fetched data for {symbol}", {"date": date}
+            "INFO",
+            "capture_market",
+            f"Successfully fetched data for {symbol}",
+            {"date": date},
         )
         return data[0]
 
@@ -122,12 +143,8 @@ def extract_market_prices(eod: dict) -> tuple[float, float, float]:
 
     # Volatility proxy: (high - low) / mid_price, capped at 0.05
     mid_price = (high + low) / 2
-    if mid_price > 0:
-        volatility = round((high - low) / mid_price, 4)
-    else:
-        volatility = 0.01  # Default fallback volatility
-
-    volatility = min(volatility, 0.05)
+    volatility = round((high - low) / mid_price, 4) if mid_price > 0 else FALLBACK_VOLATILITY
+    volatility = min(volatility, MAX_INTRADAY_VOLATILITY)
 
     return open_price, close_price, volatility
 
@@ -141,71 +158,72 @@ def derive_actual_regime(
     volatility_index: float,
     threshold_mean: float,
 ) -> str:
-    """
-    Derives the actual market regime based on intraday return and volatility.
+    """Derive the actual market regime based on intraday return and volatility.
+
     Logic defined in docs/research_reports/001-actual-regime-derivation-logic-v01.md.
     """
     return_pct = (atc_price - ato_price) / ato_price
 
-    if return_pct > 0.005 and volatility_index < threshold_mean:
+    if return_pct > BULLISH_MIN_RETURN and volatility_index < threshold_mean:
         return "Bullish"
-    elif return_pct < -0.02 and volatility_index >= (threshold_mean * 2):
+    if return_pct < CRISIS_RETURN and volatility_index >= (threshold_mean * 2):
         return "Crisis"
-    elif return_pct < -0.005 and volatility_index > threshold_mean:
+    if return_pct < DOWN_MOVE_MAX_RETURN and volatility_index > threshold_mean:
         return "Risk-Off"
-    elif return_pct < -0.005 and volatility_index < threshold_mean:
+    if return_pct < DOWN_MOVE_MAX_RETURN and volatility_index < threshold_mean:
         return "Bearish"
-    elif abs(return_pct) <= 0.005 and volatility_index < threshold_mean:
+    if abs(return_pct) <= SIDEWAYS_BAND and volatility_index < threshold_mean:
         return "Sideways"
-    else:
-        return "Unclassified"
+    return "Unclassified"
 
 
 # --- I/O Helpers ---
 
 
 def load_existing(date_str: str) -> dict:
-    """Loads an existing market data file, or returns a minimal skeleton."""
+    """Load an existing market data file, or return a minimal skeleton."""
+    files = sorted(Path(MARKET_DATA_DIR).glob(f"{date_str}-*.json"))
+    filepath = files[-1] if files else None
 
-    files = glob.glob(os.path.join(MARKET_DATA_DIR, f"{date_str}-*.json"))
-    if not files:
-        legacy = os.path.join(MARKET_DATA_DIR, f"{date_str}.json")
-        filepath = legacy if os.path.exists(legacy) else None
-    else:
-        filepath = max(files, key=os.path.getmtime)
+    if filepath is None:
+        legacy = Path(MARKET_DATA_DIR) / f"{date_str}.json"
+        if legacy.exists():
+            filepath = legacy
 
-    if filepath and os.path.exists(filepath):
-        with open(filepath, "r", encoding="utf-8") as f:
+    if filepath and filepath.exists():
+        with filepath.open(encoding="utf-8") as f:
             return json.load(f)
     return {}
 
 
 def save_market_data(record: dict, date_str: str, mode: str) -> str:
-    """Writes the market data record to market-data/YYYY-MM-DD-HHMMSS-mode.json."""
-    os.makedirs(MARKET_DATA_DIR, exist_ok=True)
+    """Write the market data record to market-data/YYYY-MM-DD-HHMMSS-mode.json."""
+    market_dir = Path(MARKET_DATA_DIR)
+    market_dir.mkdir(exist_ok=True)
 
     # Use timestamp from record, or generate now
     ts_str = record.get(
-        "observationDate", datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S+07:00")
+        "observationDate",
+        datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S+07:00"),
     )
     # Format to YYYY-MM-DD-HHMMSS
-    dt = datetime.fromisoformat(ts_str.replace("Z", "+00:00")).strftime("%Y-%m-%d-%H%M%S")
+    dt = datetime.fromisoformat(ts_str).strftime("%Y-%m-%d-%H%M%S")
 
-    filepath = os.path.join(MARKET_DATA_DIR, f"{dt}-{mode}.json")
-    with open(filepath, "w", encoding="utf-8") as f:
+    filepath = market_dir / f"{dt}-{mode}.json"
+    with filepath.open("w", encoding="utf-8") as f:
         json.dump(record, f, indent=2, ensure_ascii=False)
 
     msg = f"Market data written to {filepath}"
     print(f"[SAVE] {msg}")
     log_event("INFO", "capture_market", msg, {"date": date_str, "status": record.get("status")})
-    return filepath
+    return str(filepath)
 
 
 # --- Mode Handlers ---
 
 
 def handle_ato(date_str: str, ato_price: float) -> dict:
-    """Creates a partial market outcome Observation with ATO price only."""
+    """Create a partial market outcome Observation with ATO price only."""
     log_event("INFO", "capture_market", f"Handling ATO for {date_str}", {"ato_price": ato_price})
     return {
         "@context": "https://schema.org",
@@ -238,9 +256,9 @@ def handle_atc(
     volatility_index: float,
     threshold_mean: float = 0.02,
 ) -> dict:
-    """
-    Creates/updates a complete market outcome Observation.
-    Merges with existing ATO data if present.
+    """Create or update a complete market outcome Observation.
+
+    Merge with existing ATO data if present.
     """
     existing = load_existing(date_str)
     ato_price: float | None = existing.get("atoPrice")
@@ -324,7 +342,8 @@ def handle_atc(
 # --- Entry Point ---
 
 
-def main() -> None:
+def _build_parser() -> argparse.ArgumentParser:
+    """Build the CLI argument parser for capture modes."""
     parser = argparse.ArgumentParser(description="Capture SET market data (ATO/ATC).")
     parser.add_argument(
         "--mode",
@@ -333,7 +352,9 @@ def main() -> None:
         help="Capture mode: ato (open) or atc (close).",
     )
     parser.add_argument(
-        "--ato-price", type=float, help="ATO price (manual, required without --symbol)."
+        "--ato-price",
+        type=float,
+        help="ATO price (manual, required without --symbol).",
     )
     parser.add_argument(
         "--atc-price",
@@ -354,7 +375,10 @@ def main() -> None:
     )
     parser.add_argument(
         "--symbol",
-        help="Market symbol (e.g. SET, SET50 or stock ticker). Fetches live data from API instead of manual prices.",
+        help=(
+            "Market symbol (e.g. SET, SET50 or stock ticker). "
+            "Fetches live data from API instead of manual prices."
+        ),
     )
     parser.add_argument(
         "--provider",
@@ -362,108 +386,131 @@ def main() -> None:
         default="yahoo",
         help="API provider for symbol data (default: yahoo).",
     )
-    args = parser.parse_args()
+    return parser
 
-    now_ict = datetime.now(UTC) + ICT_OFFSET
-    date_str = now_ict.strftime("%Y-%m-%d")
+
+def _already_captured(date_str: str, mode: str) -> bool:
+    """Return True (and log) if today's market data for this mode already exists."""
+    existing = load_existing(date_str)
+    if mode == "ato" and existing.get("atoPrice") is not None:
+        print(f"[SKIP] ATO data for {date_str} already exists (atoPrice={existing['atoPrice']}).")
+        return True
+    if mode == "atc" and existing.get("status") == "complete":
+        print(f"[SKIP] ATC data for {date_str} already exists (status=complete).")
+        return True
+    return False
+
+
+def _log_fallback_and_return(msg: str) -> tuple[float, float, float]:
+    """Log a warning and return the static fallback price tuple."""
+    print(f"[WARN] {msg}")
+    log_event("WARN", "capture_market", msg)
+    return FALLBACK_ATO, FALLBACK_ATC, FALLBACK_VOLATILITY
+
+
+def _fetch_live_prices(
+    provider: str,
+    symbol: str,
+    date_str: str,
+    mode: str,
+) -> tuple[float, float, float]:
+    """Fetch ATO/ATC/volatility from the chosen provider, with graceful fallback."""
+    if provider == "finnhub":
+        log_event(
+            "INFO",
+            "capture_market",
+            f"Starting Finnhub fetch for {symbol}",
+            {"mode": mode},
+        )
+        data = fetch_finnhub_quote(symbol)
+        if not data or data.get("c", 0) == 0:
+            msg = f"Finnhub API returned no data for {symbol}. Using fallback market data."
+            return _log_fallback_and_return(msg)
+        ato_price = float(data.get("o", 0.0))
+        atc_price = float(data.get("c", 0.0))
+        volatility = FALLBACK_VOLATILITY
+        print(f"[FINNHUB] ATO={ato_price}, ATC={atc_price}, Vol={volatility}")
+        return ato_price, atc_price, volatility
+
+    if provider == "yahoo":
+        log_event(
+            "INFO",
+            "capture_market",
+            f"Starting Yahoo Finance fetch for {symbol}",
+            {"mode": mode},
+        )
+        data = fetch_yahoo_quote(symbol)
+        if not data or data.get("c", 0) == 0:
+            msg = f"Yahoo Finance returned no data for {symbol}. Using fallback market data."
+            return _log_fallback_and_return(msg)
+        ato_price = float(data.get("o", 0.0))
+        atc_price = float(data.get("c", 0.0))
+        high_p = float(data.get("h", atc_price))
+        low_p = float(data.get("l", ato_price))
+        mid_price = (high_p + low_p) / 2
+        volatility = round((high_p - low_p) / mid_price, 4) if mid_price > 0 else 0.01
+        volatility = min(volatility, MAX_INTRADAY_VOLATILITY)
+        print(f"[YAHOO] ATO={ato_price}, ATC={atc_price}, Vol={volatility}")
+        return ato_price, atc_price, volatility
+
+    # SETSMART
+    log_event(
+        "INFO",
+        "capture_market",
+        f"Starting SETSMART fetch for {symbol}",
+        {"mode": mode},
+    )
+    eod = fetch_setsmart_eod(symbol, date_str)
+    if eod is None:
+        msg = (
+            f"API returned no data for {date_str}. "
+            "Using fallback/estimated market data to keep pipeline running."
+        )
+        return _log_fallback_and_return(msg)
+    ato_price, atc_price, volatility = extract_market_prices(eod)
+    print(f"[SETSMART/FALLBACK] ATO={ato_price}, ATC={atc_price}, Vol={volatility}")
+    return ato_price, atc_price, volatility
+
+
+def main() -> None:
+    """Capture ATO or ATC market data for today and persist the Observation."""
+    parser = _build_parser()
+    args = parser.parse_args()
+    date_str = (datetime.now(UTC) + ICT_OFFSET).strftime("%Y-%m-%d")
 
     # Idempotent: skip if today already has market data for this mode
-    existing = load_existing(date_str)
-    if args.mode == "ato" and existing.get("atoPrice") is not None:
-        print(f"[SKIP] ATO data for {date_str} already exists (atoPrice={existing['atoPrice']}).")
-        return
-    if args.mode == "atc" and existing.get("status") == "complete":
-        print(f"[SKIP] ATC data for {date_str} already exists (status=complete).")
+    if _already_captured(date_str, args.mode):
         return
 
     try:
-        if args.symbol:
-            if args.provider == "finnhub":
-                log_event(
-                    "INFO",
-                    "capture_market",
-                    f"Starting Finnhub fetch for {args.symbol}",
-                    {"mode": args.mode},
-                )
-                data = fetch_finnhub_quote(args.symbol)
-                if not data or data.get("c", 0) == 0:
-                    msg = f"Finnhub API returned no data for {args.symbol}. Using fallback market data."
-                    print(f"[WARN] {msg}")
-                    log_event("WARN", "capture_market", msg)
-                    ato_price = 1500.0
-                    atc_price = 1500.0
-                    volatility = 0.01
-                else:
-                    ato_price = float(data.get("o", 0.0))
-                    atc_price = float(data.get("c", 0.0))
-                    volatility = 0.01
-                    print(f"[FINNHUB] ATO={ato_price}, ATC={atc_price}, Vol={volatility}")
-
-            elif args.provider == "yahoo":
-                log_event(
-                    "INFO",
-                    "capture_market",
-                    f"Starting Yahoo Finance fetch for {args.symbol}",
-                    {"mode": args.mode},
-                )
-                data = fetch_yahoo_quote(args.symbol)
-                if not data or data.get("c", 0) == 0:
-                    msg = f"Yahoo Finance returned no data for {args.symbol}. Using fallback market data."
-                    print(f"[WARN] {msg}")
-                    log_event("WARN", "capture_market", msg)
-                    ato_price = 1500.0
-                    atc_price = 1500.0
-                    volatility = 0.01
-                else:
-                    ato_price = float(data.get("o", 0.0))
-                    atc_price = float(data.get("c", 0.0))
-                    high_p = float(data.get("h", atc_price))
-                    low_p = float(data.get("l", ato_price))
-                    mid_price = (high_p + low_p) / 2
-                    volatility = round((high_p - low_p) / mid_price, 4) if mid_price > 0 else 0.01
-                    volatility = min(volatility, 0.05)
-                    print(f"[YAHOO] ATO={ato_price}, ATC={atc_price}, Vol={volatility}")
-
+        if args.mode == "ato":
+            if args.symbol:
+                ato_price, _, _ = _fetch_live_prices(args.provider, args.symbol, date_str, "ato")
             else:
-                log_event(
-                    "INFO",
-                    "capture_market",
-                    f"Starting SETSMART fetch for {args.symbol}",
-                    {"mode": args.mode},
-                )
-                eod = fetch_setsmart_eod(args.symbol, date_str)
-                if eod is None:
-                    # Fallback / graceful simulation when SETSMART API returns no data for today (e.g. non-trading day or API lag)
-                    msg = f"API returned no data for {date_str}. Using fallback/estimated market data to keep pipeline running."
-                    print(f"[WARN] {msg}")
-                    log_event("WARN", "capture_market", msg)
-                    ato_price = 1500.0
-                    atc_price = 1500.0
-                    volatility = 0.01
-                else:
-                    ato_price, atc_price, volatility = extract_market_prices(eod)
-                print(f"[SETSMART/FALLBACK] ATO={ato_price}, ATC={atc_price}, Vol={volatility}")
-
-            if args.mode == "ato":
-                record = handle_ato(date_str, ato_price)
-            else:
-                record = handle_atc(date_str, atc_price, volatility, args.threshold)
-        else:
-            # Manual mode
-            log_event("INFO", "capture_market", "Starting manual price entry", {"mode": args.mode})
-            if args.mode == "ato":
                 if args.ato_price is None:
                     parser.error("--ato-price is required for --mode ato (or use --symbol).")
-                record = handle_ato(date_str, args.ato_price)
+                log_event("INFO", "capture_market", "Starting manual price entry", {"mode": "ato"})
+                ato_price = args.ato_price
+            record = handle_ato(date_str, ato_price)
+        else:
+            if args.symbol:
+                _, atc_price, volatility = _fetch_live_prices(
+                    args.provider,
+                    args.symbol,
+                    date_str,
+                    "atc",
+                )
             else:
                 if args.atc_price is None:
                     parser.error("--atc-price is required for --mode atc (or use --symbol).")
-                record = handle_atc(date_str, args.atc_price, args.volatility, args.threshold)
+                log_event("INFO", "capture_market", "Starting manual price entry", {"mode": "atc"})
+                atc_price = args.atc_price
+                volatility = args.volatility
+            record = handle_atc(date_str, atc_price, volatility, args.threshold)
 
         save_market_data(record, date_str, args.mode)
         print(f"[DONE] Market {args.mode.upper()} capture complete.")
-
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         error_msg = f"Market capture failed: {e}"
         log_failure("capture_market", error_msg)
         sys.exit(1)

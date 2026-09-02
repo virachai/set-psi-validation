@@ -1,20 +1,20 @@
 """Tests for capture_market.py — ATO/ATC capture, regime derivation, output."""
 
 import json
-import sys
 import pathlib
+import sys
 
 import pytest
 
 sys.path.insert(0, str(pathlib.Path(__file__).parents[2] / "scripts" / "python"))
 
 from capture_market import (
+    REGIME_TAXONOMY_URL,
+    VALID_REGIMES,
     derive_actual_regime,
     extract_market_prices,
-    handle_ato,
     handle_atc,
-    VALID_REGIMES,
-    REGIME_TAXONOMY_URL,
+    handle_ato,
 )
 
 # --- extract_market_prices ---
@@ -177,7 +177,7 @@ class TestHandleAtc:
         assert result["returnPct"] == 0.0
 
     @pytest.mark.parametrize(
-        "ato, atc, vol, threshold, expected_regime",
+        ("ato", "atc", "vol", "threshold", "expected_regime"),
         [
             (100.0, 101.0, 0.01, 0.02, "Bullish"),
             (100.0, 99.0, 0.01, 0.02, "Bearish"),
@@ -187,7 +187,14 @@ class TestHandleAtc:
         ],
     )
     def test_regime_derivation_integration(
-        self, tmp_path, monkeypatch, ato, atc, vol, threshold, expected_regime
+        self,
+        tmp_path,
+        monkeypatch,
+        ato,
+        atc,
+        vol,
+        threshold,
+        expected_regime,
     ):
         """End-to-end: ATO file + handle_atc → correct regime."""
         monkeypatch.chdir(tmp_path)

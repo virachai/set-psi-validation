@@ -1,8 +1,7 @@
 # /// script
 # dependencies = ["pandas", "numpy"]
 # ///
-"""
-PSI Validation Engine (Phase 2)
+"""PSI Validation Engine (Phase 2).
 
 Performs daily validation by comparing predictions vs. actual market outcomes.
 Computes accuracy metrics, maintains rolling history, and generates reports.
@@ -14,16 +13,15 @@ Outputs:
 Governance: Compliant with "Lean PSI Validator" principles.
 """
 
-import os
-import json
 import argparse
-import glob
+import json
 import sys
-from datetime import datetime, timezone, timedelta
-from typing import Dict, Any, Optional
-from utils import log_event, log_failure
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from typing import Any
 
 import pandas as pd
+from utils import log_event, log_failure
 
 # --- Constants ---
 
@@ -35,6 +33,14 @@ REPORTS_DIR = "reports"
 
 VALID_REGIMES = ["Bullish", "Bearish", "Sideways", "Risk-Off", "Crisis", "Unclassified"]
 
+SESSIONS = ("am", "pm", "full_day")
+
+# Regime derivation thresholds (mirrors capture_market.py)
+BULLISH_MIN_RETURN = 0.005
+CRISIS_RETURN = -0.02
+DOWN_MOVE_MAX_RETURN = -0.005
+SIDEWAYS_BAND = 0.005
+
 # --- Core Logic ---
 
 
@@ -44,35 +50,34 @@ def derive_actual_regime(
     volatility_index: float,
     threshold_mean: float,
 ) -> str:
-    """
-    Derives the actual market regime based on intraday return and volatility.
+    """Derive the actual market regime based on intraday return and volatility.
+
     Matches logic in capture_market.py and docs/001-actual-regime-derivation-logic-v01.md.
     """
     return_pct = (atc_price - ato_price) / ato_price
 
-    if return_pct > 0.005 and volatility_index < threshold_mean:
+    if return_pct > BULLISH_MIN_RETURN and volatility_index < threshold_mean:
         return "Bullish"
-    elif return_pct < -0.02 and volatility_index >= (threshold_mean * 2):
+    if return_pct < CRISIS_RETURN and volatility_index >= (threshold_mean * 2):
         return "Crisis"
-    elif return_pct < -0.005 and volatility_index > threshold_mean:
+    if return_pct < DOWN_MOVE_MAX_RETURN and volatility_index > threshold_mean:
         return "Risk-Off"
-    elif return_pct < -0.005 and volatility_index < threshold_mean:
+    if return_pct < DOWN_MOVE_MAX_RETURN and volatility_index < threshold_mean:
         return "Bearish"
-    elif abs(return_pct) <= 0.005 and volatility_index < threshold_mean:
-        # Note: 0.005 is inclusive for Sideways
+    if abs(return_pct) <= SIDEWAYS_BAND and volatility_index < threshold_mean:
+        # Note: SIDEWAYS_BAND is inclusive for Sideways
         return "Sideways"
-    else:
-        return "Unclassified"
+    return "Unclassified"
 
 
 def compare_regimes(predicted: str, actual: str) -> bool:
-    """Returns True if prediction matches actual outcome."""
+    """Return True if the prediction matches the actual outcome."""
     return predicted == actual
 
 
 def compute_deviation_score(predicted: str, actual: str) -> float:
-    """
-    Computes a simple deviation score.
+    """Compute a simple deviation score.
+
     0.0 = perfect match.
     1.0 = mismatch.
     (Future: could be weighted based on regime proximity).
@@ -83,16 +88,20 @@ def compute_deviation_score(predicted: str, actual: str) -> float:
 # --- File I/O ---
 
 
-def load_json(filepath: str) -> Optional[Dict[str, Any]]:
-    if not os.path.exists(filepath):
+def load_json(filepath: str) -> dict[str, Any] | None:
+    """Load a JSON file, returning None when it is missing or empty."""
+    path = Path(filepath)
+    if not path.exists():
         return None
-    with open(filepath, "r", encoding="utf-8") as f:
+    with path.open(encoding="utf-8") as f:
         return json.load(f)
 
 
-def save_json(filepath: str, data: Any) -> None:
-    os.makedirs(os.path.dirname(filepath), exist_ok=True)
-    with open(filepath, "w", encoding="utf-8") as f:
+def save_json(filepath: str, data: object) -> None:
+    """Write data as pretty JSON to filepath, creating parent directories."""
+    path = Path(filepath)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
 
     msg = f"Written to {filepath}"
@@ -103,38 +112,125 @@ def save_json(filepath: str, data: Any) -> None:
 # --- Engine Actions ---
 
 
-def find_latest_file(directory: str, date_str: str) -> Optional[str]:
-    """Finds the latest file matching YYYY-MM-DD-*.json."""
-    files = glob.glob(os.path.join(directory, f"{date_str}-*.json"))
+def find_latest_file(directory: str, date_str: str) -> str | None:
+    """Find the latest file matching YYYY-MM-DD-*.json."""
+    files = sorted(Path(directory).glob(f"{date_str}-*.json"))
     if not files:
         # Fallback to legacy YYYY-MM-DD.json
-        legacy = os.path.join(directory, f"{date_str}.json")
-        return legacy if os.path.exists(legacy) else None
-    return max(files, key=os.path.getmtime)
+        legacy = Path(directory) / f"{date_str}.json"
+        return str(legacy) if legacy.exists() else None
+    return str(files[-1])
 
 
-def find_latest_prediction_file(directory: str, date_str: str, session: str) -> Optional[str]:
-    """Finds the latest prediction file matching YYYY-MM-DD-*-session.json."""
-    files = glob.glob(os.path.join(directory, f"{date_str}-*-{session}.json"))
-    if not files:
-        # Fallback to check if the file matches YYYY-MM-DD-*.json and has matching "session" field
-        all_files = glob.glob(os.path.join(directory, f"{date_str}-*.json"))
-        matching = []
-        for f in all_files:
-            # Avoid matching files that explicitly have a different suffix
-            if not f.endswith(f"-{session}.json") and any(
-                f.endswith(f"-{s}.json") for s in ["am", "pm", "full_day"]
-            ):
-                continue
-            data = load_json(f)
-            if data and data.get("session") == session:
-                matching.append(f)
-        return max(matching, key=os.path.getmtime) if matching else None
-    return max(files, key=os.path.getmtime)
+def find_latest_prediction_file(directory: str, date_str: str, session: str) -> str | None:
+    """Find the latest prediction file matching YYYY-MM-DD-*-session.json."""
+    files = sorted(Path(directory).glob(f"{date_str}-*-{session}.json"))
+    if files:
+        return str(files[-1])
+
+    # Fallback: general YYYY-MM-DD-*.json files whose content declares the session
+    matching = []
+    all_files = sorted(Path(directory).glob(f"{date_str}-*.json"))
+    for f in all_files:
+        # Avoid files that explicitly carry a different session suffix
+        if not f.name.endswith(f"-{session}.json") and any(
+            f.name.endswith(f"-{s}.json") for s in SESSIONS
+        ):
+            continue
+        data = load_json(str(f))
+        if data and data.get("session") == session:
+            matching.append(f)
+    if not matching:
+        return None
+    return str(max(matching, key=lambda p: p.stat().st_mtime))
 
 
-def run_daily_validation(date_str: str) -> list[Dict[str, Any]]:
-    """Performs validation for a single date across all 3 windows (am, pm, full_day)."""
+def _extract_regime_value(observation: dict, flat_key: str, measure_name: str) -> str | None:
+    """Return a regime from a flat field or schema.org variableMeasured list."""
+    value = observation.get(flat_key)
+    if value:
+        return value
+    for vm in observation.get("variableMeasured", []):
+        if isinstance(vm, dict) and vm.get("name") == measure_name:
+            return vm.get("value")
+    return None
+
+
+def _resolve_prediction_path(date_str: str, session: str) -> str | None:
+    """Resolve the prediction file for a session, with full_day fallbacks."""
+    pred_path = find_latest_prediction_file(PREDICTIONS_DIR, date_str, session)
+    if pred_path:
+        return pred_path
+
+    # Fallback for full_day: general latest file, unless owned by another session
+    if session != "full_day":
+        return None
+    pred_path = find_latest_file(PREDICTIONS_DIR, date_str)
+    if pred_path:
+        p_data = load_json(pred_path)
+        if p_data and p_data.get("session") in ["am", "pm"]:
+            return None
+    return pred_path
+
+
+def _build_validation_record(
+    date_str: str,
+    session: str,
+    pred_path: str,
+    market_path: str,
+    regimes: tuple[str, str],
+) -> dict[str, Any]:
+    """Build the schema.org Observation record for one validated session.
+
+    regimes: (predicted_regime, actual_regime) tuple.
+    """
+    predicted_regime, actual_regime = regimes
+    is_correct = compare_regimes(predicted_regime, actual_regime)
+    deviation = compute_deviation_score(predicted_regime, actual_regime)
+
+    log_event(
+        "INFO",
+        "validation_engine",
+        f"Validated {date_str} ({session})",
+        {"predicted": predicted_regime, "actual": actual_regime, "is_correct": is_correct},
+    )
+
+    now_ict = datetime.now(UTC) + ICT_OFFSET
+    timestamp_iso = now_ict.strftime("%Y-%m-%dT%H:%M:%S+07:00")
+
+    # Use the prediction filename stem for the validation record filename
+    # so multiple snapshots per day stay distinct
+    validation_file_id = Path(pred_path).stem
+
+    return {
+        "@context": "https://schema.org",
+        "@type": "Observation",
+        "name": f"Validation Evaluation {validation_file_id}",
+        "observationDate": timestamp_iso,
+        "observationAbout": [
+            {"@id": f"predictions/{Path(pred_path).name}"},
+            {"@id": f"market-data/{Path(market_path).name}"},
+        ],
+        "measuredProperty": {"@type": "DefinedTerm", "name": "Regime Prediction Accuracy"},
+        "variableMeasured": {
+            "@type": "PropertyValue",
+            "name": "Is Correct",
+            "value": is_correct,
+        },
+        "marginOfError": {"@type": "QuantitativeValue", "value": deviation},
+        # --- Internal fields ---
+        "date": date_str,
+        "file_id": validation_file_id,
+        "session": session,
+        "predictedRegime": predicted_regime,
+        "actualRegime": actual_regime,
+        "isCorrect": is_correct,
+        "deviationScore": deviation,
+    }
+
+
+def run_daily_validation(date_str: str) -> list[dict[str, Any]]:
+    """Validate a single date across all 3 windows (am, pm, full_day)."""
     market_path = find_latest_file(MARKET_DATA_DIR, date_str)
     if not market_path:
         msg = f"Missing market data path for {date_str}"
@@ -150,12 +246,7 @@ def run_daily_validation(date_str: str) -> list[Dict[str, Any]]:
         return []
 
     # Extract regimes (handle both schema.org and flat formats)
-    actual_regime = market.get("actualRegime")
-    if not actual_regime and "variableMeasured" in market:
-        for vm in market["variableMeasured"]:
-            if vm.get("name") == "Actual Regime":
-                actual_regime = vm.get("value")
-
+    actual_regime = _extract_regime_value(market, "actualRegime", "Actual Regime")
     if not actual_regime:
         msg = f"Could not extract actual regime for {date_str}"
         print(f"[ERROR] {msg}")
@@ -164,99 +255,56 @@ def run_daily_validation(date_str: str) -> list[Dict[str, Any]]:
 
     records = []
     # Loop over the 3 sessions
-    for session in ["am", "pm", "full_day"]:
-        pred_path = find_latest_prediction_file(PREDICTIONS_DIR, date_str, session)
+    for session in SESSIONS:
+        pred_path = _resolve_prediction_path(date_str, session)
         if not pred_path:
-            # Fallback for full_day to also try the general latest file if no specific full_day exists
-            if session == "full_day":
-                pred_path = find_latest_file(PREDICTIONS_DIR, date_str)
-                # But check that it doesn't belong to another session
-                if pred_path:
-                    p_data = load_json(pred_path)
-                    if p_data and p_data.get("session") in ["am", "pm"]:
-                        pred_path = None
-            if not pred_path:
-                log_event("INFO", "validation_engine", f"No prediction for {date_str} ({session})")
-                continue
+            log_event("INFO", "validation_engine", f"No prediction for {date_str} ({session})")
+            continue
 
         prediction = load_json(pred_path)
         if not prediction:
             log_event(
-                "WARN", "validation_engine", f"Missing prediction data for {date_str} ({session})"
+                "WARN",
+                "validation_engine",
+                f"Missing prediction data for {date_str} ({session})",
             )
             continue
 
-        predicted_regime = prediction.get("predictedRegime")
-        if not predicted_regime and "variableMeasured" in prediction:
-            for vm in prediction["variableMeasured"]:
-                if vm.get("name") == "Predicted Regime":
-                    predicted_regime = vm.get("value")
-
-        if not predicted_regime:
-            log_event(
-                "ERROR", "validation_engine", f"Could not extract predicted regime from {pred_path}"
-            )
-            continue
-
-        is_correct = compare_regimes(predicted_regime, actual_regime)
-        deviation = compute_deviation_score(predicted_regime, actual_regime)
-
-        log_event(
-            "INFO",
-            "validation_engine",
-            f"Validated {date_str} ({session})",
-            {"predicted": predicted_regime, "actual": actual_regime, "is_correct": is_correct},
+        predicted_regime = _extract_regime_value(
+            prediction,
+            "predictedRegime",
+            "Predicted Regime",
         )
+        if not predicted_regime:
+            msg = f"Could not extract predicted regime from {pred_path}"
+            log_event("ERROR", "validation_engine", msg)
+            continue
 
-        now_ict = datetime.now(timezone.utc) + ICT_OFFSET
-        timestamp_iso = now_ict.strftime("%Y-%m-%dT%H:%M:%S+07:00")
-
-        # Use prediction filename stem for the validation record filename to support multiple snapshots
-        pred_file_id = os.path.splitext(os.path.basename(pred_path))[0]
-        validation_file_id = pred_file_id
-
-        validation_record = {
-            "@context": "https://schema.org",
-            "@type": "Observation",
-            "name": f"Validation Evaluation {validation_file_id}",
-            "observationDate": timestamp_iso,
-            "observationAbout": [
-                {"@id": f"predictions/{os.path.basename(pred_path)}"},
-                {"@id": f"market-data/{os.path.basename(market_path)}"},
-            ],
-            "measuredProperty": {"@type": "DefinedTerm", "name": "Regime Prediction Accuracy"},
-            "variableMeasured": {
-                "@type": "PropertyValue",
-                "name": "Is Correct",
-                "value": is_correct,
-            },
-            "marginOfError": {"@type": "QuantitativeValue", "value": deviation},
-            # --- Internal fields ---
-            "date": date_str,
-            "file_id": validation_file_id,
-            "session": session,
-            "predictedRegime": predicted_regime,
-            "actualRegime": actual_regime,
-            "isCorrect": is_correct,
-            "deviationScore": deviation,
-        }
-
-        save_json(os.path.join(VALIDATION_DIR, f"{validation_file_id}.json"), validation_record)
-        records.append(validation_record)
+        record = _build_validation_record(
+            date_str,
+            session,
+            pred_path,
+            market_path,
+            (predicted_regime, actual_regime),
+        )
+        save_json(str(Path(VALIDATION_DIR) / f"{record['file_id']}.json"), record)
+        records.append(record)
 
     return records
 
 
 def update_aggregate_metrics() -> None:
-    """Scans validation/ directory and updates reports/metrics.json."""
-    if not os.path.exists(VALIDATION_DIR):
+    """Scan the validation/ directory and update reports/metrics.json."""
+    validation_dir = Path(VALIDATION_DIR)
+    if not validation_dir.exists():
         log_event("WARN", "validation_engine", "Validation directory does not exist.")
         return
 
-    all_files = [f for f in os.listdir(VALIDATION_DIR) if f.endswith(".json")]
     records = []
-    for f in sorted(all_files):
-        data = load_json(os.path.join(VALIDATION_DIR, f))
+    for f in sorted(validation_dir.iterdir()):
+        if f.suffix != ".json":
+            continue
+        data = load_json(str(f))
         if data and "date" in data:
             records.append(
                 {
@@ -266,7 +314,7 @@ def update_aggregate_metrics() -> None:
                     "predicted": data["predictedRegime"],
                     "actual": data["actualRegime"],
                     "correct": data["isCorrect"],
-                }
+                },
             )
 
     if not records:
@@ -308,7 +356,7 @@ def update_aggregate_metrics() -> None:
 
     # Calculate per-session metrics
     by_window = {}
-    for s in ["am", "pm", "full_day"]:
+    for s in SESSIONS:
         sdf = df[df["session"] == s]
         if not sdf.empty:
             s_acc = sdf["correct"].mean()
@@ -318,7 +366,7 @@ def update_aggregate_metrics() -> None:
                 "overall_accuracy": float(s_acc),
                 "rolling_7d": float(s_7d),
                 "rolling_30d": float(s_30d),
-                "total_count": int(len(sdf)),
+                "total_count": len(sdf),
             }
         else:
             by_window[s] = {
@@ -328,7 +376,7 @@ def update_aggregate_metrics() -> None:
                 "total_count": 0,
             }
 
-    now_ict = datetime.now(timezone.utc) + ICT_OFFSET
+    now_ict = datetime.now(UTC) + ICT_OFFSET
     metrics_report = {
         "@context": "https://schema.org",
         "@type": "Dataset",
@@ -369,17 +417,24 @@ def update_aggregate_metrics() -> None:
 
     # Timestamped copy, named like market-data/predictions: {YYYY-MM-DD}-{HHMMSS}-metrics.json
     report_filename = now_ict.strftime("%Y-%m-%d-%H%M%S-metrics.json")
-    save_json(os.path.join(REPORTS_DIR, report_filename), metrics_report)
+    reports_dir = Path(REPORTS_DIR)
+    save_json(str(reports_dir / report_filename), metrics_report)
 
     # Maintain a symlink/copy for the latest report for dashboard compatibility
-    save_json(os.path.join(REPORTS_DIR, "metrics.json"), metrics_report)
+    save_json(str(reports_dir / "metrics.json"), metrics_report)
     log_event("INFO", "validation_engine", "Metrics aggregation complete.")
+
+
+def _dates_in_dir(directory: str) -> set[str]:
+    """Return the set of YYYY-MM-DD prefixes present among JSON files."""
+    return {f.name[:10] for f in Path(directory).iterdir() if f.suffix == ".json"}
 
 
 # --- Main ---
 
 
 def main() -> None:
+    """Run validation for one date (or all common dates) and refresh metrics."""
     try:
         parser = argparse.ArgumentParser(description="PSI Validation Engine")
         parser.add_argument("--date", help="Date to validate (YYYY-MM-DD). Defaults to today.")
@@ -394,17 +449,9 @@ def main() -> None:
             print("[INIT] Recomputing all validations...")
             log_event("INFO", "validation_engine", "Recomputing all validations")
             # Extract YYYY-MM-DD from filenames like YYYY-MM-DD-HHMMSS.json or YYYY-MM-DD.json
-            pred_dates = {
-                os.path.splitext(f)[0][:10]
-                for f in os.listdir(PREDICTIONS_DIR)
-                if f.endswith(".json")
-            }
-            market_dates = {
-                os.path.splitext(f)[0][:10]
-                for f in os.listdir(MARKET_DATA_DIR)
-                if f.endswith(".json")
-            }
-            common_dates = sorted(list(pred_dates.intersection(market_dates)))
+            pred_dates = _dates_in_dir(PREDICTIONS_DIR)
+            market_dates = _dates_in_dir(MARKET_DATA_DIR)
+            common_dates = sorted(pred_dates.intersection(market_dates))
             log_event(
                 "INFO",
                 "validation_engine",
@@ -413,15 +460,18 @@ def main() -> None:
             for d in common_dates:
                 run_daily_validation(d)
         else:
-            date_str = args.date or (datetime.now(timezone.utc) + ICT_OFFSET).strftime("%Y-%m-%d")
+            date_str = args.date or (datetime.now(UTC) + ICT_OFFSET).strftime("%Y-%m-%d")
             # Idempotent: skip if today already has validation records
-            existing = glob.glob(os.path.join(VALIDATION_DIR, f"{date_str}-*.json"))
+            existing = sorted(Path(VALIDATION_DIR).glob(f"{date_str}-*.json"))
             if existing:
                 print(
-                    f"[SKIP] Validation for {date_str} already exists ({len(existing)} record(s))."
+                    f"[SKIP] Validation for {date_str} already exists "
+                    f"({len(existing)} record(s)).",
                 )
                 log_event(
-                    "INFO", "validation_engine", f"Skipped — validation for {date_str} exists"
+                    "INFO",
+                    "validation_engine",
+                    f"Skipped — validation for {date_str} exists",
                 )
             else:
                 log_event("INFO", "validation_engine", f"Running validation for {date_str}")
