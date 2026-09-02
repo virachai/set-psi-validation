@@ -32,12 +32,14 @@ select = ["ALL"]
 [tool.ruff.lint.per-file-ignores]
 # Tests: pytest assert-based idiom; tests intentionally untyped (mypy disallows nothing);
 # parameterized tests legitimately take param values + fixtures as arguments.
-"tests/**" = ["S101", "ANN", "D", "ARG", "PLR2004", "PLR0913"]
+# CPY001: Ignore missing copyright notice in tests and scripts
+"tests/**" = ["S101", "ANN", "D", "ARG", "PLR2004", "PLR0913", "CPY001"]
 # CLI scripts: stdout print is the operator interface; entry points and provider
 # boundaries deliberately catch broadly to log-and-exit / fall back to None.
 # INP001: scripts/ is a runnable-scripts directory, not an importable package
 # (adding __init__.py would collide with tests/python under mypy module mapping).
-"scripts/**" = ["T201", "BLE001", "INP001"]
+# CPY001: Ignore missing copyright notice in scripts
+"scripts/**" = ["T201", "BLE001", "INP001", "CPY001"]
 
 [tool.black]
 line-length = 100

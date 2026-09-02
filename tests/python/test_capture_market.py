@@ -192,12 +192,12 @@ class TestHandleAtc:
         self,
         tmp_path,
         monkeypatch,
-        ato,
-        atc,
-        vol,
-        threshold,
-        expected_regime,
-    ):
+        ato: float,
+        atc: float,
+        vol: float,
+        threshold: float,
+        expected_regime: str,
+    ) -> None:
         """End-to-end: ATO file + handle_atc → correct regime."""
         monkeypatch.chdir(tmp_path)
         mdir = tmp_path / "market-data"
