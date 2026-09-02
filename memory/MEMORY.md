@@ -22,3 +22,8 @@
 - [Enterprise Lean Gate](20260828-103000-enterprise-lean-gate.md) - Rejected Airflow/ELK/Vault per lean governance; adopted stubbed SETSMART integration tests + Mermaid docs.
 - [Artifact Naming Convention](20260828-113000-artifact-naming-convention.md) - Unified {date}-{time}-{suffix}.json naming + ICT timestamps across data dirs.
 - [Validation Engine Categorical Fix](20260829-140000-validation-engine-categorical-fix.md) - Resolved Pandas4Warning by adding Unclassified to VALID_REGIMES.
+- [Husky Pre-commit Ordering](20260829-120000-husky-pre-commit-ordering.md) - Ordered ruff check before pytest in pre-commit hook
+- [Finnhub Market Data Capture](20260902-140000-finnhub-market-data-capture.md) - Captured market data using Finnhub provider and verified JSON-LD enrichment.
+- [Yahoo Finance Provider Integration](20260902-143000-yfinance-provider.md) - Configured yfinance as default provider for SET index capture.
+- [Ruff ALL Lint Standard](20260902-163000-ruff-all-lint-standard.md) - select=ALL in pyproject; scripts/python has no __init__.py (mypy module collision); tuple-row dict fix in stress_test_regime.
+- [Ruff Lint Fixes v2](20260902-183000-ruff-lint-fixes-v2.md) - Resolved CPY001 and PLR0917 lint errors in CI.
