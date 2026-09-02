@@ -180,13 +180,28 @@ def derive_actual_regime(
 # --- I/O Helpers ---
 
 
-def load_existing(date_str: str) -> dict:
+def load_existing(date_str: str, mode: str | None = None) -> dict:
     """Load an existing market data file, or return a minimal skeleton."""
-    files = sorted(Path(MARKET_DATA_DIR).glob(f"{date_str}-*.json"))
+    market_dir = Path(MARKET_DATA_DIR)
+    if mode:
+        files = sorted(market_dir.glob(f"{date_str}-*-{mode}.json"))
+        if files:
+            with files[-1].open(encoding="utf-8") as f:
+                return json.load(f)
+
+    # Specific preference: when looking for prior ATO (mode is None or ato), prefer *-ato.json
+    ato_files = sorted(market_dir.glob(f"{date_str}-*-ato.json"))
+    if ato_files:
+        with ato_files[-1].open(encoding="utf-8") as f:
+            data = json.load(f)
+            if data.get("atoPrice") is not None:
+                return data
+
+    files = sorted(market_dir.glob(f"{date_str}-*.json"))
     filepath = files[-1] if files else None
 
     if filepath is None:
-        legacy = Path(MARKET_DATA_DIR) / f"{date_str}.json"
+        legacy = market_dir / f"{date_str}.json"
         if legacy.exists():
             filepath = legacy
 
@@ -201,13 +216,10 @@ def save_market_data(record: dict, date_str: str, mode: str) -> str:
     market_dir = Path(MARKET_DATA_DIR)
     market_dir.mkdir(exist_ok=True)
 
-    # Use timestamp from record, or generate now
-    ts_str = record.get(
-        "observationDate",
-        datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S+07:00"),
-    )
-    # Format to YYYY-MM-DD-HHMMSS
-    dt = datetime.fromisoformat(ts_str).strftime("%Y-%m-%d-%H%M%S")
+    # Use date_str and current ICT time
+    now_ict = datetime.now(UTC) + ICT_OFFSET
+    time_str = now_ict.strftime("%H%M%S")
+    dt = f"{date_str}-{time_str}"
 
     filepath = market_dir / f"{dt}-{mode}.json"
     with filepath.open("w", encoding="utf-8") as f:
@@ -391,7 +403,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
 def _already_captured(date_str: str, mode: str) -> bool:
     """Return True (and log) if today's market data for this mode already exists."""
-    existing = load_existing(date_str)
+    existing = load_existing(date_str, mode=mode)
     if mode == "ato" and existing.get("atoPrice") is not None:
         print(f"[SKIP] ATO data for {date_str} already exists (atoPrice={existing['atoPrice']}).")
         return True

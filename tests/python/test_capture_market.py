@@ -15,6 +15,7 @@ from capture_market import (
     extract_market_prices,
     handle_atc,
     handle_ato,
+    load_existing,
 )
 
 # --- extract_market_prices ---
@@ -204,3 +205,16 @@ class TestHandleAtc:
 
         result = handle_atc("2026-06-14", atc, vol, threshold)
         assert result["actualRegime"] == expected_regime
+
+    def test_load_existing_prefers_ato_file(self, tmp_path, monkeypatch):
+        """Ensure load_existing properly extracts atoPrice from *-ato.json when both exist."""
+        monkeypatch.chdir(tmp_path)
+        mdir = tmp_path / "market-data"
+        mdir.mkdir()
+        ato_payload = {"atoPrice": 1550.0, "status": "partial"}
+        atc_payload = {"atcPrice": 1540.0, "status": "complete"}
+        (mdir / "2026-06-14-100000-ato.json").write_text(json.dumps(ato_payload))
+        (mdir / "2026-06-14-163000-atc.json").write_text(json.dumps(atc_payload))
+
+        loaded = load_existing("2026-06-14")
+        assert loaded.get("atoPrice") == 1550.0

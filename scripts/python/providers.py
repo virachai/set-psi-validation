@@ -32,8 +32,7 @@ def fetch_finnhub_quote(symbol: str) -> dict[str, Any] | None:
                 quote = data.get("c")
                 open_p = data.get("o")
                 msg = (
-                    f"[FINNHUB] Successfully fetched live quote for {symbol}: "
-                    f"c={quote}, o={open_p}"
+                    f"[FINNHUB] Successfully fetched live quote for {symbol}: c={quote}, o={open_p}"
                 )
                 print(msg)
             return data

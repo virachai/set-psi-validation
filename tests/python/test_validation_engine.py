@@ -12,7 +12,9 @@ sys.path.insert(0, str(Path(__file__).parents[2] / "scripts" / "python"))
 from validation_engine import (
     compare_regimes,
     derive_actual_regime,
+    find_latest_market_file,
     find_latest_prediction_file,
+    prune_orphan_validations,
     run_daily_validation,
     update_aggregate_metrics,
 )
@@ -275,3 +277,76 @@ class TestThreeWindowValidation:
         # but it will be in the actuals if it was an actual regime.
         # Here it was predicted.
         assert data["metrics"]["total_count"] == 1
+
+    def test_find_latest_market_file_prefers_atc(self):
+        """Ensure find_latest_market_file prefers *-atc.json over *-ato.json."""
+        # 'ato' is alphabetically after 'atc'
+        (self.market_dir / "2026-06-16-100000-ato.json").write_text(
+            json.dumps({"status": "partial", "atoPrice": 100.0}),
+        )
+        atc_data = {
+            "status": "complete",
+            "actualRegime": "Bearish",
+            "atoPrice": 100.0,
+            "atcPrice": 98.0,
+        }
+        (self.market_dir / "2026-06-16-163000-atc.json").write_text(json.dumps(atc_data))
+
+        found = find_latest_market_file(str(self.market_dir), "2026-06-16")
+        assert found is not None
+        assert Path(found).name == "2026-06-16-163000-atc.json"
+
+    def test_prune_orphan_validations(self):
+        """Ensure orphan validation files referencing missing predictions are removed."""
+        # Valid validation record with existing prediction
+        (self.pred_dir / "2026-06-16-090000-am.json").write_text(
+            json.dumps({"session": "am", "predictedRegime": "Bullish"}),
+        )
+        (self.val_dir / "2026-06-16-090000-am.json").write_text(
+            json.dumps(
+                {
+                    "file_id": "2026-06-16-090000-am",
+                    "observationAbout": [{"@id": "predictions/2026-06-16-090000-am.json"}],
+                },
+            ),
+        )
+
+        # Orphan validation record whose prediction does NOT exist
+        orphan_file = self.val_dir / "2026-06-16-999999-orphan.json"
+        orphan_file.write_text(
+            json.dumps(
+                {
+                    "file_id": "2026-06-16-999999-orphan",
+                    "observationAbout": [{"@id": "predictions/2026-06-16-999999-orphan.json"}],
+                },
+            ),
+        )
+
+        pruned_count = prune_orphan_validations()
+        assert pruned_count == 1
+        assert not orphan_file.exists()
+        assert (self.val_dir / "2026-06-16-090000-am.json").exists()
+
+    def test_run_daily_validation_with_ato_and_atc_files(self):
+        """End-to-end: with both ATO and ATC files present, evaluate against ATC outcome."""
+        (self.market_dir / "2026-06-16-100000-ato.json").write_text(
+            json.dumps({"status": "partial", "atoPrice": 100.0}),
+        )
+        atc_data = {
+            "status": "complete",
+            "actualRegime": "Bearish",
+            "atoPrice": 100.0,
+            "atcPrice": 98.0,
+        }
+        (self.market_dir / "2026-06-16-163000-atc.json").write_text(json.dumps(atc_data))
+        (self.pred_dir / "2026-06-16-140000-pm.json").write_text(
+            json.dumps({"session": "pm", "predictedRegime": "Sideways"}),
+        )
+
+        records = run_daily_validation("2026-06-16")
+        assert len(records) == 1
+        assert records[0]["session"] == "pm"
+        assert records[0]["predictedRegime"] == "Sideways"
+        assert records[0]["actualRegime"] == "Bearish"
+        assert records[0]["isCorrect"] is False
+        assert records[0]["deviationScore"] == 1.0

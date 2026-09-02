@@ -57,13 +57,11 @@ jobs:
           if [[ '${{ github.event_name }}' == 'workflow_dispatch' ]]; then
             echo "Trigger: Manual (${{ github.event.inputs.step }})"
             echo 'step=${{ github.event.inputs.step }}' >> $GITHUB_OUTPUT
-          elif [[ '${{ github.event_name }}' == 'push' ]]; then
-            echo "Trigger: Push (all)"
-            echo 'step=all' >> $GITHUB_OUTPUT
           else
-            # Range-based windows: tolerate cron delay up to several hours
+            # Range-based windows for push and schedule: tolerate cron delay and prevent lookahead bias
             H_ICT=$(TZ='Asia/Bangkok' date +%H)
-            echo "Verification -> ICT: $H_ICT"
+            M_ICT=$(TZ='Asia/Bangkok' date +%M)
+            echo "Trigger: ${{ github.event_name }} -> ICT: ${H_ICT}:${M_ICT}"
 
             # Safety Gate: Stop if outside market hours (08:00 - 18:00)
             if [[ "$H_ICT" -lt 8 || "$H_ICT" -ge 18 ]]; then

@@ -122,6 +122,37 @@ def find_latest_file(directory: str, date_str: str) -> str | None:
     return str(files[-1])
 
 
+def find_latest_market_file(directory: str, date_str: str) -> str | None:
+    """Find the latest completed market data file (preferring *-atc.json)."""
+    market_dir = Path(directory)
+    # 1. Prefer completed ATC file: {date_str}-*-atc.json
+    atc_files = sorted(market_dir.glob(f"{date_str}-*-atc.json"))
+    if atc_files:
+        return str(atc_files[-1])
+
+    # 2. Check general {date_str}-*.json for completed status or actualRegime
+    # (excluding explicit *-ato.json files)
+    all_files = sorted(market_dir.glob(f"{date_str}-*.json"))
+    for f in reversed(all_files):
+        if f.name.endswith("-ato.json"):
+            continue
+        data = load_json(str(f))
+        if data and (
+            _extract_regime_value(data, "actualRegime", "Actual Regime")
+            or data.get("status") == "complete"
+        ):
+            return str(f)
+
+    # 3. Fallback to legacy YYYY-MM-DD.json
+    legacy = market_dir / f"{date_str}.json"
+    if legacy.exists():
+        data = load_json(str(legacy))
+        if data and _extract_regime_value(data, "actualRegime", "Actual Regime"):
+            return str(legacy)
+
+    return None
+
+
 def find_latest_prediction_file(directory: str, date_str: str, session: str) -> str | None:
     """Find the latest prediction file matching YYYY-MM-DD-*-session.json."""
     files = sorted(Path(directory).glob(f"{date_str}-*-{session}.json"))
@@ -231,9 +262,9 @@ def _build_validation_record(
 
 def run_daily_validation(date_str: str) -> list[dict[str, Any]]:
     """Validate a single date across all 3 windows (am, pm, full_day)."""
-    market_path = find_latest_file(MARKET_DATA_DIR, date_str)
+    market_path = find_latest_market_file(MARKET_DATA_DIR, date_str)
     if not market_path:
-        msg = f"Missing market data path for {date_str}"
+        msg = f"Missing complete market data path for {date_str}"
         print(f"[SKIP] {msg}")
         log_event("WARN", "validation_engine", msg)
         return []
@@ -291,6 +322,35 @@ def run_daily_validation(date_str: str) -> list[dict[str, Any]]:
         records.append(record)
 
     return records
+
+
+def prune_orphan_validations() -> int:
+    """Remove validation records that reference non-existent prediction files."""
+    validation_dir = Path(VALIDATION_DIR)
+    if not validation_dir.exists():
+        return 0
+
+    pruned = 0
+    for f in sorted(validation_dir.glob("*.json")):
+        data = load_json(str(f))
+        if not data or not isinstance(data, dict):
+            continue
+
+        pred_id = None
+        for about in data.get("observationAbout", []):
+            if isinstance(about, dict) and about.get("@id", "").startswith("predictions/"):
+                pred_id = about.get("@id")
+                break
+
+        if pred_id:
+            pred_filename = Path(pred_id).name
+            pred_file = Path(PREDICTIONS_DIR) / pred_filename
+            if not pred_file.exists():
+                print(f"[PRUNE] Removing orphan validation file {f.name} (missing {pred_file})")
+                log_event("INFO", "validation_engine", f"Pruning orphan validation file {f.name}")
+                f.unlink(missing_ok=True)
+                pruned += 1
+    return pruned
 
 
 def update_aggregate_metrics() -> None:
@@ -445,6 +505,8 @@ def main() -> None:
         )
         args = parser.parse_args()
 
+        prune_orphan_validations()
+
         if args.recompute_all:
             print("[INIT] Recomputing all validations...")
             log_event("INFO", "validation_engine", "Recomputing all validations")
@@ -461,21 +523,8 @@ def main() -> None:
                 run_daily_validation(d)
         else:
             date_str = args.date or (datetime.now(UTC) + ICT_OFFSET).strftime("%Y-%m-%d")
-            # Idempotent: skip if today already has validation records
-            existing = sorted(Path(VALIDATION_DIR).glob(f"{date_str}-*.json"))
-            if existing:
-                print(
-                    f"[SKIP] Validation for {date_str} already exists "
-                    f"({len(existing)} record(s)).",
-                )
-                log_event(
-                    "INFO",
-                    "validation_engine",
-                    f"Skipped — validation for {date_str} exists",
-                )
-            else:
-                log_event("INFO", "validation_engine", f"Running validation for {date_str}")
-                run_daily_validation(date_str)
+            log_event("INFO", "validation_engine", f"Running validation for {date_str}")
+            run_daily_validation(date_str)
 
         update_aggregate_metrics()
         print("[DONE] Validation engine execution complete.")
