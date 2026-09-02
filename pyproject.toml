@@ -33,7 +33,8 @@ select = ["ALL"]
 # Tests: pytest assert-based idiom; tests intentionally untyped (mypy disallows nothing);
 # parameterized tests legitimately take param values + fixtures as arguments.
 # CPY001: Ignore missing copyright notice in tests and scripts
-"tests/**" = ["S101", "ANN", "D", "ARG", "PLR2004", "PLR0913", "CPY001"]
+# PLR0917: Ignore too many positional arguments in parameterized test methods
+"tests/**" = ["S101", "ANN", "D", "ARG", "PLR2004", "PLR0913", "CPY001", "PLR0917"]
 # CLI scripts: stdout print is the operator interface; entry points and provider
 # boundaries deliberately catch broadly to log-and-exit / fall back to None.
 # INP001: scripts/ is a runnable-scripts directory, not an importable package
