@@ -28,7 +28,7 @@ import httpx
 from dotenv import load_dotenv
 
 from utils import log_event, log_failure
-from providers import fetch_finnhub_quote
+from providers import fetch_finnhub_quote, fetch_yahoo_quote
 
 load_dotenv()
 
@@ -360,9 +360,9 @@ def main() -> None:
     )
     parser.add_argument(
         "--provider",
-        choices=["setsmart", "finnhub"],
-        default="setsmart",
-        help="API provider for symbol data.",
+        choices=["setsmart", "finnhub", "yahoo"],
+        default="yahoo",
+        help="API provider for symbol data (default: yahoo).",
     )
     args = parser.parse_args()
 
@@ -388,9 +388,8 @@ def main() -> None:
                     {"mode": args.mode},
                 )
                 data = fetch_finnhub_quote(args.symbol)
-                if not data or data.get("c") == 0:
-                    # Fallback
-                    msg = f"Finnhub API returned no data for {args.symbol}. Using fallback/estimated market data."
+                if not data or data.get("c", 0) == 0:
+                    msg = f"Finnhub API returned no data for {args.symbol}. Using fallback market data."
                     print(f"[WARN] {msg}")
                     log_event("WARN", "capture_market", msg)
                     ato_price = 1500.0
@@ -399,9 +398,33 @@ def main() -> None:
                 else:
                     ato_price = float(data.get("o", 0.0))
                     atc_price = float(data.get("c", 0.0))
-                    # Finnhub doesn't provide easy intraday vol, use 0.01 as proxy
                     volatility = 0.01
                     print(f"[FINNHUB] ATO={ato_price}, ATC={atc_price}, Vol={volatility}")
+
+            elif args.provider == "yahoo":
+                log_event(
+                    "INFO",
+                    "capture_market",
+                    f"Starting Yahoo Finance fetch for {args.symbol}",
+                    {"mode": args.mode},
+                )
+                data = fetch_yahoo_quote(args.symbol)
+                if not data or data.get("c", 0) == 0:
+                    msg = f"Yahoo Finance returned no data for {args.symbol}. Using fallback market data."
+                    print(f"[WARN] {msg}")
+                    log_event("WARN", "capture_market", msg)
+                    ato_price = 1500.0
+                    atc_price = 1500.0
+                    volatility = 0.01
+                else:
+                    ato_price = float(data.get("o", 0.0))
+                    atc_price = float(data.get("c", 0.0))
+                    high_p = float(data.get("h", atc_price))
+                    low_p = float(data.get("l", ato_price))
+                    mid_price = (high_p + low_p) / 2
+                    volatility = round((high_p - low_p) / mid_price, 4) if mid_price > 0 else 0.01
+                    volatility = min(volatility, 0.05)
+                    print(f"[YAHOO] ATO={ato_price}, ATC={atc_price}, Vol={volatility}")
 
             else:
                 log_event(
