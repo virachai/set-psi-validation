@@ -1,0 +1,14 @@
+---
+name: 20260903-220000-four-session-capture-implemented
+description: Implemented RFC 016/017 — noon and pmopen capture modes in capture_market.py, and session-aware market-outcome resolution in validation_engine.py.
+type: feedback
+---
+
+**What shipped:** RFC 016 and RFC 017 (previously spec-only design docs) are now implemented, at the user's explicit request to know "how different the morning open is from the lunch-break close, and the afternoon open to close, so it can be compared against our prediction."
+
+- `capture_market.py` gained two new modes: `noon` (captures the SET morning session's close at ~12:30 ICT and derives its own `actualRegime` for the ATO→Noon window via `handle_noon()`) and `pmopen` (captures the afternoon session's open at ~14:30 ICT as a partial record via `handle_pmopen()`). `handle_atc()` now also derives an `afternoonRegime` (PM Open→ATC) whenever a `pmopen` record exists for the date, alongside its unchanged full-day `actualRegime` (ATO→ATC) — confirmed with the user that `full_day` must stay ATO→ATC.
+- `validation_engine.py` gained `_resolve_market_outcome(date_str, session)`, which scores each prediction session against its own window: `am` against the noon file's `actualRegime`, `pm` against the atc file's `afternoonRegime`, `full_day` against the atc file's `actualRegime` (unchanged) — each with a fallback to the full-day outcome when the newer window's data doesn't exist yet (keeps all historical dates working unchanged).
+- `.github/workflows/intraday-pipeline.yml` gained `noon` (12:30-12:59 ICT) and `pmopen` (14:30-14:59 ICT) step-decider windows and job steps, with `prediction-pm`'s window shifted to 13:00+ to make room.
+- Also fixed the volatility-threshold constant (`DEFAULT_THRESHOLD_MEAN`) being reused everywhere: `--threshold` now defaults to a real 30-day rolling average via `compute_rolling_threshold_mean()` instead of a hardcoded `0.02`, and `regime_rules.compare_regimes()` no longer scores an `Unclassified`-vs-`Unclassified` pair as a correct prediction. 129 tests pass (12 new for this batch).
+
+**Why this matters for future sessions:** This closes the loop the user cared about across three follow-up messages: confirming the am/full_day scheduling bug fix, asking specifically when the ATO window runs and how to compare morning-open vs lunch-close against predictions, then asking for the symmetric afternoon-open→ATC window too. If asked to extend intraday capture further (e.g. a distinct pre-lunch/post-lunch volatility feed, or per-minute snapshots), start from `_resolve_afternoon_window()` in `capture_market.py` and `_resolve_market_outcome()` in `validation_engine.py` — both already establish the "derive-in-the-later-file, fall back to full-day when absent" pattern that should be reused rather than re-invented.

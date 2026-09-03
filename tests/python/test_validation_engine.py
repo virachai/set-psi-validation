@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).parents[2] / "scripts" / "python"))
 
 from regime_rules import compare_regimes, derive_actual_regime
 from validation_engine import (
+    _resolve_market_outcome,
     find_latest_market_file,
     find_latest_prediction_file,
     prune_orphan_validations,
@@ -89,8 +90,10 @@ class TestCompareRegimes:
         """Critical failure: Crisis predicted as Bullish."""
         assert compare_regimes("Bullish", "Crisis") is False
 
-    def test_match_unclassified(self):
-        assert compare_regimes("Unclassified", "Unclassified") is True
+    def test_unclassified_never_counts_as_match(self):
+        """Unclassified means a real classification failed on one or both sides —
+        it must never be scored as a correct prediction, even against itself."""
+        assert compare_regimes("Unclassified", "Unclassified") is False
 
 
 # --- Three-Window Validation and Metrics ---
@@ -349,3 +352,85 @@ class TestThreeWindowValidation:
         assert records[0]["actualRegime"] == "Bearish"
         assert records[0]["isCorrect"] is False
         assert records[0]["deviationScore"] == 1.0
+
+
+class TestResolveMarketOutcome:
+    """am -> ATO->Noon window, pm -> PM Open->ATC window, full_day -> ATO->ATC (RFC 016/017)."""
+
+    @pytest.fixture(autouse=True)
+    def setup_dirs(self, monkeypatch, tmp_path):
+        self.market_dir = tmp_path / "market-data"
+        self.market_dir.mkdir()
+        monkeypatch.setattr("validation_engine.MARKET_DATA_DIR", str(self.market_dir))
+
+    def _write(self, name: str, data: dict) -> None:
+        (self.market_dir / name).write_text(json.dumps(data))
+
+    def test_am_prefers_noon_file_when_present(self):
+        self._write(
+            "2026-06-16-123000-noon.json",
+            {"status": "complete", "actualRegime": "Sideways"},
+        )
+        self._write(
+            "2026-06-16-163000-atc.json",
+            {"status": "complete", "actualRegime": "Bearish"},
+        )
+
+        market_path, regime = _resolve_market_outcome("2026-06-16", "am")
+        assert regime == "Sideways"
+        assert market_path.endswith("-noon.json")
+
+    def test_am_falls_back_to_full_day_without_noon_file(self):
+        self._write(
+            "2026-06-16-163000-atc.json",
+            {"status": "complete", "actualRegime": "Bearish"},
+        )
+
+        market_path, regime = _resolve_market_outcome("2026-06-16", "am")
+        assert regime == "Bearish"
+        assert market_path.endswith("-atc.json")
+
+    def test_pm_prefers_afternoon_regime_when_present(self):
+        self._write(
+            "2026-06-16-163000-atc.json",
+            {
+                "status": "complete",
+                "actualRegime": "Bearish",
+                "afternoonRegime": "Bullish",
+            },
+        )
+
+        market_path, regime = _resolve_market_outcome("2026-06-16", "pm")
+        assert regime == "Bullish"
+        assert market_path.endswith("-atc.json")
+
+    def test_pm_falls_back_to_full_day_without_afternoon_regime(self):
+        self._write(
+            "2026-06-16-163000-atc.json",
+            {"status": "complete", "actualRegime": "Bearish"},
+        )
+
+        _market_path, regime = _resolve_market_outcome("2026-06-16", "pm")
+        assert regime == "Bearish"
+
+    def test_full_day_always_uses_atc_actual_regime(self):
+        self._write(
+            "2026-06-16-123000-noon.json",
+            {"status": "complete", "actualRegime": "Sideways"},
+        )
+        self._write(
+            "2026-06-16-163000-atc.json",
+            {
+                "status": "complete",
+                "actualRegime": "Bearish",
+                "afternoonRegime": "Bullish",
+            },
+        )
+
+        _market_path, regime = _resolve_market_outcome("2026-06-16", "full_day")
+        assert regime == "Bearish"
+
+    def test_no_market_data_returns_none(self):
+        assert _resolve_market_outcome("2026-06-16", "am") is None
+        assert _resolve_market_outcome("2026-06-16", "pm") is None
+        assert _resolve_market_outcome("2026-06-16", "full_day") is None

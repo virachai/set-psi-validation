@@ -28,3 +28,8 @@
 - [Ruff ALL Lint Standard](20260902-163000-ruff-all-lint-standard.md) - select=ALL in pyproject; scripts/python has no __init__.py (mypy module collision); tuple-row dict fix in stress_test_regime.
 - [Ruff Lint Fixes v2](20260902-183000-ruff-lint-fixes-v2.md) - Resolved CPY001 and PLR0917 lint errors in CI.
 - [Enterprise Husky Pre-Commit](20260902-190000-enterprise-husky-pre-commit.md) - Upgraded pre-commit hook to LV99 enterprise-grade validation.
+- [Session Validation Gap (RFC 017)](20260903-201000-session-validation-gap-rfc017.md) - am/pm validation records reuse the full-day market file; designed find_market_window() fix (spec only).
+- [AM/Full-Day Run Separated](20260903-203000-am-fullday-run-separated.md) - Fixed workflow bug where am and full_day predictions ran together in one step, producing identical files.
+- [Regime Scoring & Adaptive Threshold Fix](20260903-210000-regime-scoring-and-adaptive-threshold-fix.md) - Fixed Unclassified-counted-as-correct bug and replaced hardcoded volatility threshold with real 30-day rolling computation.
+- [Four-Session Capture Implemented](20260903-220000-four-session-capture-implemented.md) - Implemented RFC 016/017: noon and pmopen capture modes, and session-aware market-outcome resolution in validation_engine.py.
+- [Session Memory Report — 2026-09-03](20260903-223000-session-memory-report.md) - Standard-template consolidated summary of this session's four memory entries and outstanding uncommitted changes.

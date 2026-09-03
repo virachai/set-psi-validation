@@ -213,28 +213,70 @@ def _build_validation_record(
     }
 
 
-def run_daily_validation(date_str: str) -> list[dict[str, Any]]:
-    """Validate a single date across all 3 windows (am, pm, full_day)."""
+def _resolve_market_outcome(date_str: str, session: str) -> tuple[str, str] | None:
+    """Resolve the (market_path, actual_regime) that belongs to one session's own window.
+
+    am        -> the noon (morning-session close) file's own "actualRegime",
+                 i.e. the ATO -> Noon window — falls back to the full-day
+                 outcome below when no noon capture exists for this date yet.
+    pm        -> the full-day atc file's "afternoonRegime" (PM Open -> ATC),
+                 when the capture pipeline recorded an afternoon window —
+                 falls back to the same file's full-day "actualRegime" when it
+                 doesn't (e.g. historical dates before RFC 016/017 shipped).
+    full_day  -> the full-day atc file's "actualRegime" (unchanged).
+
+    This keeps each prediction session scored against real behavior for its
+    own window instead of every session sharing one full-day outcome.
+    """
+    if session == "am":
+        noon_files = sorted(Path(MARKET_DATA_DIR).glob(f"{date_str}-*-noon.json"))
+        if noon_files:
+            noon_path = str(noon_files[-1])
+            noon_data = load_json(noon_path)
+            regime = noon_data and _extract_regime_value(
+                noon_data,
+                "actualRegime",
+                "Actual Regime",
+            )
+            if regime:
+                return noon_path, regime
+        # No noon capture for this date — fall through to the full-day file below.
+
     market_path = find_latest_market_file(MARKET_DATA_DIR, date_str)
     if not market_path:
+        return None
+    market = load_json(market_path)
+    if not market:
+        return None
+
+    if session == "pm":
+        afternoon_regime = _extract_regime_value(
+            market,
+            "afternoonRegime",
+            "Afternoon Actual Regime",
+        )
+        if afternoon_regime:
+            return market_path, afternoon_regime
+        # No pmopen capture for this date — fall through to the full-day regime below.
+
+    actual_regime = _extract_regime_value(market, "actualRegime", "Actual Regime")
+    if not actual_regime:
+        return None
+    return market_path, actual_regime
+
+
+def run_daily_validation(date_str: str) -> list[dict[str, Any]]:
+    """Validate a single date across all 3 windows (am, pm, full_day).
+
+    Each session is scored against its own market window via
+    _resolve_market_outcome() — am against ATO->Noon, pm against
+    PM Open->ATC, full_day against ATO->ATC — falling back to the full-day
+    outcome for any session whose dedicated window data isn't available yet.
+    """
+    if not find_latest_market_file(MARKET_DATA_DIR, date_str):
         msg = f"Missing complete market data path for {date_str}"
         print(f"[SKIP] {msg}")
         log_event("WARN", "validation_engine", msg)
-        return []
-
-    market = load_json(market_path)
-    if not market:
-        msg = f"Missing market data for {date_str}"
-        print(f"[SKIP] {msg}")
-        log_event("WARN", "validation_engine", msg)
-        return []
-
-    # Extract regimes (handle both schema.org and flat formats)
-    actual_regime = _extract_regime_value(market, "actualRegime", "Actual Regime")
-    if not actual_regime:
-        msg = f"Could not extract actual regime for {date_str}"
-        print(f"[ERROR] {msg}")
-        log_event("ERROR", "validation_engine", msg)
         return []
 
     records = []
@@ -244,6 +286,14 @@ def run_daily_validation(date_str: str) -> list[dict[str, Any]]:
         if not pred_path:
             log_event("INFO", "validation_engine", f"No prediction for {date_str} ({session})")
             continue
+
+        outcome = _resolve_market_outcome(date_str, session)
+        if not outcome:
+            msg = f"Could not resolve market outcome for {date_str} ({session})"
+            print(f"[ERROR] {msg}")
+            log_event("ERROR", "validation_engine", msg)
+            continue
+        market_path, actual_regime = outcome
 
         prediction = load_json(pred_path)
         if not prediction:

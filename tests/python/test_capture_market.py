@@ -10,14 +10,18 @@ sys.path.insert(0, str(pathlib.Path(__file__).parents[2] / "scripts" / "python")
 
 from capture_market import (
     REGIME_TAXONOMY_URL,
+    THRESHOLD_MIN_HISTORY_DAYS,
     VALID_REGIMES,
     _fetch_live_prices,
+    compute_rolling_threshold_mean,
     extract_market_prices,
     handle_atc,
     handle_ato,
+    handle_noon,
+    handle_pmopen,
     load_existing,
 )
-from regime_rules import derive_actual_regime
+from regime_rules import DEFAULT_THRESHOLD_MEAN, derive_actual_regime
 
 # --- extract_market_prices ---
 
@@ -236,3 +240,159 @@ class TestHandleAtc:
         monkeypatch.setattr("capture_market.fetch_setsmart_eod", lambda sym, dt: None)
         with pytest.raises(RuntimeError, match="SETSMART API returned no data"):
             _fetch_live_prices("setsmart", "SET", "2026-06-14", "atc")
+
+
+class TestHandleNoon:
+    """Morning-session close (ATO -> Noon) capture — used to score `am` predictions."""
+
+    def test_complete_output_structure(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        mdir = tmp_path / "market-data"
+        mdir.mkdir()
+        (mdir / "2026-06-14-100000-ato.json").write_text(
+            json.dumps({"atoPrice": 100.0, "status": "partial"}),
+        )
+
+        result = handle_noon("2026-06-14", 101.0, 0.01, 0.02)
+
+        assert result["window"] == "morning"
+        assert result["status"] == "complete"
+        assert result["atoPrice"] == 100.0
+        assert result["noonPrice"] == 101.0
+        assert result["returnPct"] == 1.0
+        assert result["actualRegime"] == "Bullish"
+
+        measures = {m["name"]: m["value"] for m in result["variableMeasured"]}
+        assert measures["Noon Price"] == 101.0
+        assert measures["Morning Return %"] == 1.0
+
+    def test_fallback_no_ato(self, tmp_path, monkeypatch):
+        """When no ATO file exists, noon price is used as fallback ATO -> 0% return."""
+        monkeypatch.chdir(tmp_path)
+        result = handle_noon("2026-06-14", 1450.0, 0.01, 0.02)
+        assert result["atoPrice"] == 1450.0
+        assert result["returnPct"] == 0.0
+
+    def test_actual_regime_reuses_same_field_name_as_atc(self, tmp_path, monkeypatch):
+        """The noon record must expose 'actualRegime' the same way the atc record
+        does, so validation_engine's generic regime extraction works on either
+        file unchanged."""
+        monkeypatch.chdir(tmp_path)
+        mdir = tmp_path / "market-data"
+        mdir.mkdir()
+        (mdir / "2026-06-14-100000-ato.json").write_text(json.dumps({"atoPrice": 100.0}))
+        noon_result = handle_noon("2026-06-14", 100.05, 0.01, 0.02)
+        atc_result = handle_atc("2026-06-14", 100.05, 0.01, 0.02)
+        assert noon_result["actualRegime"] == atc_result["actualRegime"] == "Sideways"
+
+
+class TestHandlePmopen:
+    """Afternoon-session open (partial) capture — awaits ATC to derive the afternoon window."""
+
+    def test_output_structure(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        result = handle_pmopen("2026-06-14", 1445.0)
+        assert result["window"] == "afternoon"
+        assert result["status"] == "partial"
+        assert result["pmOpenPrice"] == 1445.0
+        measures = {m["name"]: m["value"] for m in result["variableMeasured"]}
+        assert measures["PM Open Price"] == 1445.0
+
+
+class TestHandleAtcAfternoonWindow:
+    """handle_atc must also derive the PM Open -> ATC window when a pmopen record exists."""
+
+    def test_no_pmopen_record_omits_afternoon_fields(self, tmp_path, monkeypatch):
+        """Backward compatibility: without a pmopen capture, afternoon fields are None
+        and no 'Afternoon Actual Regime' entry appears in variableMeasured."""
+        monkeypatch.chdir(tmp_path)
+        result = handle_atc("2026-06-14", 1438.10, 0.01, 0.02)
+        assert result["pmOpenPrice"] is None
+        assert result["afternoonReturnPct"] is None
+        assert result["afternoonRegime"] is None
+        names = {m["name"] for m in result["variableMeasured"]}
+        assert "Afternoon Actual Regime" not in names
+
+    def test_with_pmopen_record_derives_afternoon_window(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        mdir = tmp_path / "market-data"
+        mdir.mkdir()
+        (mdir / "2026-06-14-100000-ato.json").write_text(json.dumps({"atoPrice": 100.0}))
+        (mdir / "2026-06-14-143000-pmopen.json").write_text(
+            json.dumps({"pmOpenPrice": 100.0, "status": "partial"}),
+        )
+
+        result = handle_atc("2026-06-14", 101.0, 0.01, 0.02)
+
+        assert result["pmOpenPrice"] == 100.0
+        assert result["afternoonReturnPct"] == 1.0
+        assert result["afternoonRegime"] == "Bullish"
+        # Full-day regime (ato 100.0 -> atc 101.0) computed independently too.
+        assert result["actualRegime"] == "Bullish"
+
+        measures = {m["name"]: m["value"] for m in result["variableMeasured"]}
+        assert measures["Afternoon Actual Regime"] == "Bullish"
+        assert measures["Afternoon Return %"] == 1.0
+
+
+class TestComputeRollingThresholdMean:
+    """Cover the adaptive volatility threshold (replaces the old hardcoded 0.02)."""
+
+    def _write_atc(self, mdir: pathlib.Path, date: str, volatility: float) -> None:
+        payload = {"status": "complete", "volatilityIndex": volatility}
+        (mdir / f"{date}-163000-atc.json").write_text(json.dumps(payload))
+
+    def test_no_history_falls_back_to_default(self, tmp_path, monkeypatch):
+        """Cold start (no market-data dir yet): use the static default, not crash."""
+        monkeypatch.chdir(tmp_path)
+        assert compute_rolling_threshold_mean("2026-06-14") == DEFAULT_THRESHOLD_MEAN
+
+    def test_below_minimum_history_falls_back_to_default(self, tmp_path, monkeypatch):
+        """Fewer than THRESHOLD_MIN_HISTORY_DAYS prior days: too noisy, use default."""
+        monkeypatch.chdir(tmp_path)
+        mdir = tmp_path / "market-data"
+        mdir.mkdir()
+        for i in range(THRESHOLD_MIN_HISTORY_DAYS - 1):
+            self._write_atc(mdir, f"2026-06-{10 + i:02d}", 0.05)
+
+        assert compute_rolling_threshold_mean("2026-06-20") == DEFAULT_THRESHOLD_MEAN
+
+    def test_averages_prior_days_once_enough_history(self, tmp_path, monkeypatch):
+        """With enough history, the mean of prior volatilityIndex values is used."""
+        monkeypatch.chdir(tmp_path)
+        mdir = tmp_path / "market-data"
+        mdir.mkdir()
+        volatilities = [0.01, 0.02, 0.03, 0.04, 0.05]
+        for i, vol in enumerate(volatilities):
+            self._write_atc(mdir, f"2026-06-{10 + i:02d}", vol)
+
+        result = compute_rolling_threshold_mean("2026-06-20")
+        assert result == pytest.approx(sum(volatilities) / len(volatilities))
+
+    def test_excludes_current_and_future_dates(self, tmp_path, monkeypatch):
+        """No lookahead: today's own file (if present) and later dates must not count."""
+        monkeypatch.chdir(tmp_path)
+        mdir = tmp_path / "market-data"
+        mdir.mkdir()
+        for i in range(THRESHOLD_MIN_HISTORY_DAYS):
+            self._write_atc(mdir, f"2026-06-{10 + i:02d}", 0.01)
+        # Same-day and future entries must be ignored even if present.
+        self._write_atc(mdir, "2026-06-20", 0.99)
+        self._write_atc(mdir, "2026-06-25", 0.99)
+
+        result = compute_rolling_threshold_mean("2026-06-20")
+        assert result == pytest.approx(0.01)
+
+    def test_incomplete_or_missing_volatility_ignored(self, tmp_path, monkeypatch):
+        """Partial (ATO-only) records and records missing volatilityIndex don't count."""
+        monkeypatch.chdir(tmp_path)
+        mdir = tmp_path / "market-data"
+        mdir.mkdir()
+        for i in range(THRESHOLD_MIN_HISTORY_DAYS):
+            self._write_atc(mdir, f"2026-06-{10 + i:02d}", 0.02)
+        (mdir / "2026-06-18-100000-ato.json").write_text(
+            json.dumps({"status": "partial", "atoPrice": 1500.0}),
+        )
+
+        result = compute_rolling_threshold_mean("2026-06-20")
+        assert result == pytest.approx(0.02)

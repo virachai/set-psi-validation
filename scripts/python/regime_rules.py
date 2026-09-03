@@ -51,7 +51,14 @@ def derive_actual_regime(
 
 
 def compare_regimes(predicted: str, actual: str) -> bool:
-    """Return True if the prediction matches the actual outcome."""
+    """Return True if the prediction matches the actual outcome.
+
+    "Unclassified" never counts as a correct match, even against an
+    "Unclassified" actual regime — it means one or both sides failed to
+    produce a real classification, not that ambiguity was correctly forecast.
+    """
+    if predicted == "Unclassified" or actual == "Unclassified":
+        return False
     return predicted == actual
 
 
@@ -59,6 +66,6 @@ def compute_deviation_score(predicted: str, actual: str) -> float:
     """Compute a deviation score between predicted and actual regimes.
 
     0.0 = perfect match.
-    1.0 = mismatch.
+    1.0 = mismatch (including any "Unclassified" involved — see compare_regimes).
     """
-    return 0.0 if predicted == actual else 1.0
+    return 0.0 if compare_regimes(predicted, actual) else 1.0

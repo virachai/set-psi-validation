@@ -52,8 +52,15 @@ class TestCanonicalRegimeRules:
     def test_compare_regimes(self):
         assert compare_regimes("Bullish", "Bullish") is True
         assert compare_regimes("Bullish", "Bearish") is False
-        assert compare_regimes("Unclassified", "Unclassified") is True
+
+    def test_compare_regimes_unclassified_never_correct(self):
+        """Unclassified must never count as a correct match, even against itself —
+        it means a real classification failed on one or both sides."""
+        assert compare_regimes("Unclassified", "Unclassified") is False
+        assert compare_regimes("Unclassified", "Bullish") is False
+        assert compare_regimes("Bullish", "Unclassified") is False
 
     def test_compute_deviation_score(self):
         assert compute_deviation_score("Bullish", "Bullish") == 0.0
         assert compute_deviation_score("Bullish", "Bearish") == 1.0
+        assert compute_deviation_score("Unclassified", "Unclassified") == 1.0
