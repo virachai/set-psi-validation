@@ -7,7 +7,7 @@
     "@type": "DefinedTerm",
     "name": "Regime Prediction Accuracy"
   },
-  "datePublished": "2026-09-02T20:48:32+07:00",
+  "datePublished": "2026-09-03T09:28:05+07:00",
   "variableMeasured": [
     {
       "@type": "PropertyValue",
@@ -34,19 +34,19 @@
         "overall_accuracy": 0.0,
         "rolling_7d": 0.0,
         "rolling_30d": 0.0,
-        "total_count": 0
+        "total_count": 1
       },
       "pm": {
         "overall_accuracy": 0.0,
         "rolling_7d": 0.0,
         "rolling_30d": 0.0,
-        "total_count": 1
+        "total_count": 2
       },
       "full_day": {
         "overall_accuracy": 0.0,
         "rolling_7d": 0.0,
         "rolling_30d": 0.0,
-        "total_count": 0
+        "total_count": 1
       }
     },
     "hit_rates": {
@@ -57,7 +57,7 @@
       "Crisis": null,
       "Unclassified": null
     },
-    "total_count": 1
+    "total_count": 4
   },
   "confusion_matrix": {
     "Bullish": {
@@ -71,7 +71,7 @@
     "Bearish": {
       "Bullish": 0,
       "Bearish": 0,
-      "Sideways": 1,
+      "Sideways": 4,
       "Risk-Off": 0,
       "Crisis": 0,
       "Unclassified": 0
@@ -113,6 +113,36 @@
     {
       "date": "2026-09-02",
       "file_id": "2026-09-02-042018-pm",
+      "session": "pm",
+      "predicted": "Sideways",
+      "actual": "Bearish",
+      "correct": false,
+      "rolling_7d": 0.0,
+      "rolling_30d": 0.0
+    },
+    {
+      "date": "2026-09-03",
+      "file_id": "2026-09-03-022758-am",
+      "session": "am",
+      "predicted": "Sideways",
+      "actual": "Bearish",
+      "correct": false,
+      "rolling_7d": 0.0,
+      "rolling_30d": 0.0
+    },
+    {
+      "date": "2026-09-03",
+      "file_id": "2026-09-03-022758-full_day",
+      "session": "full_day",
+      "predicted": "Sideways",
+      "actual": "Bearish",
+      "correct": false,
+      "rolling_7d": 0.0,
+      "rolling_30d": 0.0
+    },
+    {
+      "date": "2026-09-03",
+      "file_id": "2026-09-03-022758-pm",
       "session": "pm",
       "predicted": "Sideways",
       "actual": "Bearish",
