@@ -9,8 +9,8 @@ on:
       - "reports/**"
       - "validation/**"
       - "catalog.json"
-  # schedule:
-  #   - cron: "*/30 7-20 * * 1-5" # Every 30 min 08:00-19:59 ICT — wide window to tolerate Actions queue delay
+  schedule:
+    - cron: "*/30 0-13 * * 1-5" # Every 30 min, UTC 00:00-13:59 = ICT 07:00-20:59 — wide window to tolerate Actions queue delay
   workflow_dispatch:
     inputs:
       step:
@@ -74,7 +74,7 @@ jobs:
               echo "Outside market hours, exiting."
             elif [[ "$H_ICT" -ge 17 ]]; then echo 'step=validation' >> $GITHUB_OUTPUT;
             elif [[ "$H_ICT" -eq 16 && "$M_ICT" -ge 45 ]]; then echo 'step=atc' >> $GITHUB_OUTPUT;
-            elif [[ "$H_ICT" -eq 14 && "$M_ICT" -ge 30 ]]; then echo 'step=pmopen' >> $GITHUB_OUTPUT;
+            elif [[ "$H_ICT" -ge 14 ]]; then echo 'step=pmopen' >> $GITHUB_OUTPUT;
             elif [[ "$H_ICT" -ge 13 ]]; then echo 'step=prediction-pm' >> $GITHUB_OUTPUT;
             elif [[ "$H_ICT" -eq 12 && "$M_ICT" -ge 30 ]]; then echo 'step=noon' >> $GITHUB_OUTPUT;
             elif [[ "$H_ICT" -ge 10 ]]; then echo 'step=ato' >> $GITHUB_OUTPUT;
