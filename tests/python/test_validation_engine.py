@@ -353,6 +353,110 @@ class TestThreeWindowValidation:
         assert records[0]["isCorrect"] is False
         assert records[0]["deviationScore"] == 1.0
 
+    def test_run_daily_validation_writes_pending_when_no_market_file(self):
+        """No market capture at all yet for this date: write a 'pending' record
+        instead of silently skipping the prediction."""
+        (self.pred_dir / "2026-06-16-090000-full_day.json").write_text(
+            json.dumps({"session": "full_day", "predictedRegime": "Bullish"}),
+        )
+
+        records = run_daily_validation("2026-06-16")
+        pending = [r for r in records if r["session"] == "full_day"]
+        assert len(pending) == 1
+        assert pending[0]["status"] == "pending"
+        assert pending[0]["actualRegime"] is None
+        assert pending[0]["isCorrect"] is None
+        assert pending[0]["deviationScore"] is None
+
+    def test_update_aggregate_metrics_excludes_pending_records(self):
+        """Pending records (no actualRegime resolved) must not pollute accuracy/rolling metrics."""
+        (self.val_dir / "2026-06-16-full_day.json").write_text(
+            json.dumps(
+                {
+                    "date": "2026-06-16",
+                    "session": "full_day",
+                    "status": "complete",
+                    "predictedRegime": "Bullish",
+                    "actualRegime": "Bullish",
+                    "isCorrect": True,
+                },
+            ),
+        )
+        (self.val_dir / "2026-06-17-full_day.json").write_text(
+            json.dumps(
+                {
+                    "date": "2026-06-17",
+                    "session": "full_day",
+                    "status": "pending",
+                    "predictedRegime": "Bearish",
+                    "actualRegime": None,
+                    "isCorrect": None,
+                },
+            ),
+        )
+
+        update_aggregate_metrics()
+        data = json.loads((self.rep_dir / "metrics.json").read_text())
+
+        assert data["metrics"]["total_count"] == 1
+        assert data["metrics"]["overall_accuracy"] == 1.0
+
+    def test_rolling_window_dedupes_multi_session_same_date(self):
+        """A date with am+pm+full_day sessions must contribute one row to the
+        rolling window, not three — otherwise a nominal 7-day window spans
+        fewer than 7 actual trading days."""
+        dates = [f"2026-06-{i:02d}" for i in range(1, 8)]
+        for i, date_str in enumerate(dates):
+            # Every date's 3 sessions agree: correct on the last date only.
+            is_correct = i == len(dates) - 1
+            for session in ("am", "pm", "full_day"):
+                val_file = self.val_dir / f"{date_str}-{session}.json"
+                val_file.write_text(
+                    json.dumps(
+                        {
+                            "date": date_str,
+                            "session": session,
+                            "predictedRegime": "Bullish",
+                            "actualRegime": "Bullish" if is_correct else "Bearish",
+                            "isCorrect": is_correct,
+                        },
+                    ),
+                )
+
+        update_aggregate_metrics()
+        data = json.loads((self.rep_dir / "metrics.json").read_text())
+
+        # 7 distinct trading dates, only the last is fully correct -> 1/7,
+        # not 1/21 (which row-counting would have produced) or diluted by
+        # same-day duplicates.
+        assert round(data["metrics"]["rolling_7d"], 4) == round(1 / 7, 4)
+
+    def test_update_aggregate_metrics_computes_precision_and_f1(self):
+        """Precision/F1 per regime, derived from the same confusion matrix as hit_rates."""
+        # 2 correct Bullish predictions, 1 Bullish prediction that was actually Bearish.
+        records = [
+            {"predictedRegime": "Bullish", "actualRegime": "Bullish", "isCorrect": True},
+            {"predictedRegime": "Bullish", "actualRegime": "Bullish", "isCorrect": True},
+            {"predictedRegime": "Bullish", "actualRegime": "Bearish", "isCorrect": False},
+        ]
+        for i, rec in enumerate(records):
+            date_str = f"2026-06-{i + 1:02d}"
+            (self.val_dir / f"{date_str}-full_day.json").write_text(
+                json.dumps({"date": date_str, "session": "full_day", **rec}),
+            )
+
+        update_aggregate_metrics()
+        data = json.loads((self.rep_dir / "metrics.json").read_text())
+        metrics = data["metrics"]
+
+        # Precision(Bullish) = correct Bullish predictions / all Bullish predictions = 2/3
+        assert round(metrics["precision"]["Bullish"], 4) == round(2 / 3, 4)
+        # Recall(Bullish) = correct Bullish predictions / all actual Bullish = 2/2 = 1.0
+        assert metrics["hit_rates"]["Bullish"] == 1.0
+        # F1 is the harmonic mean of precision and recall.
+        expected_f1 = 2 * (2 / 3) * 1.0 / ((2 / 3) + 1.0)
+        assert round(metrics["f1"]["Bullish"], 4) == round(expected_f1, 4)
+
 
 class TestResolveMarketOutcome:
     """am -> ATO->Noon window, pm -> PM Open->ATC window, full_day -> ATO->ATC (RFC 016/017)."""
@@ -389,6 +493,9 @@ class TestResolveMarketOutcome:
         market_path, regime = _resolve_market_outcome("2026-06-16", "am")
         assert regime == "Bearish"
         assert market_path.endswith("-atc.json")
+        # This is a same-file fallback (real data exists, just not session-specific) —
+        # not the "no data at all" case, so it must not be treated as pending.
+        assert market_path is not None
 
     def test_pm_prefers_afternoon_regime_when_present(self):
         self._write(

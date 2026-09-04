@@ -3,6 +3,7 @@
 import json
 import pathlib
 import sys
+from datetime import UTC, datetime
 
 import pytest
 
@@ -12,6 +13,7 @@ from capture_market import (
     REGIME_TAXONOMY_URL,
     THRESHOLD_MIN_HISTORY_DAYS,
     VALID_REGIMES,
+    _assert_market_closed,
     _fetch_live_prices,
     compute_rolling_threshold_mean,
     extract_market_prices,
@@ -20,6 +22,7 @@ from capture_market import (
     handle_noon,
     handle_pmopen,
     load_existing,
+    save_market_data,
 )
 from regime_rules import DEFAULT_THRESHOLD_MEAN, derive_actual_regime
 
@@ -34,13 +37,26 @@ class TestExtractMarketPrices:
         assert atc == 105.0
         assert vol == 0.05  # (110-95)/100 = 0.15, capped at 0.05
 
-    def test_open_price_zero(self):
-        """Should not raise DivisionByZero, should return default volatility."""
+    def test_open_price_zero_fails_closed(self):
+        """A missing/zero open price must raise, not silently default to 0.0."""
         eod = {"open": 0.0, "close": 105.0, "high": 110.0, "low": 95.0}
-        ato, atc, vol = extract_market_prices(eod)
-        assert ato == 0.0
-        assert atc == 105.0
-        assert vol == 0.05  # (110-95) / 102.5 = 0.146, capped at 0.05
+        with pytest.raises(RuntimeError, match="Missing/invalid open price"):
+            extract_market_prices(eod)
+
+    def test_missing_high_fails_closed(self):
+        eod = {"open": 100.0, "close": 105.0, "low": 95.0}
+        with pytest.raises(RuntimeError, match="Missing/invalid high price"):
+            extract_market_prices(eod)
+
+    def test_missing_low_fails_closed(self):
+        eod = {"open": 100.0, "close": 105.0, "high": 110.0}
+        with pytest.raises(RuntimeError, match="Missing/invalid low price"):
+            extract_market_prices(eod)
+
+    def test_missing_close_fails_closed(self):
+        eod = {"open": 100.0, "high": 110.0, "low": 95.0}
+        with pytest.raises(RuntimeError, match="Missing/invalid close price"):
+            extract_market_prices(eod)
 
     def test_alternate_field_names(self):
         eod = {"openPrice": 100.0, "last": 102.0, "highPrice": 103.0, "lowPrice": 99.0}
@@ -120,8 +136,11 @@ class TestHandleAto:
 
 class TestHandleAtc:
     def test_complete_output_structure(self, tmp_path, monkeypatch):
-        """Full ATC record with no prior ATO (fallback)."""
+        """Full ATC record, built on top of a prior ATO capture."""
         monkeypatch.chdir(tmp_path)
+        mdir = tmp_path / "market-data"
+        mdir.mkdir()
+        (mdir / "2026-06-14-100000-ato.json").write_text(json.dumps({"atoPrice": 1420.0}))
 
         result = handle_atc("2026-06-14", 1438.10, 1.95, 0.02)
 
@@ -143,17 +162,22 @@ class TestHandleAtc:
     def test_regime_in_valid_list(self, tmp_path, monkeypatch):
         """ActualRegime value must be in VALID_REGIMES or Unclassified."""
         monkeypatch.chdir(tmp_path)
+        mdir = tmp_path / "market-data"
+        mdir.mkdir()
         regimes_seen = set()
 
         # Bullish
+        (mdir / "2026-06-01-100000-ato.json").write_text(json.dumps({"atoPrice": 100.0}))
         r = handle_atc("2026-06-01", 101.0, 0.01, 0.02)
         regimes_seen.add(r["actualRegime"])
 
         # Bearish
+        (mdir / "2026-06-02-100000-ato.json").write_text(json.dumps({"atoPrice": 100.0}))
         r = handle_atc("2026-06-02", 99.0, 0.01, 0.02)
         regimes_seen.add(r["actualRegime"])
 
         # Risk-Off
+        (mdir / "2026-06-03-100000-ato.json").write_text(json.dumps({"atoPrice": 100.0}))
         r = handle_atc("2026-06-03", 99.0, 0.03, 0.02)
         regimes_seen.add(r["actualRegime"])
 
@@ -174,13 +198,12 @@ class TestHandleAtc:
         assert result["atoPrice"] == 100.0
         assert result["atcPrice"] == 101.50
 
-    def test_atc_fallback_no_ato(self, tmp_path, monkeypatch):
-        """When no ATO file exists, ATC price is used as fallback ATO → 0% return."""
+    def test_atc_fails_closed_when_no_ato(self, tmp_path, monkeypatch):
+        """No ATO file exists: handle_atc must fail closed, not fabricate a 0% return."""
         monkeypatch.chdir(tmp_path)
 
-        result = handle_atc("2026-06-14", 1450.0, 0.01, 0.02)
-        assert result["atoPrice"] == 1450.0  # fallback to atc_price
-        assert result["returnPct"] == 0.0
+        with pytest.raises(RuntimeError, match="No ATO price found"):
+            handle_atc("2026-06-14", 1450.0, 0.01, 0.02)
 
     @pytest.mark.parametrize(
         ("ato", "atc", "vol", "threshold", "expected_regime"),
@@ -241,6 +264,31 @@ class TestHandleAtc:
         with pytest.raises(RuntimeError, match="SETSMART API returned no data"):
             _fetch_live_prices("setsmart", "SET", "2026-06-14", "atc")
 
+    def test_fetch_live_prices_fails_closed_on_missing_open(self, monkeypatch):
+        """Finnhub/Yahoo quotes with a valid close but missing open must still fail closed."""
+        monkeypatch.setattr(
+            "capture_market.fetch_finnhub_quote",
+            lambda sym: {"c": 1450.0, "o": 0.0},
+        )
+        with pytest.raises(RuntimeError, match="no valid open price"):
+            _fetch_live_prices("finnhub", "SET", "2026-06-14", "atc")
+
+        monkeypatch.setattr(
+            "capture_market.fetch_yahoo_quote",
+            lambda sym: {"c": 1450.0, "o": 0.0, "h": 1460.0, "l": 1440.0},
+        )
+        with pytest.raises(RuntimeError, match="no valid open price"):
+            _fetch_live_prices("yahoo", "^SET.BK", "2026-06-14", "atc")
+
+    def test_fetch_live_prices_fails_closed_on_missing_high_low(self, monkeypatch):
+        """Yahoo quotes missing high/low must fail closed rather than default to open/close."""
+        monkeypatch.setattr(
+            "capture_market.fetch_yahoo_quote",
+            lambda sym: {"c": 1450.0, "o": 1440.0, "h": 0.0, "l": 1430.0},
+        )
+        with pytest.raises(RuntimeError, match="no valid high/low price"):
+            _fetch_live_prices("yahoo", "^SET.BK", "2026-06-14", "atc")
+
 
 class TestHandleNoon:
     """Morning-session close (ATO -> Noon) capture — used to score `am` predictions."""
@@ -266,12 +314,11 @@ class TestHandleNoon:
         assert measures["Noon Price"] == 101.0
         assert measures["Morning Return %"] == 1.0
 
-    def test_fallback_no_ato(self, tmp_path, monkeypatch):
-        """When no ATO file exists, noon price is used as fallback ATO -> 0% return."""
+    def test_fails_closed_when_no_ato(self, tmp_path, monkeypatch):
+        """No ATO file exists: handle_noon must fail closed, not fabricate a 0% return."""
         monkeypatch.chdir(tmp_path)
-        result = handle_noon("2026-06-14", 1450.0, 0.01, 0.02)
-        assert result["atoPrice"] == 1450.0
-        assert result["returnPct"] == 0.0
+        with pytest.raises(RuntimeError, match="No ATO price found"):
+            handle_noon("2026-06-14", 1450.0, 0.01, 0.02)
 
     def test_actual_regime_reuses_same_field_name_as_atc(self, tmp_path, monkeypatch):
         """The noon record must expose 'actualRegime' the same way the atc record
@@ -306,6 +353,9 @@ class TestHandleAtcAfternoonWindow:
         """Backward compatibility: without a pmopen capture, afternoon fields are None
         and no 'Afternoon Actual Regime' entry appears in variableMeasured."""
         monkeypatch.chdir(tmp_path)
+        mdir = tmp_path / "market-data"
+        mdir.mkdir()
+        (mdir / "2026-06-14-100000-ato.json").write_text(json.dumps({"atoPrice": 1420.0}))
         result = handle_atc("2026-06-14", 1438.10, 0.01, 0.02)
         assert result["pmOpenPrice"] is None
         assert result["afternoonReturnPct"] is None
@@ -333,6 +383,30 @@ class TestHandleAtcAfternoonWindow:
         measures = {m["name"]: m["value"] for m in result["variableMeasured"]}
         assert measures["Afternoon Actual Regime"] == "Bullish"
         assert measures["Afternoon Return %"] == 1.0
+
+
+class TestAssertMarketClosed:
+    """Fail-closed guard against ATC captures before the SET's official close."""
+
+    def test_raises_before_close(self):
+        with pytest.raises(RuntimeError, match="before official market close"):
+            _assert_market_closed(datetime(2026, 6, 14, 16, 29, tzinfo=UTC))
+
+    def test_passes_at_boundary(self):
+        _assert_market_closed(datetime(2026, 6, 14, 16, 30, tzinfo=UTC))  # must not raise
+
+    def test_passes_after_close(self):
+        _assert_market_closed(datetime(2026, 6, 14, 16, 31, tzinfo=UTC))  # must not raise
+
+
+class TestSaveMarketDataAtomic:
+    def test_writes_correct_content(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        record = {"date": "2026-06-14", "status": "complete"}
+        filepath = save_market_data(record, "2026-06-14", "atc")
+        assert json.loads(pathlib.Path(filepath).read_text()) == record
+        # No leftover temp file.
+        assert not list((tmp_path / "market-data").glob("*.tmp"))
 
 
 class TestComputeRollingThresholdMean:

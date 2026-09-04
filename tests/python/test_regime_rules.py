@@ -41,6 +41,13 @@ class TestCanonicalRegimeRules:
     def test_crisis(self):
         assert derive_actual_regime(100.0, 97.5, 0.05, self.THRESHOLD) == "Crisis"
 
+    def test_crisis_boundary_equal_to_threshold_is_not_crisis(self):
+        """volatility_index exactly == threshold_mean * 2 must NOT count as Crisis —
+        the documented rule (docs/02_research_reports/001-...-v01.md) requires
+        strictly greater than 2x threshold."""
+        result = derive_actual_regime(100.0, 97.5, self.THRESHOLD * 2, self.THRESHOLD)
+        assert result != "Crisis"
+
     def test_zero_or_negative_ato(self):
         """Zero or negative open price must return Unclassified, not raise ZeroDivisionError."""
         assert derive_actual_regime(0.0, 100.0, 0.01, self.THRESHOLD) == "Unclassified"

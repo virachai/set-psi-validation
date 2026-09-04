@@ -202,3 +202,21 @@ class TestBuildSnapshot:
     def test_validate_timestamp_rejects_invalid(self):
         assert validate_timestamp("2026-06-15T11:00:00+07:00", "am") is False
         assert validate_timestamp("2026-06-15T15:00:00+07:00", "pm") is False
+
+    def test_validate_timestamp_rejects_naive_datetime(self):
+        """A timestamp with no timezone offset must be rejected, not silently
+        converted using the host's local timezone."""
+        assert validate_timestamp("2026-06-15T09:00:00", "am") is False
+
+    def test_validate_timestamp_rejects_calendar_date_mismatch(self):
+        """A time-of-day-valid timestamp for the wrong trading date must be rejected."""
+        assert (
+            validate_timestamp("2026-06-15T09:00:00+07:00", "am", expected_date="2026-06-16")
+            is False
+        )
+
+    def test_validate_timestamp_accepts_matching_date_and_offset(self):
+        assert (
+            validate_timestamp("2026-06-15T09:00:00+07:00", "am", expected_date="2026-06-15")
+            is True
+        )

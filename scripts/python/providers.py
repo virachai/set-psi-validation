@@ -5,6 +5,7 @@ Both providers return a normalized quote dict {c, o, h, l, pc} so callers
 """
 
 import os
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -35,6 +36,8 @@ def fetch_finnhub_quote(symbol: str) -> dict[str, Any] | None:
                     f"[FINNHUB] Successfully fetched live quote for {symbol}: c={quote}, o={open_p}"
                 )
                 print(msg)
+            if data is not None:
+                data["fetched_at"] = datetime.now(UTC).isoformat()
             return data
     except Exception as e:
         print(f"[ERROR] Error fetching Finnhub data: {e}")
@@ -70,6 +73,8 @@ def fetch_yahoo_quote(symbol: str) -> dict[str, Any] | None:
             "l": low_p,
             "pc": pc_p,
             "source": "yfinance",
+            "source_granularity": "daily_bar",
+            "fetched_at": datetime.now(UTC).isoformat(),
         }
     except Exception as e:
         print(f"[ERROR] Error fetching Yahoo Finance data for {symbol}: {e}")

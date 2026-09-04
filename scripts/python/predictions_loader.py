@@ -46,15 +46,28 @@ REGIME_TAXONOMY_URL = (
 VALID_REGIMES = ["Bullish", "Bearish", "Sideways", "Risk-Off", "Crisis"]
 
 
-def validate_timestamp(timestamp_iso: str, session: str) -> bool:
-    """Ensure the prediction timestamp is before the session cutoff (in ICT)."""
+def validate_timestamp(timestamp_iso: str, session: str, expected_date: str | None = None) -> bool:
+    """Ensure the prediction timestamp is before the session cutoff (in ICT).
+
+    Rejects a naive (offset-less) timestamp outright — silently assuming the
+    host's local timezone would risk mis-scoring the lookahead check. When
+    expected_date (YYYY-MM-DD) is given, also rejects a timestamp whose ICT
+    calendar date doesn't match it, catching a prediction mistakenly dated
+    for the wrong trading day.
+    """
     if os.getenv("PSI_BYPASS_LOOKAHEAD", "false").lower() == "true":
         print(f"[WARN] Bypassing lookahead bias check for {session} session.")
         return True
 
     dt = datetime.fromisoformat(timestamp_iso)
+    if dt.tzinfo is None:
+        error_msg = f"Timestamp '{timestamp_iso}' for {session} session has no timezone offset."
+        print(f"[WARN] {error_msg}")
+        log_warning("predictions_loader", error_msg)
+        return False
+
     # Convert to ICT (UTC+7) for cutoff comparison
-    dt_ict = dt.astimezone(timezone(timedelta(hours=7)))
+    dt_ict = dt.astimezone(timezone(ICT_OFFSET))
     time_str = dt_ict.strftime("%H:%M:%S")
     cutoff = MARKET_WINDOWS.get(session, {}).get("cutoff", "10:00:00")
 
@@ -65,6 +78,16 @@ def validate_timestamp(timestamp_iso: str, session: str) -> bool:
         print(f"[WARN] {error_msg}")
         log_warning("predictions_loader", error_msg)
         return False
+
+    if expected_date is not None and dt_ict.date().isoformat() != expected_date:
+        error_msg = (
+            f"Timestamp date {dt_ict.date().isoformat()} does not match expected "
+            f"trading date {expected_date} for {session} session."
+        )
+        print(f"[WARN] {error_msg}")
+        log_warning("predictions_loader", error_msg)
+        return False
+
     return True
 
 
@@ -241,7 +264,7 @@ def main() -> None:
         if not data:
             return
         snapshot = build_snapshot(data, session=args.session)
-        if not validate_timestamp(snapshot["timestamp"], args.session):
+        if not validate_timestamp(snapshot["timestamp"], args.session, snapshot.get("date")):
             print(f"[SKIP] Prediction capture skipped — outside {args.session} window.")
             return
         save_snapshot(snapshot)

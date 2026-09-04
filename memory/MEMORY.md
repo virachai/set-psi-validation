@@ -1,4 +1,11 @@
-# Memory Index
+---
+name: memory-index
+description: Index of project memory files
+metadata:
+    pinned: true
+---
+
+# Project Memory Index
 
 - [Project Overview](20260614-120000-project-overview.md) - Initial project structure and status tracking.
 - [PSI Design Complete](20260614-140000-psi-design-complete.md) - Architectural design phase finalized.
@@ -33,3 +40,6 @@
 - [Regime Scoring & Adaptive Threshold Fix](20260903-210000-regime-scoring-and-adaptive-threshold-fix.md) - Fixed Unclassified-counted-as-correct bug and replaced hardcoded volatility threshold with real 30-day rolling computation.
 - [Four-Session Capture Implemented](20260903-220000-four-session-capture-implemented.md) - Implemented RFC 016/017: noon and pmopen capture modes, and session-aware market-outcome resolution in validation_engine.py.
 - [Session Memory Report — 2026-09-03](20260903-223000-session-memory-report.md) - Standard-template consolidated summary of this session's four memory entries and outstanding uncommitted changes.
+- [20260903-120000-psi-validation-remediation-rfc.md](20260903-120000-psi-validation-remediation-rfc.md): RFC-001 creation for PSI validation pipeline findings remediation.
+- [20260904-000000-intraday-schedule-bugfix.md](20260904-000000-intraday-schedule-bugfix.md): Fixed disabled/wrong-timezone cron and a step-decider elif ordering bug causing captures to skew to morning-only.
+- [20260904-010000-rfc-001-remediation-implemented.md](20260904-010000-rfc-001-remediation-implemented.md): Implemented all 11 RFC-001 issues (fail-closed capture, pending status, trading-date rolling metrics, Precision/F1, Crisis threshold, timestamp validation).

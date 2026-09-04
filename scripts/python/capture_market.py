@@ -31,7 +31,7 @@ import argparse
 import json
 import os
 import sys
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, time, timedelta
 from pathlib import Path
 
 import httpx
@@ -51,6 +51,7 @@ REGIME_TAXONOMY_URL = (
     "/main/docs/010-regime-taxonomy-v01.json"
 )
 
+SET_MARKET_CLOSE_ICT = time(16, 30)
 MAX_INTRADAY_VOLATILITY = 0.05
 MASK_KEY_MIN_LENGTH = 6  # longer keys show first/last 3 chars
 THRESHOLD_ROLLING_WINDOW_DAYS = 30
@@ -137,11 +138,33 @@ def extract_market_prices(eod: dict) -> tuple[float, float, float]:
 
     Expected fields: open, close/high/low or alternate naming.
     Returns (ato_price, atc_price, volatility_index).
+
+    Fails closed: raises RuntimeError if open/close/high/low cannot be
+    resolved to a positive value from any known field alias, rather than
+    silently substituting 0.0 (a fabricated zero-return observation is worse
+    than no observation at all).
     """
-    open_price = float(eod.get("open") or eod.get("openPrice") or 0.0)
-    close_price = float(eod.get("close") or eod.get("closePrice") or eod.get("last") or 0.0)
-    high = float(eod.get("high") or eod.get("highPrice") or close_price)
-    low = float(eod.get("low") or eod.get("lowPrice") or open_price)
+    open_raw = eod.get("open") or eod.get("openPrice")
+    close_raw = eod.get("close") or eod.get("closePrice") or eod.get("last")
+    if not open_raw:
+        msg = "Missing/invalid open price in EOD payload"
+        raise RuntimeError(msg)
+    if not close_raw:
+        msg = "Missing/invalid close price in EOD payload"
+        raise RuntimeError(msg)
+    open_price = float(open_raw)
+    close_price = float(close_raw)
+
+    high_raw = eod.get("high") or eod.get("highPrice")
+    low_raw = eod.get("low") or eod.get("lowPrice")
+    if not high_raw:
+        msg = "Missing/invalid high price in EOD payload"
+        raise RuntimeError(msg)
+    if not low_raw:
+        msg = "Missing/invalid low price in EOD payload"
+        raise RuntimeError(msg)
+    high = float(high_raw)
+    low = float(low_raw)
 
     # Volatility proxy: (high - low) / mid_price, capped at 0.05
     mid_price = (high + low) / 2
@@ -186,7 +209,12 @@ def load_existing(date_str: str, mode: str | None = None) -> dict:
 
 
 def save_market_data(record: dict, date_str: str, mode: str) -> str:
-    """Write the market data record to market-data/YYYY-MM-DD-HHMMSS-mode.json."""
+    """Write the market data record to market-data/YYYY-MM-DD-HHMMSS-mode.json.
+
+    Writes to a temp file in the same directory and atomically renames it into
+    place, so a crash or interrupted write can never leave a partially-written
+    or truncated JSON file behind.
+    """
     market_dir = Path(MARKET_DATA_DIR)
     market_dir.mkdir(exist_ok=True)
 
@@ -196,8 +224,10 @@ def save_market_data(record: dict, date_str: str, mode: str) -> str:
     dt = f"{date_str}-{time_str}"
 
     filepath = market_dir / f"{dt}-{mode}.json"
-    with filepath.open("w", encoding="utf-8") as f:
+    tmp_path = filepath.with_suffix(".json.tmp")
+    with tmp_path.open("w", encoding="utf-8") as f:
         json.dump(record, f, indent=2, ensure_ascii=False)
+    tmp_path.replace(filepath)
 
     msg = f"Market data written to {filepath}"
     print(f"[SAVE] {msg}")
@@ -315,10 +345,10 @@ def handle_noon(
     ato_price: float | None = existing.get("atoPrice")
 
     if ato_price is None:
-        msg = f"No ATO price found for {date_str}. Using noon price as fallback."
-        print(f"[WARN] {msg}")
-        log_event("WARN", "capture_market", msg)
-        ato_price = noon_price  # fallback — zero return
+        msg = f"No ATO price found for {date_str}. Cannot compute morning-session return."
+        print(f"[FAIL] {msg}")
+        log_failure("capture_market", msg)
+        raise RuntimeError(msg)
 
     return_pct = round((noon_price - ato_price) / ato_price * 100, 2) if ato_price > 0 else 0.0
     actual_regime = derive_actual_regime(ato_price, noon_price, volatility_index, threshold_mean)
@@ -478,10 +508,10 @@ def handle_atc(
     ato_price: float | None = existing.get("atoPrice")
 
     if ato_price is None:
-        msg = f"No ATO price found for {date_str}. Using ATC as fallback."
-        print(f"[WARN] {msg}")
-        log_event("WARN", "capture_market", msg)
-        ato_price = atc_price  # fallback — zero return
+        msg = f"No ATO price found for {date_str}. Cannot compute full-day return."
+        print(f"[FAIL] {msg}")
+        log_failure("capture_market", msg)
+        raise RuntimeError(msg)
 
     return_pct = round((atc_price - ato_price) / ato_price * 100, 2) if ato_price > 0 else 0.0
     actual_regime = derive_actual_regime(ato_price, atc_price, volatility_index, threshold_mean)
@@ -696,6 +726,10 @@ def _fetch_live_prices(
             error_msg = f"Finnhub API returned no valid quote for {symbol} on {date_str}."
             log_event("ERROR", "capture_market", error_msg)
             raise RuntimeError(error_msg)
+        if not data.get("o"):
+            error_msg = f"Finnhub API returned no valid open price for {symbol} on {date_str}."
+            log_event("ERROR", "capture_market", error_msg)
+            raise RuntimeError(error_msg)
         ato_price = float(data.get("o", 0.0))
         atc_price = float(data.get("c", 0.0))
         volatility = 0.01
@@ -714,6 +748,16 @@ def _fetch_live_prices(
             error_msg = f"Yahoo Finance returned no valid quote for {symbol} on {date_str}."
             log_event("ERROR", "capture_market", error_msg)
             raise RuntimeError(error_msg)
+        if not data.get("o"):
+            error_msg = f"Yahoo Finance returned no valid open price for {symbol} on {date_str}."
+            log_event("ERROR", "capture_market", error_msg)
+            raise RuntimeError(error_msg)
+        if not data.get("h") or not data.get("l"):
+            error_msg = (
+                f"Yahoo Finance returned no valid high/low price for {symbol} on {date_str}."
+            )
+            log_event("ERROR", "capture_market", error_msg)
+            raise RuntimeError(error_msg)
         ato_price = float(data.get("o", 0.0))
         atc_price = float(data.get("c", 0.0))
         high_p = float(data.get("h", atc_price))
@@ -721,6 +765,13 @@ def _fetch_live_prices(
         mid_price = (high_p + low_p) / 2
         volatility = round((high_p - low_p) / mid_price, 4) if mid_price > 0 else 0.01
         volatility = min(volatility, MAX_INTRADAY_VOLATILITY)
+        if mode in ("ato", "atc"):
+            log_event(
+                "WARN",
+                "capture_market",
+                f"Yahoo Finance provides only a daily bar, not a verified {mode.upper()} "
+                f"auction print, for {symbol} on {date_str}.",
+            )
         print(f"[YAHOO] ATO={ato_price}, ATC={atc_price}, Vol={volatility}")
         return ato_price, atc_price, volatility
 
@@ -790,8 +841,26 @@ def _capture_pmopen(
     return handle_pmopen(date_str, pm_open_price)
 
 
+def _assert_market_closed(now_ict: datetime | None = None) -> None:
+    """Fail closed if called before the SET's official 16:30 ICT market close.
+
+    Prevents an ATC capture (live-fetched or manually entered) from ever
+    recording a pre-close quote as the session's official closing price.
+    """
+    if now_ict is None:
+        now_ict = datetime.now(UTC) + ICT_OFFSET
+    if now_ict.time() < SET_MARKET_CLOSE_ICT:
+        msg = (
+            f"ATC capture attempted at {now_ict.strftime('%H:%M:%S')} ICT, "
+            f"before official market close ({SET_MARKET_CLOSE_ICT})."
+        )
+        log_event("ERROR", "capture_market", msg)
+        raise RuntimeError(msg)
+
+
 def _capture_atc(args: argparse.Namespace, parser: argparse.ArgumentParser, date_str: str) -> dict:
     """Resolve the ATC price (live or manual) and build its record."""
+    _assert_market_closed()
     if args.symbol:
         _, atc_price, volatility = _fetch_live_prices(args.provider, args.symbol, date_str, "atc")
     else:

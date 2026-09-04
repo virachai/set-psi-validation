@@ -50,8 +50,8 @@ Beyond simple accuracy, we quantify the PSI Engine's performance through:
 
 - **Classification Metrics:** Accuracy, Precision, Recall, and F1 Scores per regime.
 - **Confusion Matrix Analysis:** Identifying systematic regime misclassifications.
-- **Calibration Quality:** Evaluating the relationship between the PSI Score and realized volatility/direction.
-- **Rolling Performance:** 7D and 30D accuracy trends to observe adaptability to changing market cycles.
+- **Rolling Performance:** 7D and 30D accuracy trends (grouped by distinct trading date), to observe adaptability to changing market cycles.
+- **Calibration Quality:** _Not yet captured._ Would require a probability/confidence field on each prediction, which the pipeline does not currently record — out of scope until predictions carry that data.
 
 ---
 

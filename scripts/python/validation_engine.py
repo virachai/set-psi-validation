@@ -161,23 +161,37 @@ def _build_validation_record(
     date_str: str,
     session: str,
     pred_path: str,
-    market_path: str,
-    regimes: tuple[str, str],
+    market_path: str | None,
+    regimes: tuple[str, str | None],
 ) -> dict[str, Any]:
     """Build the schema.org Observation record for one validated session.
 
-    regimes: (predicted_regime, actual_regime) tuple.
+    regimes: (predicted_regime, actual_regime) tuple. When actual_regime is
+    None (no market outcome could be resolved yet for this session), the
+    record is marked "pending" — isCorrect/deviationScore stay None instead
+    of fabricating a comparison against a truth that doesn't exist yet.
     """
     predicted_regime, actual_regime = regimes
-    is_correct = compare_regimes(predicted_regime, actual_regime)
-    deviation = compute_deviation_score(predicted_regime, actual_regime)
-
-    log_event(
-        "INFO",
-        "validation_engine",
-        f"Validated {date_str} ({session})",
-        {"predicted": predicted_regime, "actual": actual_regime, "is_correct": is_correct},
-    )
+    if actual_regime is None:
+        status = "pending"
+        is_correct = None
+        deviation = None
+        log_event(
+            "INFO",
+            "validation_engine",
+            f"Pending {date_str} ({session}) — no market outcome resolved yet",
+            {"predicted": predicted_regime},
+        )
+    else:
+        status = "complete"
+        is_correct = compare_regimes(predicted_regime, actual_regime)
+        deviation = compute_deviation_score(predicted_regime, actual_regime)
+        log_event(
+            "INFO",
+            "validation_engine",
+            f"Validated {date_str} ({session})",
+            {"predicted": predicted_regime, "actual": actual_regime, "is_correct": is_correct},
+        )
 
     now_ict = datetime.now(UTC) + ICT_OFFSET
     timestamp_iso = now_ict.strftime("%Y-%m-%dT%H:%M:%S+07:00")
@@ -186,15 +200,16 @@ def _build_validation_record(
     # so multiple snapshots per day stay distinct
     validation_file_id = Path(pred_path).stem
 
+    observation_about = [{"@id": f"predictions/{Path(pred_path).name}"}]
+    if market_path:
+        observation_about.append({"@id": f"market-data/{Path(market_path).name}"})
+
     return {
         "@context": "https://schema.org",
         "@type": "Observation",
         "name": f"Validation Evaluation {validation_file_id}",
         "observationDate": timestamp_iso,
-        "observationAbout": [
-            {"@id": f"predictions/{Path(pred_path).name}"},
-            {"@id": f"market-data/{Path(market_path).name}"},
-        ],
+        "observationAbout": observation_about,
         "measuredProperty": {"@type": "DefinedTerm", "name": "Regime Prediction Accuracy"},
         "variableMeasured": {
             "@type": "PropertyValue",
@@ -206,6 +221,7 @@ def _build_validation_record(
         "date": date_str,
         "file_id": validation_file_id,
         "session": session,
+        "status": status,
         "predictedRegime": predicted_regime,
         "actualRegime": actual_regime,
         "isCorrect": is_correct,
@@ -272,13 +288,10 @@ def run_daily_validation(date_str: str) -> list[dict[str, Any]]:
     _resolve_market_outcome() — am against ATO->Noon, pm against
     PM Open->ATC, full_day against ATO->ATC — falling back to the full-day
     outcome for any session whose dedicated window data isn't available yet.
+    A session whose market outcome cannot be resolved at all (no capture
+    file yet for this date) gets a "pending" record instead of being skipped
+    — see _build_validation_record.
     """
-    if not find_latest_market_file(MARKET_DATA_DIR, date_str):
-        msg = f"Missing complete market data path for {date_str}"
-        print(f"[SKIP] {msg}")
-        log_event("WARN", "validation_engine", msg)
-        return []
-
     records = []
     # Loop over the 3 sessions
     for session in SESSIONS:
@@ -286,14 +299,6 @@ def run_daily_validation(date_str: str) -> list[dict[str, Any]]:
         if not pred_path:
             log_event("INFO", "validation_engine", f"No prediction for {date_str} ({session})")
             continue
-
-        outcome = _resolve_market_outcome(date_str, session)
-        if not outcome:
-            msg = f"Could not resolve market outcome for {date_str} ({session})"
-            print(f"[ERROR] {msg}")
-            log_event("ERROR", "validation_engine", msg)
-            continue
-        market_path, actual_regime = outcome
 
         prediction = load_json(pred_path)
         if not prediction:
@@ -313,6 +318,15 @@ def run_daily_validation(date_str: str) -> list[dict[str, Any]]:
             msg = f"Could not extract predicted regime from {pred_path}"
             log_event("ERROR", "validation_engine", msg)
             continue
+
+        outcome = _resolve_market_outcome(date_str, session)
+        if not outcome:
+            msg = f"Could not resolve market outcome for {date_str} ({session}) — marking pending"
+            print(f"[PENDING] {msg}")
+            log_event("WARN", "validation_engine", msg)
+            market_path, actual_regime = None, None
+        else:
+            market_path, actual_regime = outcome
 
         record = _build_validation_record(
             date_str,
@@ -356,6 +370,59 @@ def prune_orphan_validations() -> int:
     return pruned
 
 
+def _compute_precision_and_f1(
+    confusion: pd.DataFrame,
+    hit_rates: dict[str, float | None],
+) -> tuple[dict[str, float | None], dict[str, float | None]]:
+    """Derive per-regime Precision and F1 from the confusion matrix and recall.
+
+    Precision = correct predictions of a regime / all predictions of that
+    regime (the confusion matrix's row sum). F1 is the harmonic mean of
+    precision and the already-computed recall (hit_rates).
+    """
+    precision: dict[str, float | None] = {}
+    f1: dict[str, float | None] = {}
+    for regime in VALID_REGIMES:
+        predicted_count = confusion.loc[regime].sum() if regime in confusion.index else 0
+        correct_count = confusion.loc[regime, regime] if regime in confusion.index else 0
+        regime_precision = (correct_count / predicted_count) if predicted_count else None
+        precision[regime] = regime_precision
+
+        regime_recall = hit_rates[regime]
+        if regime_precision and regime_recall:
+            f1[regime] = 2 * regime_precision * regime_recall / (regime_precision + regime_recall)
+        else:
+            f1[regime] = None
+    return precision, f1
+
+
+def _load_completed_validation_records(validation_dir: Path) -> list[dict[str, Any]]:
+    """Load non-pending validation records from validation_dir for metrics aggregation.
+
+    Pending records (no market outcome resolved yet) carry no
+    actualRegime/isCorrect — excluded here rather than letting a None
+    isCorrect corrupt accuracy/rolling/confusion.
+    """
+    records = []
+    for f in sorted(validation_dir.iterdir()):
+        if f.suffix != ".json":
+            continue
+        data = load_json(str(f))
+        if not data or "date" not in data or data.get("status") == "pending":
+            continue
+        records.append(
+            {
+                "date": data["date"],
+                "file_id": data.get("file_id", data["date"]),
+                "session": data.get("session", "full_day"),
+                "predicted": data["predictedRegime"],
+                "actual": data["actualRegime"],
+                "correct": data["isCorrect"],
+            },
+        )
+    return records
+
+
 def update_aggregate_metrics() -> None:
     """Scan the validation/ directory and update reports/metrics.json."""
     validation_dir = Path(VALIDATION_DIR)
@@ -363,22 +430,7 @@ def update_aggregate_metrics() -> None:
         log_event("WARN", "validation_engine", "Validation directory does not exist.")
         return
 
-    records = []
-    for f in sorted(validation_dir.iterdir()):
-        if f.suffix != ".json":
-            continue
-        data = load_json(str(f))
-        if data and "date" in data:
-            records.append(
-                {
-                    "date": data["date"],
-                    "file_id": data.get("file_id", data["date"]),
-                    "session": data.get("session", "full_day"),
-                    "predicted": data["predictedRegime"],
-                    "actual": data["actualRegime"],
-                    "correct": data["isCorrect"],
-                },
-            )
+    records = _load_completed_validation_records(validation_dir)
 
     if not records:
         log_event("WARN", "validation_engine", "No validation records found to aggregate.")
@@ -393,10 +445,14 @@ def update_aggregate_metrics() -> None:
     # Overall Accuracy
     total_accuracy = df["correct"].mean()
 
-    # Rolling Accuracy (7D, 30D)
-    # We use min_periods=1 to handle early days
-    df["rolling_7d"] = df["correct"].rolling(window=7, min_periods=1).mean()
-    df["rolling_30d"] = df["correct"].rolling(window=30, min_periods=1).mean()
+    # Rolling Accuracy (7D, 30D) — grouped by distinct trading date first, so a
+    # date with multiple sessions (am/pm/full_day) contributes one row instead
+    # of inflating the window with same-day duplicates.
+    daily = df.groupby("date", as_index=False)["correct"].mean().sort_values("date")
+    daily["rolling_7d"] = daily["correct"].rolling(window=7, min_periods=1).mean()
+    daily["rolling_30d"] = daily["correct"].rolling(window=30, min_periods=1).mean()
+    rolling_7d_latest = daily["rolling_7d"].iloc[-1]
+    rolling_30d_latest = daily["rolling_30d"].iloc[-1]
 
     # Confusion Matrix
     # Ensure all regimes are present in the matrix
@@ -408,7 +464,9 @@ def update_aggregate_metrics() -> None:
         dropna=False,
     )
 
-    # Regime Hit Rates (Recall per regime)
+    # Regime Hit Rates — this is Recall per regime (of all actual occurrences
+    # of a regime, how many were predicted correctly), kept under its
+    # original key name for backward compatibility with existing consumers.
     hit_rates = {}
     for regime in VALID_REGIMES:
         regime_actuals = df[df["actual"] == regime]
@@ -416,6 +474,11 @@ def update_aggregate_metrics() -> None:
             hit_rates[regime] = regime_actuals["correct"].mean()
         else:
             hit_rates[regime] = None
+
+    # Precision (of all predictions of a regime, how many were correct) and
+    # F1 (harmonic mean of precision and recall) — derived from the same
+    # confusion matrix already computed above, no new data source needed.
+    precision, f1 = _compute_precision_and_f1(confusion, hit_rates)
 
     # Calculate per-session metrics
     by_window = {}
@@ -456,20 +519,22 @@ def update_aggregate_metrics() -> None:
             {
                 "@type": "PropertyValue",
                 "name": "Rolling 7D Accuracy",
-                "value": round(float(df["rolling_7d"].iloc[-1]), 4),
+                "value": round(float(rolling_7d_latest), 4),
             },
             {
                 "@type": "PropertyValue",
                 "name": "Rolling 30D Accuracy",
-                "value": round(float(df["rolling_30d"].iloc[-1]), 4),
+                "value": round(float(rolling_30d_latest), 4),
             },
         ],
         "metrics": {
             "overall_accuracy": float(total_accuracy),
-            "rolling_7d": float(df["rolling_7d"].iloc[-1]),
-            "rolling_30d": float(df["rolling_30d"].iloc[-1]),
+            "rolling_7d": float(rolling_7d_latest),
+            "rolling_30d": float(rolling_30d_latest),
             "by_window": by_window,
             "hit_rates": hit_rates,
+            "precision": precision,
+            "f1": f1,
             "total_count": len(df),
         },
         "confusion_matrix": confusion.to_dict(),
