@@ -1,0 +1,34 @@
+{
+  "@context": "https://schema.org",
+  "@type": "Observation",
+  "name": "Validation Evaluation 2026-09-04-022800-full_day",
+  "observationDate": "2026-09-04T09:28:10+07:00",
+  "observationAbout": [
+    {
+      "@id": "predictions/2026-09-04-022800-full_day.json"
+    },
+    {
+      "@id": "market-data/2026-09-04-092808-atc.json"
+    }
+  ],
+  "measuredProperty": {
+    "@type": "DefinedTerm",
+    "name": "Regime Prediction Accuracy"
+  },
+  "variableMeasured": {
+    "@type": "PropertyValue",
+    "name": "Is Correct",
+    "value": false
+  },
+  "marginOfError": {
+    "@type": "QuantitativeValue",
+    "value": 1.0
+  },
+  "date": "2026-09-04",
+  "file_id": "2026-09-04-022800-full_day",
+  "session": "full_day",
+  "predictedRegime": "Sideways",
+  "actualRegime": "Bearish",
+  "isCorrect": false,
+  "deviationScore": 1.0
+}

@@ -1,0 +1,23 @@
+{
+  "@context": "https://schema.org",
+  "@type": "Observation",
+  "name": "SET Market Outcome 2026-09-04 (partial — PM Open only)",
+  "observationDate": "2026-09-04",
+  "measuredProperty": {
+    "@type": "DefinedTerm",
+    "name": "Actual Regime",
+    "inDefinedTermSet": "https://raw.githubusercontent.com/virachai/set-psi-validation/main/docs/010-regime-taxonomy-v01.json"
+  },
+  "variableMeasured": [
+    {
+      "@type": "QuantitativeValue",
+      "name": "PM Open Price",
+      "value": 1576.9200439453125,
+      "unitText": "SET Index Points"
+    }
+  ],
+  "date": "2026-09-04",
+  "pmOpenPrice": 1576.9200439453125,
+  "window": "afternoon",
+  "status": "partial"
+}
