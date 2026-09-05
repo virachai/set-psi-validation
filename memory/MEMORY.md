@@ -8,6 +8,7 @@ metadata:
 # Project Memory Index
 
 - [Project Overview](20260614-120000-project-overview.md) - Initial project structure and status tracking.
+- [Modular Intraday Pipeline Refactor](20260905-150000-modular-intraday-pipeline-refactor.md) - Decomposed monolithic GitHub Action into modular, time-triggered workflows.
 - [PSI Design Complete](20260614-140000-psi-design-complete.md) - Architectural design phase finalized.
 - [Schema.org Mapping Complete](20260614-150000-schema-org-mapping.md) - Schema.org type mapping for all PSI data artifacts.
 - [Pipeline Implementation Complete](20260614-160000-pipeline-implementation.md) - RFC, scripts, workflows, tests, API integration with schema.org JSON-LD.
