@@ -1,0 +1,24 @@
+name: Capture ATO
+on:
+  schedule:
+    - cron: "0 3 * * 1-5" # 10:00 ICT
+  workflow_dispatch:
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: uv run scripts/python/capture_market.py --mode ato --symbol ^SET.BK --provider yahoo
+        env:
+          SETSMART_API_KEY: ${{ secrets.SETSMART_API_KEY }}
+      - name: Commit
+        run: |
+          git config --local user.email 'github-actions[bot]@users.noreply.github.com'
+          git config --local user.name 'github-actions[bot]'
+          git add market-data/ || true
+          git diff --staged --quiet || git commit -m "ATO Market Capture: $(date +'%Y-%m-%d')"
+          git push

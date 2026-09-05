@@ -1,0 +1,26 @@
+name: Validation & Metrics
+on:
+  schedule:
+    - cron: "0 10 * * 1-5" # 17:00 ICT
+  workflow_dispatch:
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: |
+          uv run scripts/python/validation_engine.py
+          uv run scripts/python/jsonld_enricher.py
+          uv run pytest tests/python/test_capture_market.py tests/python/test_validation_engine.py tests/python/test_setsmart_integration.py -q
+      - name: Commit
+        run: |
+          git config --local user.email 'github-actions[bot]@users.noreply.github.com'
+          git config --local user.name 'github-actions[bot]'
+          find market-data predictions reports validation -maxdepth 1 -name '*.json' -exec git add {} + 2>/dev/null || true
+          git add catalog.json docs/010-regime-taxonomy-v01.json || true
+          git diff --staged --quiet || git commit -m "Validation & Metrics Update: $(date +'%Y-%m-%d')"
+          git push
