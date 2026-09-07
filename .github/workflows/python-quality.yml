@@ -42,6 +42,13 @@ jobs:
         run: |
           uv run scripts/python/validate_docs.py
 
+      - name: Check lookahead bypass
+        run: |
+          if [ "$PSI_BYPASS_LOOKAHEAD" == "true" ]; then
+            echo "::error::PSI_BYPASS_LOOKAHEAD is set to true. Production/CI builds must have lookahead bypass disabled."
+            exit 1
+          fi
+
       - name: Run tests
         run: |
           uv run pytest -q

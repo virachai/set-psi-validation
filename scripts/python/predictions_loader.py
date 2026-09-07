@@ -56,8 +56,14 @@ def validate_timestamp(timestamp_iso: str, session: str, expected_date: str | No
     for the wrong trading day.
     """
     if os.getenv("PSI_BYPASS_LOOKAHEAD", "false").lower() == "true":
-        print(f"[WARN] Bypassing lookahead bias check for {session} session.")
-        return True
+        # Production guard: reject bypassing lookahead bias check.
+        # This is a critical security gate for model validation integrity.
+        error_msg = (
+            "CRITICAL: PSI_BYPASS_LOOKAHEAD is enabled. This is strictly prohibited in production."
+        )
+        print(f"[ERROR] {error_msg}")
+        log_failure("predictions_loader", error_msg)
+        raise RuntimeError(error_msg)
 
     dt = datetime.fromisoformat(timestamp_iso)
     if dt.tzinfo is None:

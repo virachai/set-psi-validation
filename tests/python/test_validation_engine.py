@@ -480,9 +480,10 @@ class TestResolveMarketOutcome:
             {"status": "complete", "actualRegime": "Bearish"},
         )
 
-        market_path, regime = _resolve_market_outcome("2026-06-16", "am")
+        market_path, regime, fallback_used = _resolve_market_outcome("2026-06-16", "am")
         assert regime == "Sideways"
         assert market_path.endswith("-noon.json")
+        assert fallback_used is False
 
     def test_am_falls_back_to_full_day_without_noon_file(self):
         self._write(
@@ -490,12 +491,13 @@ class TestResolveMarketOutcome:
             {"status": "complete", "actualRegime": "Bearish"},
         )
 
-        market_path, regime = _resolve_market_outcome("2026-06-16", "am")
+        market_path, regime, fallback_used = _resolve_market_outcome("2026-06-16", "am")
         assert regime == "Bearish"
         assert market_path.endswith("-atc.json")
         # This is a same-file fallback (real data exists, just not session-specific) —
         # not the "no data at all" case, so it must not be treated as pending.
         assert market_path is not None
+        assert fallback_used is True
 
     def test_pm_prefers_afternoon_regime_when_present(self):
         self._write(
@@ -507,9 +509,10 @@ class TestResolveMarketOutcome:
             },
         )
 
-        market_path, regime = _resolve_market_outcome("2026-06-16", "pm")
+        market_path, regime, fallback_used = _resolve_market_outcome("2026-06-16", "pm")
         assert regime == "Bullish"
         assert market_path.endswith("-atc.json")
+        assert fallback_used is False
 
     def test_pm_falls_back_to_full_day_without_afternoon_regime(self):
         self._write(
@@ -517,8 +520,9 @@ class TestResolveMarketOutcome:
             {"status": "complete", "actualRegime": "Bearish"},
         )
 
-        _market_path, regime = _resolve_market_outcome("2026-06-16", "pm")
+        _market_path, regime, fallback_used = _resolve_market_outcome("2026-06-16", "pm")
         assert regime == "Bearish"
+        assert fallback_used is True
 
     def test_full_day_always_uses_atc_actual_regime(self):
         self._write(
@@ -534,8 +538,9 @@ class TestResolveMarketOutcome:
             },
         )
 
-        _market_path, regime = _resolve_market_outcome("2026-06-16", "full_day")
+        _market_path, regime, fallback_used = _resolve_market_outcome("2026-06-16", "full_day")
         assert regime == "Bearish"
+        assert fallback_used is False
 
     def test_no_market_data_returns_none(self):
         assert _resolve_market_outcome("2026-06-16", "am") is None

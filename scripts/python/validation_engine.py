@@ -162,16 +162,19 @@ def _build_validation_record(
     session: str,
     pred_path: str,
     market_path: str | None,
-    regimes: tuple[str, str | None],
+    regimes: tuple[str, str | None, bool],
 ) -> dict[str, Any]:
     """Build the schema.org Observation record for one validated session.
 
-    regimes: (predicted_regime, actual_regime) tuple. When actual_regime is
-    None (no market outcome could be resolved yet for this session), the
-    record is marked "pending" — isCorrect/deviationScore stay None instead
-    of fabricating a comparison against a truth that doesn't exist yet.
+    regimes: (predicted_regime, actual_regime, fallback_used) tuple. When
+    actual_regime is None (no market outcome could be resolved yet for this
+    session), the record is marked "pending" — isCorrect/deviationScore stay
+    None instead of fabricating a comparison against a truth that doesn't
+    exist yet. fallback_used is True when an am/pm session was scored
+    against the full-day window instead of its own dedicated window (see
+    _resolve_market_outcome) — recorded for audit trail purposes only.
     """
-    predicted_regime, actual_regime = regimes
+    predicted_regime, actual_regime, fallback_used = regimes
     if actual_regime is None:
         status = "pending"
         is_correct = None
@@ -226,11 +229,12 @@ def _build_validation_record(
         "actualRegime": actual_regime,
         "isCorrect": is_correct,
         "deviationScore": deviation,
+        "fallbackUsed": fallback_used,
     }
 
 
-def _resolve_market_outcome(date_str: str, session: str) -> tuple[str, str] | None:
-    """Resolve the (market_path, actual_regime) that belongs to one session's own window.
+def _resolve_market_outcome(date_str: str, session: str) -> tuple[str, str, bool] | None:
+    """Resolve the (market_path, actual_regime, fallback_used) for one session's own window.
 
     am        -> the noon (morning-session close) file's own "actualRegime",
                  i.e. the ATO -> Noon window — falls back to the full-day
@@ -240,6 +244,10 @@ def _resolve_market_outcome(date_str: str, session: str) -> tuple[str, str] | No
                  falls back to the same file's full-day "actualRegime" when it
                  doesn't (e.g. historical dates before RFC 016/017 shipped).
     full_day  -> the full-day atc file's "actualRegime" (unchanged).
+
+    fallback_used is True whenever an am/pm session had to score against the
+    broader full-day window instead of its own dedicated window — an audit
+    signal, without adding a separate alerting layer.
 
     This keeps each prediction session scored against real behavior for its
     own window instead of every session sharing one full-day outcome.
@@ -255,7 +263,7 @@ def _resolve_market_outcome(date_str: str, session: str) -> tuple[str, str] | No
                 "Actual Regime",
             )
             if regime:
-                return noon_path, regime
+                return noon_path, regime, False
         # No noon capture for this date — fall through to the full-day file below.
 
     market_path = find_latest_market_file(MARKET_DATA_DIR, date_str)
@@ -272,13 +280,14 @@ def _resolve_market_outcome(date_str: str, session: str) -> tuple[str, str] | No
             "Afternoon Actual Regime",
         )
         if afternoon_regime:
-            return market_path, afternoon_regime
+            return market_path, afternoon_regime, False
         # No pmopen capture for this date — fall through to the full-day regime below.
 
     actual_regime = _extract_regime_value(market, "actualRegime", "Actual Regime")
     if not actual_regime:
         return None
-    return market_path, actual_regime
+    fallback_used = session in ("am", "pm")
+    return market_path, actual_regime, fallback_used
 
 
 def run_daily_validation(date_str: str) -> list[dict[str, Any]]:
@@ -324,16 +333,16 @@ def run_daily_validation(date_str: str) -> list[dict[str, Any]]:
             msg = f"Could not resolve market outcome for {date_str} ({session}) — marking pending"
             print(f"[PENDING] {msg}")
             log_event("WARN", "validation_engine", msg)
-            market_path, actual_regime = None, None
+            market_path, actual_regime, fallback_used = None, None, False
         else:
-            market_path, actual_regime = outcome
+            market_path, actual_regime, fallback_used = outcome
 
         record = _build_validation_record(
             date_str,
             session,
             pred_path,
             market_path,
-            (predicted_regime, actual_regime),
+            (predicted_regime, actual_regime, fallback_used),
         )
         save_json(str(Path(VALIDATION_DIR) / f"{record['file_id']}.json"), record)
         records.append(record)
