@@ -21,14 +21,21 @@ uv run ruff check --output-format concise scripts/ tests/ || {
   exit 1
 }
 
-# 4. Type Checking & Safety
+# 4. Format Check (Black)
+echo "🎨 Running Black format check..."
+uv run black --check scripts/ tests/ || {
+  echo "❌ Black format check failed. Run 'uv run black scripts/ tests/' before committing." >&2
+  exit 1
+}
+
+# 5. Type Checking & Safety
 echo "📐 Running Mypy type validation..."
-uv run mypy scripts/ || {
+uv run mypy scripts/ tests/ || {
   echo "❌ Mypy type check failed. Fix type errors before committing." >&2
   exit 1
 }
 
-# 5. Test Suite Execution (pytest with 100% pass guarantee)
+# 6. Test Suite Execution (pytest with 100% pass guarantee)
 echo "🧪 Executing deterministic test suite..."
 uv run pytest || {
   echo "❌ Test suite execution failed. All tests must pass before commit." >&2
