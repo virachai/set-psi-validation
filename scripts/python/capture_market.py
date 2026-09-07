@@ -52,6 +52,7 @@ REGIME_TAXONOMY_URL = (
 )
 
 SET_MARKET_CLOSE_ICT = time(16, 30)
+SET_AFTERNOON_PREOPEN_ICT = time(14, 0)  # noon capture must land before afternoon pre-open
 MAX_INTRADAY_VOLATILITY = 0.05
 MASK_KEY_MIN_LENGTH = 6  # longer keys show first/last 3 chars
 THRESHOLD_ROLLING_WINDOW_DAYS = 30
@@ -814,6 +815,7 @@ def _capture_ato(args: argparse.Namespace, parser: argparse.ArgumentParser, date
 def _capture_noon(args: argparse.Namespace, parser: argparse.ArgumentParser, date_str: str) -> dict:
     """Resolve the Noon (lunch-break) price (live or manual) and build its record."""
     if args.symbol:
+        _assert_before_cutoff("noon", SET_AFTERNOON_PREOPEN_ICT)
         _, noon_price, volatility = _fetch_live_prices(args.provider, args.symbol, date_str, "noon")
     else:
         if args.noon_price is None:
@@ -832,6 +834,7 @@ def _capture_pmopen(
 ) -> dict:
     """Resolve the afternoon-open price (live or manual) and build its record."""
     if args.symbol:
+        _assert_before_cutoff("pmopen", SET_MARKET_CLOSE_ICT)
         _, pm_open_price, _ = _fetch_live_prices(args.provider, args.symbol, date_str, "pmopen")
     else:
         if args.pmopen_price is None:
@@ -839,6 +842,26 @@ def _capture_pmopen(
         log_event("INFO", "capture_market", "Starting manual price entry", {"mode": "pmopen"})
         pm_open_price = args.pmopen_price
     return handle_pmopen(date_str, pm_open_price)
+
+
+def _assert_before_cutoff(mode: str, cutoff: time, now_ict: datetime | None = None) -> None:
+    """Fail closed if called at/after `cutoff` ICT.
+
+    `noon` and `pmopen` fetch a live "current price" quote as a stand-in for a
+    specific point-in-time snapshot. A schedule that fires late (e.g. a delayed
+    GitHub Actions cron) would otherwise silently record a later, wrong price
+    under that snapshot's label instead of erroring.
+    """
+    if now_ict is None:
+        now_ict = datetime.now(UTC) + ICT_OFFSET
+    if now_ict.time() >= cutoff:
+        msg = (
+            f"{mode} capture attempted at {now_ict.strftime('%H:%M:%S')} ICT, "
+            f"at/after the {cutoff} ICT cutoff — the live quote no longer reflects "
+            f"the {mode} snapshot."
+        )
+        log_event("ERROR", "capture_market", msg)
+        raise RuntimeError(msg)
 
 
 def _assert_market_closed(now_ict: datetime | None = None) -> None:

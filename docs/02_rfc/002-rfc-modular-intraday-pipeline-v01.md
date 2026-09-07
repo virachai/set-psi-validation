@@ -44,5 +44,19 @@ We will migrate the monolithic file to `docs/002-rfc-modular-intraday-pipeline-v
 
 ---
 
-**Status**: Pending Approval
+**Status**: Reverted (2026-09-07)
 **Effective Date**: 2026-09-05
+
+## 6. Outcome
+
+Reverted after two trading days in production. The 8 single-shot-cron workflows this RFC
+introduced traded away the monolithic dispatcher's delay tolerance: on this free-tier GitHub
+account, scheduled runs were observed lagging their target time by up to ~6 hours (confirmed
+via the ICT timestamp `capture_market.py` embeds in its own output filename, not a display
+artifact). Because each modular workflow fires once at an exact instant with no fallback, a
+delayed `noon`/`pmopen` run would have silently recorded a live quote hours late under the
+wrong session label — a real data-integrity risk the old wide-window step-decider design
+(fires every 30 min, picks whichever window the current time falls into) tolerated by
+construction. `intraday-pipeline.yml` has been restored, with its cron additionally offset
+off the `:00`/`:30` minute marks to avoid GitHub Actions' documented high-load scheduling
+delay.

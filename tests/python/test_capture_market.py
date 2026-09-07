@@ -11,8 +11,11 @@ sys.path.insert(0, str(pathlib.Path(__file__).parents[2] / "scripts" / "python")
 
 from capture_market import (
     REGIME_TAXONOMY_URL,
+    SET_AFTERNOON_PREOPEN_ICT,
+    SET_MARKET_CLOSE_ICT,
     THRESHOLD_MIN_HISTORY_DAYS,
     VALID_REGIMES,
+    _assert_before_cutoff,
     _assert_market_closed,
     _fetch_live_prices,
     compute_rolling_threshold_mean,
@@ -397,6 +400,27 @@ class TestAssertMarketClosed:
 
     def test_passes_after_close(self):
         _assert_market_closed(datetime(2026, 6, 14, 16, 31, tzinfo=UTC))  # must not raise
+
+
+class TestAssertBeforeCutoff:
+    """Fail-closed guard against a delayed cron recording a stale live quote."""
+
+    def test_passes_before_cutoff(self):
+        _assert_before_cutoff(
+            "noon", SET_AFTERNOON_PREOPEN_ICT, datetime(2026, 6, 14, 13, 59, tzinfo=UTC),
+        )  # must not raise
+
+    def test_raises_at_boundary(self):
+        with pytest.raises(RuntimeError, match="noon capture attempted"):
+            _assert_before_cutoff(
+                "noon", SET_AFTERNOON_PREOPEN_ICT, datetime(2026, 6, 14, 14, 0, tzinfo=UTC),
+            )
+
+    def test_raises_after_cutoff(self):
+        with pytest.raises(RuntimeError, match="pmopen capture attempted"):
+            _assert_before_cutoff(
+                "pmopen", SET_MARKET_CLOSE_ICT, datetime(2026, 6, 14, 20, 36, tzinfo=UTC),
+            )
 
 
 class TestSaveMarketDataAtomic:
