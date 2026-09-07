@@ -407,19 +407,25 @@ class TestAssertBeforeCutoff:
 
     def test_passes_before_cutoff(self):
         _assert_before_cutoff(
-            "noon", SET_AFTERNOON_PREOPEN_ICT, datetime(2026, 6, 14, 13, 59, tzinfo=UTC),
+            "noon",
+            SET_AFTERNOON_PREOPEN_ICT,
+            datetime(2026, 6, 14, 13, 59, tzinfo=UTC),
         )  # must not raise
 
     def test_raises_at_boundary(self):
         with pytest.raises(RuntimeError, match="noon capture attempted"):
             _assert_before_cutoff(
-                "noon", SET_AFTERNOON_PREOPEN_ICT, datetime(2026, 6, 14, 14, 0, tzinfo=UTC),
+                "noon",
+                SET_AFTERNOON_PREOPEN_ICT,
+                datetime(2026, 6, 14, 14, 0, tzinfo=UTC),
             )
 
     def test_raises_after_cutoff(self):
         with pytest.raises(RuntimeError, match="pmopen capture attempted"):
             _assert_before_cutoff(
-                "pmopen", SET_MARKET_CLOSE_ICT, datetime(2026, 6, 14, 20, 36, tzinfo=UTC),
+                "pmopen",
+                SET_MARKET_CLOSE_ICT,
+                datetime(2026, 6, 14, 20, 36, tzinfo=UTC),
             )
 
 
