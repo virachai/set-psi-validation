@@ -19,6 +19,12 @@
       "skillPath": "skills/documentation-writer/SKILL.md",
       "computedHash": "ee53d65b163cd7eb953a930c95841cfe398cc2c0bd24c06508bbaa07c432be35"
     },
+    "gauntlet-loop": {
+      "source": "robonuggets/gauntlet-loop",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/gauntlet-loop/SKILL.md",
+      "computedHash": "49757039cab210870b66e2201cbb19272b6bf9e5395c3cadf76930c401235394"
+    },
     "git-commit": {
       "source": "github/awesome-copilot",
       "sourceType": "github",
