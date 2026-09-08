@@ -45,3 +45,4 @@ metadata:
 - [20260904-000000-intraday-schedule-bugfix.md](20260904-000000-intraday-schedule-bugfix.md): Fixed disabled/wrong-timezone cron and a step-decider elif ordering bug causing captures to skew to morning-only.
 - [20260905-150000-modular-intraday-pipeline-refactor.md](20260905-150000-modular-intraday-pipeline-refactor.md): Decomposed monolithic GitHub Action into modular, time-triggered workflows.
 - [Finnhub vs yfinance for Thai Stock EOD Validation POC](20260908-103000-finnhub-vs-yfinance-thai-stock-poc.md) - Empirical POC testing Finnhub vs yfinance on Thai stocks; Finnhub locked behind 403 on free tier, yfinance verified viable for batch EOD validation.
+- [Gauntlet Loop Enterprise Runbook](20260908-120000-gauntlet-loop-enterprise-runbook.md) - Level 99 enterprise-grade SOP and FMEA framework for Gauntlet Loop executions.

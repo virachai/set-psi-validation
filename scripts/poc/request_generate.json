@@ -1,0 +1,15 @@
+{
+  "contents": [
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "Hi"
+        }
+      ]
+    }
+  ],
+  "generationConfig": {
+    "response_mime_type": "application/json"
+  }
+}
