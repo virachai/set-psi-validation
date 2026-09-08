@@ -54,3 +54,6 @@ ignore_missing_imports = true
 disallow_untyped_defs = false
 disallow_incomplete_defs = false
 check_untyped_defs = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
