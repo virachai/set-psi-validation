@@ -47,3 +47,4 @@ metadata:
 - [Finnhub vs yfinance for Thai Stock EOD Validation POC](20260908-103000-finnhub-vs-yfinance-thai-stock-poc.md) - Empirical POC testing Finnhub vs yfinance on Thai stocks; Finnhub locked behind 403 on free tier, yfinance verified viable for batch EOD validation.
 - [Gauntlet Loop Enterprise Runbook](20260908-120000-gauntlet-loop-enterprise-runbook.md) - Level 99 enterprise-grade SOP and FMEA framework for Gauntlet Loop executions.
 - [PSI Validation Flow Frozen](20260908-140000-psi-validation-flow-frozen.md) - Confirmation of pipeline flow integrity and scope freeze for long-term execution.
+- [Workflow Dispatch Auto & Cutoff Fix](20260908-175500-workflow-dispatch-auto-cutoff-fix.md) - Added 'auto' default to workflow_dispatch, guarded closing auction transition, and tolerated expired captures in 'all' mode.
