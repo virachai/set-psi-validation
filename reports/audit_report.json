@@ -1,0 +1,14 @@
+{
+  "auditDate": "2026-09-08T15:33:27.123283",
+  "totalPredictions": 0,
+  "totalMarketData": 1,
+  "orphans": [],
+  "missingMatches": [
+    {
+      "date": "2026-09-08",
+      "session": "full_day",
+      "file": "market-data\\2026-09-08-103630-ato.json"
+    }
+  ],
+  "validationErrors": []
+}
