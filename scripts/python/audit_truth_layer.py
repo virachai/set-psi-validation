@@ -89,7 +89,7 @@ def run_deep_audit() -> dict[str, Any]:
             m_data = load_json(markets[key])
             if not p_data or not m_data:
                 validation_errors.append(
-                    {"date": key[0], "session": key[1], "error": "Malformed JSON"}
+                    {"date": key[0], "session": key[1], "error": "Malformed JSON"},
                 )
 
     # Aggregate results
@@ -114,5 +114,5 @@ if __name__ == "__main__":
     results = run_deep_audit()
     print(
         f"Audit complete. Findings: {len(results['orphans'])} orphans, "
-        f"{len(results['missingMatches'])} missing matches."
+        f"{len(results['missingMatches'])} missing matches.",
     )
