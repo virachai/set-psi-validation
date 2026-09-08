@@ -64,14 +64,14 @@ def run_deep_audit() -> dict[str, Any]:
     market_files = list(MARKET_DATA_DIR.glob("*.json"))
 
     preds = {}
-    for f in prediction_files:
-        date, session = get_file_metadata(f)
-        preds[(date, session)] = f
+    for pred_file in prediction_files:
+        date, session = get_file_metadata(pred_file)
+        preds[(date, session)] = pred_file
 
     markets = {}
-    for f in market_files:
-        date, session = get_file_metadata(f)
-        markets[(date, session)] = f
+    for market_file in market_files:
+        date, session = get_file_metadata(market_file)
+        markets[(date, session)] = market_file
 
     orphans = []  # Prediction exists, market data missing
     missing_matches = []  # Market data exists, prediction missing
