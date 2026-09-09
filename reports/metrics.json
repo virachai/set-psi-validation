@@ -7,57 +7,73 @@
     "@type": "DefinedTerm",
     "name": "Regime Prediction Accuracy"
   },
-  "datePublished": "2026-09-04T17:28:06+07:00",
+  "datePublished": "2026-09-09T09:28:09+07:00",
   "variableMeasured": [
     {
       "@type": "PropertyValue",
       "name": "Overall Accuracy",
-      "value": 0.1429
+      "value": 1.0
     },
     {
       "@type": "PropertyValue",
       "name": "Rolling 7D Accuracy",
-      "value": 0.1429
+      "value": 1.0
     },
     {
       "@type": "PropertyValue",
       "name": "Rolling 30D Accuracy",
-      "value": 0.1429
+      "value": 1.0
     }
   ],
   "metrics": {
-    "overall_accuracy": 0.14285714285714285,
-    "rolling_7d": 0.14285714285714285,
-    "rolling_30d": 0.14285714285714285,
+    "overall_accuracy": 1.0,
+    "rolling_7d": 1.0,
+    "rolling_30d": 1.0,
     "by_window": {
       "am": {
-        "overall_accuracy": 0.0,
-        "rolling_7d": 0.0,
-        "rolling_30d": 0.0,
-        "total_count": 2
+        "overall_accuracy": 1.0,
+        "rolling_7d": 1.0,
+        "rolling_30d": 1.0,
+        "total_count": 1
       },
       "pm": {
-        "overall_accuracy": 0.3333333333333333,
-        "rolling_7d": 0.3333333333333333,
-        "rolling_30d": 0.3333333333333333,
-        "total_count": 3
+        "overall_accuracy": 1.0,
+        "rolling_7d": 1.0,
+        "rolling_30d": 1.0,
+        "total_count": 1
       },
       "full_day": {
-        "overall_accuracy": 0.0,
-        "rolling_7d": 0.0,
-        "rolling_30d": 0.0,
-        "total_count": 2
+        "overall_accuracy": 1.0,
+        "rolling_7d": 1.0,
+        "rolling_30d": 1.0,
+        "total_count": 1
       }
     },
     "hit_rates": {
       "Bullish": null,
-      "Bearish": 0.0,
+      "Bearish": null,
       "Sideways": 1.0,
       "Risk-Off": null,
       "Crisis": null,
       "Unclassified": null
     },
-    "total_count": 7
+    "precision": {
+      "Bullish": null,
+      "Bearish": null,
+      "Sideways": 1.0,
+      "Risk-Off": null,
+      "Crisis": null,
+      "Unclassified": null
+    },
+    "f1": {
+      "Bullish": null,
+      "Bearish": null,
+      "Sideways": 1.0,
+      "Risk-Off": null,
+      "Crisis": null,
+      "Unclassified": null
+    },
+    "total_count": 3
   },
   "confusion_matrix": {
     "Bullish": {
@@ -71,7 +87,7 @@
     "Bearish": {
       "Bullish": 0,
       "Bearish": 0,
-      "Sideways": 6,
+      "Sideways": 0,
       "Risk-Off": 0,
       "Crisis": 0,
       "Unclassified": 0
@@ -79,7 +95,7 @@
     "Sideways": {
       "Bullish": 0,
       "Bearish": 0,
-      "Sideways": 1,
+      "Sideways": 3,
       "Risk-Off": 0,
       "Crisis": 0,
       "Unclassified": 0
@@ -111,74 +127,28 @@
   },
   "history": [
     {
-      "date": "2026-09-02",
-      "file_id": "2026-09-02-042018-pm",
-      "session": "pm",
-      "predicted": "Sideways",
-      "actual": "Bearish",
-      "correct": false,
-      "rolling_7d": 0.0,
-      "rolling_30d": 0.0
-    },
-    {
-      "date": "2026-09-03",
-      "file_id": "2026-09-03-022758-am",
+      "date": "2026-09-09",
+      "file_id": "2026-09-09-022759-am",
       "session": "am",
       "predicted": "Sideways",
-      "actual": "Bearish",
-      "correct": false,
-      "rolling_7d": 0.0,
-      "rolling_30d": 0.0
+      "actual": "Sideways",
+      "correct": true
     },
     {
-      "date": "2026-09-03",
-      "file_id": "2026-09-03-022758-full_day",
+      "date": "2026-09-09",
+      "file_id": "2026-09-09-022759-full_day",
       "session": "full_day",
       "predicted": "Sideways",
-      "actual": "Bearish",
-      "correct": false,
-      "rolling_7d": 0.0,
-      "rolling_30d": 0.0
+      "actual": "Sideways",
+      "correct": true
     },
     {
-      "date": "2026-09-03",
-      "file_id": "2026-09-03-022758-pm",
-      "session": "pm",
-      "predicted": "Sideways",
-      "actual": "Bearish",
-      "correct": false,
-      "rolling_7d": 0.0,
-      "rolling_30d": 0.0
-    },
-    {
-      "date": "2026-09-04",
-      "file_id": "2026-09-04-022800-am",
-      "session": "am",
-      "predicted": "Sideways",
-      "actual": "Bearish",
-      "correct": false,
-      "rolling_7d": 0.0,
-      "rolling_30d": 0.0
-    },
-    {
-      "date": "2026-09-04",
-      "file_id": "2026-09-04-022800-full_day",
-      "session": "full_day",
-      "predicted": "Sideways",
-      "actual": "Bearish",
-      "correct": false,
-      "rolling_7d": 0.0,
-      "rolling_30d": 0.0
-    },
-    {
-      "date": "2026-09-04",
-      "file_id": "2026-09-04-022800-pm",
+      "date": "2026-09-09",
+      "file_id": "2026-09-09-022759-pm",
       "session": "pm",
       "predicted": "Sideways",
       "actual": "Sideways",
-      "correct": true,
-      "rolling_7d": 0.14285714285714285,
-      "rolling_30d": 0.14285714285714285
+      "correct": true
     }
   ]
 }

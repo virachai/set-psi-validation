@@ -1,0 +1,22 @@
+{
+  "@context": "https://schema.org",
+  "@type": "Observation",
+  "name": "SET Market Outcome 2026-09-09 (partial — ATO only)",
+  "observationDate": "2026-09-09",
+  "measuredProperty": {
+    "@type": "DefinedTerm",
+    "name": "Actual Regime",
+    "inDefinedTermSet": "https://raw.githubusercontent.com/virachai/set-psi-validation/main/docs/010-regime-taxonomy-v01.json"
+  },
+  "variableMeasured": [
+    {
+      "@type": "QuantitativeValue",
+      "name": "ATO Price",
+      "value": 1621.56005859375,
+      "unitText": "SET Index Points"
+    }
+  ],
+  "date": "2026-09-09",
+  "atoPrice": 1621.56005859375,
+  "status": "partial"
+}
