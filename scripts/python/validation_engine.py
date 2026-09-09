@@ -111,22 +111,7 @@ def find_latest_prediction_file(directory: str, date_str: str, session: str) -> 
     files = sorted(Path(directory).glob(f"{date_str}-*-{session}.json"))
     if files:
         return str(files[-1])
-
-    # Fallback: general YYYY-MM-DD-*.json files whose content declares the session
-    matching = []
-    all_files = sorted(Path(directory).glob(f"{date_str}-*.json"))
-    for f in all_files:
-        # Avoid files that explicitly carry a different session suffix
-        if not f.name.endswith(f"-{session}.json") and any(
-            f.name.endswith(f"-{s}.json") for s in SESSIONS
-        ):
-            continue
-        data = load_json(str(f))
-        if data and data.get("session") == session:
-            matching.append(f)
-    if not matching:
-        return None
-    return str(max(matching, key=lambda p: p.stat().st_mtime))
+    return None
 
 
 def _extract_regime_value(observation: dict, flat_key: str, measure_name: str) -> str | None:
@@ -141,20 +126,8 @@ def _extract_regime_value(observation: dict, flat_key: str, measure_name: str) -
 
 
 def _resolve_prediction_path(date_str: str, session: str) -> str | None:
-    """Resolve the prediction file for a session, with full_day fallbacks."""
-    pred_path = find_latest_prediction_file(PREDICTIONS_DIR, date_str, session)
-    if pred_path:
-        return pred_path
-
-    # Fallback for full_day: general latest file, unless owned by another session
-    if session != "full_day":
-        return None
-    pred_path = find_latest_file(PREDICTIONS_DIR, date_str)
-    if pred_path:
-        p_data = load_json(pred_path)
-        if p_data and p_data.get("session") in ["am", "pm"]:
-            return None
-    return pred_path
+    """Resolve the prediction file for a session, without fallbacks."""
+    return find_latest_prediction_file(PREDICTIONS_DIR, date_str, session)
 
 
 def _build_validation_record(
@@ -237,35 +210,26 @@ def _resolve_market_outcome(date_str: str, session: str) -> tuple[str, str, bool
     """Resolve the (market_path, actual_regime, fallback_used) for one session's own window.
 
     am        -> the noon (morning-session close) file's own "actualRegime",
-                 i.e. the ATO -> Noon window — falls back to the full-day
-                 outcome below when no noon capture exists for this date yet.
-    pm        -> the full-day atc file's "afternoonRegime" (PM Open -> ATC),
-                 when the capture pipeline recorded an afternoon window —
-                 falls back to the same file's full-day "actualRegime" when it
-                 doesn't (e.g. historical dates before RFC 016/017 shipped).
+                 i.e. the ATO -> Noon window.
+    pm        -> the full-day atc file's "afternoonRegime" (PM Open -> ATC).
     full_day  -> the full-day atc file's "actualRegime" (unchanged).
 
     fallback_used is True whenever an am/pm session had to score against the
     broader full-day window instead of its own dedicated window — an audit
     signal, without adding a separate alerting layer.
-
-    This keeps each prediction session scored against real behavior for its
-    own window instead of every session sharing one full-day outcome.
     """
+    # AM resolution
     if session == "am":
         noon_files = sorted(Path(MARKET_DATA_DIR).glob(f"{date_str}-*-noon.json"))
         if noon_files:
             noon_path = str(noon_files[-1])
             noon_data = load_json(noon_path)
-            regime = noon_data and _extract_regime_value(
-                noon_data,
-                "actualRegime",
-                "Actual Regime",
-            )
+            regime = noon_data and _extract_regime_value(noon_data, "actualRegime", "Actual Regime")
             if regime:
                 return noon_path, regime, False
-        # No noon capture for this date — fall through to the full-day file below.
+        return None
 
+    # PM and Full Day resolution
     market_path = find_latest_market_file(MARKET_DATA_DIR, date_str)
     if not market_path:
         return None
@@ -273,21 +237,13 @@ def _resolve_market_outcome(date_str: str, session: str) -> tuple[str, str, bool
     if not market:
         return None
 
+    regime = None
     if session == "pm":
-        afternoon_regime = _extract_regime_value(
-            market,
-            "afternoonRegime",
-            "Afternoon Actual Regime",
-        )
-        if afternoon_regime:
-            return market_path, afternoon_regime, False
-        # No pmopen capture for this date — fall through to the full-day regime below.
+        regime = _extract_regime_value(market, "afternoonRegime", "Afternoon Actual Regime")
+    else:
+        regime = _extract_regime_value(market, "actualRegime", "Actual Regime")
 
-    actual_regime = _extract_regime_value(market, "actualRegime", "Actual Regime")
-    if not actual_regime:
-        return None
-    fallback_used = session in ("am", "pm")
-    return market_path, actual_regime, fallback_used
+    return (market_path, regime, False) if regime else None
 
 
 def run_daily_validation(date_str: str) -> list[dict[str, Any]]:
@@ -295,8 +251,7 @@ def run_daily_validation(date_str: str) -> list[dict[str, Any]]:
 
     Each session is scored against its own market window via
     _resolve_market_outcome() — am against ATO->Noon, pm against
-    PM Open->ATC, full_day against ATO->ATC — falling back to the full-day
-    outcome for any session whose dedicated window data isn't available yet.
+    PM Open->ATC, full_day against ATO->ATC.
     A session whose market outcome cannot be resolved at all (no capture
     file yet for this date) gets a "pending" record instead of being skipped
     — see _build_validation_record.
