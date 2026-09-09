@@ -2,13 +2,13 @@
   "@context": "https://schema.org",
   "@type": "Observation",
   "name": "Validation Evaluation 2026-09-09-022759-full_day",
-  "observationDate": "2026-09-09T09:58:03+07:00",
+  "observationDate": "2026-09-09T16:58:11+07:00",
   "observationAbout": [
     {
       "@id": "predictions/2026-09-09-022759-full_day.json"
     },
     {
-      "@id": "market-data/2026-09-09-092805-noon.json"
+      "@id": "market-data/2026-09-09-165809-atc.json"
     }
   ],
   "measuredProperty": {
