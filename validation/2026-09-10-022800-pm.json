@@ -2,10 +2,13 @@
   "@context": "https://schema.org",
   "@type": "Observation",
   "name": "Validation Evaluation 2026-09-10-022800-pm",
-  "observationDate": "2026-09-10T09:58:03+07:00",
+  "observationDate": "2026-09-10T16:58:05+07:00",
   "observationAbout": [
     {
       "@id": "predictions/2026-09-10-022800-pm.json"
+    },
+    {
+      "@id": "market-data/2026-09-10-165803-atc.json"
     }
   ],
   "measuredProperty": {
@@ -15,19 +18,19 @@
   "variableMeasured": {
     "@type": "PropertyValue",
     "name": "Is Correct",
-    "value": null
+    "value": true
   },
   "marginOfError": {
     "@type": "QuantitativeValue",
-    "value": null
+    "value": 0.0
   },
   "date": "2026-09-10",
   "file_id": "2026-09-10-022800-pm",
   "session": "pm",
-  "status": "pending",
+  "status": "complete",
   "predictedRegime": "Sideways",
-  "actualRegime": null,
-  "isCorrect": null,
-  "deviationScore": null,
+  "actualRegime": "Sideways",
+  "isCorrect": true,
+  "deviationScore": 0.0,
   "fallbackUsed": false
 }
