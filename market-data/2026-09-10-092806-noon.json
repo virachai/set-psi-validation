@@ -1,0 +1,50 @@
+{
+  "@context": "https://schema.org",
+  "@type": "Observation",
+  "name": "SET Market Outcome 2026-09-10 (Morning Session: ATO -> Lunch Break)",
+  "observationDate": "2026-09-10",
+  "observationPeriod": "2026-09-10T10:00:00+07:00/2026-09-10T12:30:00+07:00",
+  "measuredProperty": {
+    "@type": "DefinedTerm",
+    "name": "Actual Regime",
+    "inDefinedTermSet": "https://raw.githubusercontent.com/virachai/set-psi-validation/main/docs/010-regime-taxonomy-v01.json"
+  },
+  "variableMeasured": [
+    {
+      "@type": "QuantitativeValue",
+      "name": "ATO Price",
+      "value": 1620.510009765625,
+      "unitText": "SET Index Points"
+    },
+    {
+      "@type": "QuantitativeValue",
+      "name": "Noon Price",
+      "value": 1617.8900146484375,
+      "unitText": "SET Index Points"
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "Morning Return %",
+      "value": -0.16
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "Intraday Volatility",
+      "value": 0.0091
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "Actual Regime",
+      "value": "Sideways"
+    }
+  ],
+  "date": "2026-09-10",
+  "atoPrice": 1620.510009765625,
+  "noonPrice": 1617.8900146484375,
+  "returnPct": -0.16,
+  "volatilityIndex": 0.0091,
+  "thresholdMeanUsed": 0.02,
+  "actualRegime": "Sideways",
+  "window": "morning",
+  "status": "complete"
+}

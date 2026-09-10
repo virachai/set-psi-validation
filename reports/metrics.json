@@ -7,7 +7,7 @@
     "@type": "DefinedTerm",
     "name": "Regime Prediction Accuracy"
   },
-  "datePublished": "2026-09-09T17:28:03+07:00",
+  "datePublished": "2026-09-10T09:28:11+07:00",
   "variableMeasured": [
     {
       "@type": "PropertyValue",
@@ -34,7 +34,7 @@
         "overall_accuracy": 1.0,
         "rolling_7d": 1.0,
         "rolling_30d": 1.0,
-        "total_count": 1
+        "total_count": 2
       },
       "pm": {
         "overall_accuracy": 1.0,
@@ -46,7 +46,7 @@
         "overall_accuracy": 1.0,
         "rolling_7d": 1.0,
         "rolling_30d": 1.0,
-        "total_count": 1
+        "total_count": 2
       }
     },
     "hit_rates": {
@@ -73,7 +73,7 @@
       "Crisis": null,
       "Unclassified": null
     },
-    "total_count": 3
+    "total_count": 5
   },
   "confusion_matrix": {
     "Bullish": {
@@ -95,7 +95,7 @@
     "Sideways": {
       "Bullish": 0,
       "Bearish": 0,
-      "Sideways": 3,
+      "Sideways": 5,
       "Risk-Off": 0,
       "Crisis": 0,
       "Unclassified": 0
@@ -146,6 +146,22 @@
       "date": "2026-09-09",
       "file_id": "2026-09-09-022759-pm",
       "session": "pm",
+      "predicted": "Sideways",
+      "actual": "Sideways",
+      "correct": true
+    },
+    {
+      "date": "2026-09-10",
+      "file_id": "2026-09-10-022800-am",
+      "session": "am",
+      "predicted": "Sideways",
+      "actual": "Sideways",
+      "correct": true
+    },
+    {
+      "date": "2026-09-10",
+      "file_id": "2026-09-10-022800-full_day",
+      "session": "full_day",
       "predicted": "Sideways",
       "actual": "Sideways",
       "correct": true
