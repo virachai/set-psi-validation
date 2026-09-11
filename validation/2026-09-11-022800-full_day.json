@@ -2,13 +2,13 @@
   "@context": "https://schema.org",
   "@type": "Observation",
   "name": "Validation Evaluation 2026-09-11-022800-full_day",
-  "observationDate": "2026-09-11T09:58:04+07:00",
+  "observationDate": "2026-09-11T16:58:07+07:00",
   "observationAbout": [
     {
       "@id": "predictions/2026-09-11-022800-full_day.json"
     },
     {
-      "@id": "market-data/2026-09-11-092807-noon.json"
+      "@id": "market-data/2026-09-11-165805-atc.json"
     }
   ],
   "measuredProperty": {
@@ -18,19 +18,19 @@
   "variableMeasured": {
     "@type": "PropertyValue",
     "name": "Is Correct",
-    "value": true
+    "value": false
   },
   "marginOfError": {
     "@type": "QuantitativeValue",
-    "value": 0.0
+    "value": 1.0
   },
   "date": "2026-09-11",
   "file_id": "2026-09-11-022800-full_day",
   "session": "full_day",
   "status": "complete",
   "predictedRegime": "Sideways",
-  "actualRegime": "Sideways",
-  "isCorrect": true,
-  "deviationScore": 0.0,
+  "actualRegime": "Bearish",
+  "isCorrect": false,
+  "deviationScore": 1.0,
   "fallbackUsed": false
 }

@@ -1,0 +1,68 @@
+{
+  "@context": "https://schema.org",
+  "@type": "Observation",
+  "name": "SET Market Outcome 2026-09-11",
+  "observationDate": "2026-09-11",
+  "observationPeriod": "2026-09-11T10:00:00+07:00/2026-09-11T16:58:05+07:00",
+  "measuredProperty": {
+    "@type": "DefinedTerm",
+    "name": "Actual Regime",
+    "inDefinedTermSet": "https://raw.githubusercontent.com/virachai/set-psi-validation/main/docs/010-regime-taxonomy-v01.json"
+  },
+  "variableMeasured": [
+    {
+      "@type": "QuantitativeValue",
+      "name": "ATO Price",
+      "value": 1613.43994140625,
+      "unitText": "SET Index Points"
+    },
+    {
+      "@type": "QuantitativeValue",
+      "name": "ATC Price",
+      "value": 1604.52001953125,
+      "unitText": "SET Index Points"
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "Return %",
+      "value": -0.55
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "Intraday Volatility",
+      "value": 0.0064
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "Actual Regime",
+      "value": "Bearish"
+    },
+    {
+      "@type": "QuantitativeValue",
+      "name": "PM Open Price",
+      "value": 1615.0699462890625,
+      "unitText": "SET Index Points"
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "Afternoon Return %",
+      "value": -0.65
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "Afternoon Actual Regime",
+      "value": "Bearish"
+    }
+  ],
+  "date": "2026-09-11",
+  "atoPrice": 1613.43994140625,
+  "atcPrice": 1604.52001953125,
+  "returnPct": -0.55,
+  "volatilityIndex": 0.0064,
+  "thresholdMeanUsed": 0.02,
+  "actualRegime": "Bearish",
+  "pmOpenPrice": 1615.0699462890625,
+  "afternoonReturnPct": -0.65,
+  "afternoonRegime": "Bearish",
+  "status": "complete"
+}
