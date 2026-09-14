@@ -220,3 +220,21 @@ class TestBuildSnapshot:
             validate_timestamp("2026-06-15T09:00:00+07:00", "am", expected_date="2026-06-15")
             is True
         )
+
+    # --- Lower-bound (premature capture) gate ---
+
+    def test_validate_timestamp_rejects_premature_am(self):
+        """A capture before the am window opens (08:00) must be rejected —
+        catches workflow_dispatch step=all firing outside market hours."""
+        assert validate_timestamp("2026-06-15T02:27:58+07:00", "am") is False
+
+    def test_validate_timestamp_rejects_premature_full_day(self):
+        assert validate_timestamp("2026-06-15T02:27:58+07:00", "full_day") is False
+
+    def test_validate_timestamp_rejects_premature_pm(self):
+        assert validate_timestamp("2026-06-15T02:27:58+07:00", "pm") is False
+
+    def test_validate_timestamp_accepts_at_window_open(self):
+        assert validate_timestamp("2026-06-15T08:00:00+07:00", "am") is True
+        assert validate_timestamp("2026-06-15T09:00:00+07:00", "full_day") is True
+        assert validate_timestamp("2026-06-15T13:00:00+07:00", "pm") is True

@@ -8,6 +8,7 @@ metadata:
 # Project Memory Index
 
 - [Project Overview](20260614-120000-project-overview.md) - Initial project structure and status tracking.
+- [Prediction Window Lower-Bound Gate](20260914-190000-prediction-window-lower-bound-gate.md) - Closed a gap where workflow_dispatch step=all could pass the lookahead-bias timestamp check for all three sessions at once.
 - [Modular Intraday Pipeline Refactor](20260905-150000-modular-intraday-pipeline-refactor.md) - Decomposed monolithic GitHub Action into modular, time-triggered workflows.
 - [PSI Design Complete](20260614-140000-psi-design-complete.md) - Architectural design phase finalized.
 - [Schema.org Mapping Complete](20260614-150000-schema-org-mapping.md) - Schema.org type mapping for all PSI data artifacts.
