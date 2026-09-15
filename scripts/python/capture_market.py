@@ -53,6 +53,26 @@ REGIME_TAXONOMY_URL = (
 
 SET_MARKET_CLOSE_ICT = time(16, 30)
 SET_AFTERNOON_PREOPEN_ICT = time(14, 0)  # noon capture must land before afternoon pre-open
+
+SET_MARKET_OPEN_ICT = time(10, 0)
+# The afternoon continuous session opens at 14:30; 14:00-14:30 is the pre-open call
+# auction, so a quote taken then is not yet the PM open.
+SET_AFTERNOON_OPEN_ICT = time(14, 30)
+
+# The ICT wall-clock window during which each mode's quote is a truthful stand-in
+# for the snapshot it claims to be.
+#
+# `noon` and `pmopen` read the provider's *current* price, so they need both
+# bounds — too early and the quote predates the snapshot, too late and it has
+# already moved past it. `ato` reads the provider's session-open field and `atc`
+# the post-close price, both of which stay correct for the rest of the day; they
+# only need a lower bound (cutoff `None`) to reject a pre-open / pre-close read.
+CAPTURE_WINDOWS: dict[str, tuple[time, time | None]] = {
+    "ato": (SET_MARKET_OPEN_ICT, None),
+    "noon": (time(12, 30), SET_AFTERNOON_PREOPEN_ICT),
+    "pmopen": (SET_AFTERNOON_OPEN_ICT, SET_MARKET_CLOSE_ICT),
+    "atc": (SET_MARKET_CLOSE_ICT, None),
+}
 MAX_INTRADAY_VOLATILITY = 0.05
 MASK_KEY_MIN_LENGTH = 6  # longer keys show first/last 3 chars
 THRESHOLD_ROLLING_WINDOW_DAYS = 30
@@ -209,19 +229,28 @@ def load_existing(date_str: str, mode: str | None = None) -> dict:
     return {}
 
 
-def save_market_data(record: dict, date_str: str, mode: str) -> str:
+def save_market_data(
+    record: dict,
+    date_str: str,
+    mode: str,
+    captured_at: time | None = None,
+) -> str:
     """Write the market data record to market-data/YYYY-MM-DD-HHMMSS-mode.json.
 
     Writes to a temp file in the same directory and atomically renames it into
     place, so a crash or interrupted write can never leave a partially-written
     or truncated JSON file behind.
+
+    `captured_at` overrides the ICT wall-clock stamp in the filename. A live
+    capture leaves it None (now is the capture time); a historical backfill
+    passes the window time the price actually belongs to, so the filename keeps
+    telling the truth about when the observation was taken.
     """
     market_dir = Path(MARKET_DATA_DIR)
     market_dir.mkdir(exist_ok=True)
 
-    # Use date_str and current ICT time
-    now_ict = datetime.now(UTC) + ICT_OFFSET
-    time_str = now_ict.strftime("%H%M%S")
+    # Use date_str and the capture's ICT time (now, unless explicitly given)
+    time_str = (captured_at or (datetime.now(UTC) + ICT_OFFSET).time()).strftime("%H%M%S")
     dt = f"{date_str}-{time_str}"
 
     filepath = market_dir / f"{dt}-{mode}.json"
@@ -802,6 +831,7 @@ def _resolve_threshold(args: argparse.Namespace, date_str: str) -> float:
 
 def _capture_ato(args: argparse.Namespace, parser: argparse.ArgumentParser, date_str: str) -> dict:
     """Resolve the ATO price (live or manual) and build its record."""
+    bypassed = _assert_in_window("ato")
     if args.symbol:
         ato_price, _, _ = _fetch_live_prices(args.provider, args.symbol, date_str, "ato")
     else:
@@ -809,13 +839,13 @@ def _capture_ato(args: argparse.Namespace, parser: argparse.ArgumentParser, date
             parser.error("--ato-price is required for --mode ato (or use --symbol).")
         log_event("INFO", "capture_market", "Starting manual price entry", {"mode": "ato"})
         ato_price = args.ato_price
-    return handle_ato(date_str, ato_price)
+    return _mark_bypass(handle_ato(date_str, ato_price), bypassed=bypassed)
 
 
 def _capture_noon(args: argparse.Namespace, parser: argparse.ArgumentParser, date_str: str) -> dict:
     """Resolve the Noon (lunch-break) price (live or manual) and build its record."""
+    bypassed = _assert_in_window("noon")
     if args.symbol:
-        _assert_before_cutoff("noon", SET_AFTERNOON_PREOPEN_ICT)
         _, noon_price, volatility = _fetch_live_prices(args.provider, args.symbol, date_str, "noon")
     else:
         if args.noon_price is None:
@@ -824,7 +854,7 @@ def _capture_noon(args: argparse.Namespace, parser: argparse.ArgumentParser, dat
         noon_price = args.noon_price
         volatility = args.volatility
     threshold = _resolve_threshold(args, date_str)
-    return handle_noon(date_str, noon_price, volatility, threshold)
+    return _mark_bypass(handle_noon(date_str, noon_price, volatility, threshold), bypassed=bypassed)
 
 
 def _capture_pmopen(
@@ -833,15 +863,15 @@ def _capture_pmopen(
     date_str: str,
 ) -> dict:
     """Resolve the afternoon-open price (live or manual) and build its record."""
+    bypassed = _assert_in_window("pmopen")
     if args.symbol:
-        _assert_before_cutoff("pmopen", SET_MARKET_CLOSE_ICT)
         _, pm_open_price, _ = _fetch_live_prices(args.provider, args.symbol, date_str, "pmopen")
     else:
         if args.pmopen_price is None:
             parser.error("--pmopen-price is required for --mode pmopen (or use --symbol).")
         log_event("INFO", "capture_market", "Starting manual price entry", {"mode": "pmopen"})
         pm_open_price = args.pmopen_price
-    return handle_pmopen(date_str, pm_open_price)
+    return _mark_bypass(handle_pmopen(date_str, pm_open_price), bypassed=bypassed)
 
 
 def _assert_before_cutoff(mode: str, cutoff: time, now_ict: datetime | None = None) -> None:
@@ -864,26 +894,62 @@ def _assert_before_cutoff(mode: str, cutoff: time, now_ict: datetime | None = No
         raise RuntimeError(msg)
 
 
-def _assert_market_closed(now_ict: datetime | None = None) -> None:
-    """Fail closed if called before the SET's official 16:30 ICT market close.
+def _mark_bypass(record: dict, *, bypassed: bool) -> dict:
+    """Stamp a record produced outside its capture window, so backfills stay auditable."""
+    if bypassed:
+        record["windowGuardBypassed"] = True
+    return record
 
-    Prevents an ATC capture (live-fetched or manually entered) from ever
-    recording a pre-close quote as the session's official closing price.
+
+def _assert_after_open(mode: str, open_time: time, now_ict: datetime | None = None) -> None:
+    """Fail closed if called before `open_time` ICT.
+
+    The mirror of `_assert_before_cutoff`. Without it, an early run (notably a
+    manual `workflow_dispatch` firing every step at once in the morning) records
+    a pre-window live quote under a later snapshot's label — e.g. a 09:28 quote
+    saved as the 12:30 noon close — silently corrupting the truth layer.
     """
     if now_ict is None:
         now_ict = datetime.now(UTC) + ICT_OFFSET
-    if now_ict.time() < SET_MARKET_CLOSE_ICT:
+    if now_ict.time() < open_time:
         msg = (
-            f"ATC capture attempted at {now_ict.strftime('%H:%M:%S')} ICT, "
-            f"before official market close ({SET_MARKET_CLOSE_ICT})."
+            f"{mode} capture attempted at {now_ict.strftime('%H:%M:%S')} ICT, "
+            f"before the {open_time} ICT window opens — the live quote does not yet "
+            f"reflect the {mode} snapshot."
         )
         log_event("ERROR", "capture_market", msg)
         raise RuntimeError(msg)
 
 
+def _assert_in_window(mode: str, now_ict: datetime | None = None) -> bool:
+    """Assert the current ICT time falls inside `mode`'s capture window.
+
+    Returns True when the guard was bypassed via `PSI_BYPASS_WINDOW_GUARD`, so the
+    caller can stamp the record as a backfill. Raises `RuntimeError` otherwise.
+    """
+    open_time, cutoff = CAPTURE_WINDOWS[mode]
+    bypassed = os.getenv("PSI_BYPASS_WINDOW_GUARD", "false").lower() == "true"
+    try:
+        _assert_after_open(mode, open_time, now_ict)
+        if cutoff is not None:
+            _assert_before_cutoff(mode, cutoff, now_ict)
+    except RuntimeError:
+        if not bypassed:
+            raise
+        log_event(
+            "WARNING",
+            "capture_market",
+            "PSI_BYPASS_WINDOW_GUARD is enabled — recording an out-of-window capture. "
+            "This is strictly prohibited in production.",
+            {"mode": mode},
+        )
+        return True
+    return False
+
+
 def _capture_atc(args: argparse.Namespace, parser: argparse.ArgumentParser, date_str: str) -> dict:
     """Resolve the ATC price (live or manual) and build its record."""
-    _assert_market_closed()
+    bypassed = _assert_in_window("atc")
     if args.symbol:
         _, atc_price, volatility = _fetch_live_prices(args.provider, args.symbol, date_str, "atc")
     else:
@@ -893,7 +959,7 @@ def _capture_atc(args: argparse.Namespace, parser: argparse.ArgumentParser, date
         atc_price = args.atc_price
         volatility = args.volatility
     threshold = _resolve_threshold(args, date_str)
-    return handle_atc(date_str, atc_price, volatility, threshold)
+    return _mark_bypass(handle_atc(date_str, atc_price, volatility, threshold), bypassed=bypassed)
 
 
 _MODE_HANDLERS = {

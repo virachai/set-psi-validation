@@ -71,13 +71,15 @@ jobs:
             # Safety Gate: Stop if outside market hours (08:00 - 18:00)
             # Windows follow the SET session calendar: morning 10:00-12:30,
             # lunch break 12:30-14:30, afternoon 14:30-16:30, ATC ~16:30-16:40.
+            # Each bucket must land inside capture_market.CAPTURE_WINDOWS for its mode,
+            # otherwise the capture guard raises.
             if [[ "$H_ICT" -lt 8 || "$H_ICT" -ge 18 ]]; then
               echo 'step=none' >> $GITHUB_OUTPUT
               echo "Outside market hours, exiting."
             elif [[ "$H_ICT" -ge 17 ]]; then echo 'step=validation' >> $GITHUB_OUTPUT;
             elif [[ "$H_ICT" -eq 16 && "$M_ICT" -ge 40 ]]; then echo 'step=atc' >> $GITHUB_OUTPUT;
-            elif [[ "$H_ICT" -eq 16 && "$M_ICT" -ge 30 ]]; then echo 'step=none' >> $GITHUB_OUTPUT; # Market closing auction (16:30-16:40), await ATC settlement
-            elif [[ "$H_ICT" -ge 14 ]]; then echo 'step=pmopen' >> $GITHUB_OUTPUT;
+            elif [[ "$H_ICT" -eq 16 && "$M_ICT" -ge 20 ]]; then echo 'step=none' >> $GITHUB_OUTPUT; # Pre-close + closing auction (16:30-16:40): stop emitting pmopen 10min early so a cold `uv` start cannot cross the 16:30 cutoff mid-run
+            elif [[ "$H_ICT" -eq 16 || "$H_ICT" -eq 15 || ( "$H_ICT" -eq 14 && "$M_ICT" -ge 30 ) ]]; then echo 'step=pmopen' >> $GITHUB_OUTPUT; # Afternoon continuous session opens 14:30; 14:00-14:30 is the pre-open auction
             elif [[ "$H_ICT" -ge 13 ]]; then echo 'step=prediction-pm' >> $GITHUB_OUTPUT;
             elif [[ "$H_ICT" -eq 12 && "$M_ICT" -ge 30 ]]; then echo 'step=noon' >> $GITHUB_OUTPUT;
             elif [[ "$H_ICT" -ge 10 ]]; then echo 'step=ato' >> $GITHUB_OUTPUT;
@@ -147,7 +149,7 @@ jobs:
         if: (steps.step-decider.outputs.step == 'atc' || steps.step-decider.outputs.step == 'all') && steps.step-decider.outputs.step != 'none'
         continue-on-error: ${{ steps.step-decider.outputs.step == 'all' || github.event_name == 'workflow_dispatch' }}
         run: |
-          echo 'Running ATC Capture at 16:30 ICT (afternoon session close)...'
+          echo 'Running ATC Capture at 16:40 ICT (after the 16:30-16:40 closing auction settles)...'
           uv run scripts/python/capture_market.py --mode atc --symbol ^SET.BK --provider yahoo
         env:
           SETSMART_API_KEY: ${{ secrets.SETSMART_API_KEY }}

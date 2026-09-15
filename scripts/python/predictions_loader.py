@@ -55,6 +55,13 @@ REGIME_TAXONOMY_URL = (
 VALID_REGIMES = ["Bullish", "Bearish", "Sideways", "Risk-Off", "Crisis"]
 
 
+def _to_ict(dt: datetime) -> datetime:
+    """Convert a datetime to ICT (UTC+7), treating a naive value as UTC."""
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=UTC)
+    return dt.astimezone(timezone(ICT_OFFSET))
+
+
 def validate_timestamp(timestamp_iso: str, session: str, expected_date: str | None = None) -> bool:
     """Ensure the prediction timestamp is before the session cutoff (in ICT).
 
@@ -82,7 +89,7 @@ def validate_timestamp(timestamp_iso: str, session: str, expected_date: str | No
         return False
 
     # Convert to ICT (UTC+7) for window comparison
-    dt_ict = dt.astimezone(timezone(ICT_OFFSET))
+    dt_ict = _to_ict(dt)
     time_str = dt_ict.strftime("%H:%M:%S")
     window = MARKET_WINDOWS.get(session, {})
     open_time = window.get("open", "00:00:00")
@@ -248,8 +255,9 @@ def save_snapshot(snapshot: dict) -> str:
 
     # Use timestamp from the snapshot or generate now
     ts_str = snapshot.get("timestamp", datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S"))
-    # Format to YYYY-MM-DD-HHMMSS
-    dt = datetime.fromisoformat(ts_str).strftime("%Y-%m-%d-%H%M%S")
+    # Format to YYYY-MM-DD-HHMMSS in ICT — market-data/ names are ICT too, so all
+    # artifact directories share one clock and same-instant files sort together.
+    dt = _to_ict(datetime.fromisoformat(ts_str)).strftime("%Y-%m-%d-%H%M%S")
     session = snapshot.get("session", "full_day")
 
     filepath = predictions_dir / f"{dt}-{session}.json"

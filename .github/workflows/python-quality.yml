@@ -42,10 +42,23 @@ jobs:
         run: |
           uv run scripts/python/validate_docs.py
 
-      - name: Check lookahead bypass
+      - name: Check integrity bypasses are disabled
+        env:
+          PSI_BYPASS_LOOKAHEAD: ${{ vars.PSI_BYPASS_LOOKAHEAD }}
+          PSI_BYPASS_WINDOW_GUARD: ${{ vars.PSI_BYPASS_WINDOW_GUARD }}
         run: |
-          if [ "$PSI_BYPASS_LOOKAHEAD" == "true" ]; then
-            echo "::error::PSI_BYPASS_LOOKAHEAD is set to true. Production/CI builds must have lookahead bypass disabled."
+          # Two layers: the repo-level variables actually reaching a run, and any
+          # committed file that would switch a bypass on. Without the env: mapping
+          # above these shell vars are always empty, so the checks could never fire.
+          for flag in PSI_BYPASS_LOOKAHEAD PSI_BYPASS_WINDOW_GUARD; do
+            if [ "${!flag}" == "true" ]; then
+              echo "::error::$flag is set to true as a repository variable. Production/CI builds must run with integrity guards enabled."
+              exit 1
+            fi
+          done
+
+          if grep -rniE 'PSI_BYPASS_(LOOKAHEAD|WINDOW_GUARD)[=:][[:space:]]*.?true' .github/ .env .env.example 2>/dev/null; then
+            echo "::error::A committed file enables an integrity bypass. Remove it before merging."
             exit 1
           fi
 

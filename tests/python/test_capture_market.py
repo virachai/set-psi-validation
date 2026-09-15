@@ -3,7 +3,7 @@
 import json
 import pathlib
 import sys
-from datetime import UTC, datetime
+from datetime import UTC, datetime, time
 
 import pytest
 
@@ -11,13 +11,16 @@ sys.path.insert(0, str(pathlib.Path(__file__).parents[2] / "scripts" / "python")
 
 from capture_market import (
     REGIME_TAXONOMY_URL,
+    SET_AFTERNOON_OPEN_ICT,
     SET_AFTERNOON_PREOPEN_ICT,
     SET_MARKET_CLOSE_ICT,
     THRESHOLD_MIN_HISTORY_DAYS,
     VALID_REGIMES,
+    _assert_after_open,
     _assert_before_cutoff,
-    _assert_market_closed,
+    _assert_in_window,
     _fetch_live_prices,
+    _mark_bypass,
     compute_rolling_threshold_mean,
     extract_market_prices,
     handle_atc,
@@ -388,18 +391,58 @@ class TestHandleAtcAfternoonWindow:
         assert measures["Afternoon Return %"] == 1.0
 
 
-class TestAssertMarketClosed:
-    """Fail-closed guard against ATC captures before the SET's official close."""
+class TestAssertAfterOpen:
+    """Fail-closed guard against a capture taken before its window opens."""
 
-    def test_raises_before_close(self):
-        with pytest.raises(RuntimeError, match="before official market close"):
-            _assert_market_closed(datetime(2026, 6, 14, 16, 29, tzinfo=UTC))
+    def test_raises_before_open(self):
+        with pytest.raises(RuntimeError, match="noon capture attempted"):
+            _assert_after_open("noon", time(12, 30), datetime(2026, 6, 14, 12, 29, tzinfo=UTC))
 
     def test_passes_at_boundary(self):
-        _assert_market_closed(datetime(2026, 6, 14, 16, 30, tzinfo=UTC))  # must not raise
+        _assert_after_open("noon", time(12, 30), datetime(2026, 6, 14, 12, 30, tzinfo=UTC))
 
-    def test_passes_after_close(self):
-        _assert_market_closed(datetime(2026, 6, 14, 16, 31, tzinfo=UTC))  # must not raise
+    def test_passes_after_open(self):
+        _assert_after_open("noon", time(12, 30), datetime(2026, 6, 14, 12, 31, tzinfo=UTC))
+
+
+# (mode, too-early, in-window, too-late-or-None)
+_WINDOW_CASES = [
+    ("ato", time(9, 59), time(10, 15), None),
+    ("noon", time(12, 29), time(13, 0), time(14, 0)),
+    ("pmopen", time(14, 29), time(15, 0), time(16, 30)),
+    ("atc", time(16, 29), time(16, 45), None),
+]
+
+
+class TestAssertInWindow:
+    """Each mode's capture is valid only inside its own ICT window."""
+
+    @staticmethod
+    def _at(t: time) -> datetime:
+        return datetime(2026, 6, 15, t.hour, t.minute, tzinfo=UTC)
+
+    @pytest.mark.parametrize(("mode", "early", "ok", "late"), _WINDOW_CASES)
+    def test_window_boundaries(self, mode, early, ok, late):
+        with pytest.raises(RuntimeError):
+            _assert_in_window(mode, self._at(early))
+        assert _assert_in_window(mode, self._at(ok)) is False
+        if late is not None:
+            with pytest.raises(RuntimeError):
+                _assert_in_window(mode, self._at(late))
+
+    def test_bypass_flag_downgrades_to_warning(self, monkeypatch):
+        monkeypatch.setenv("PSI_BYPASS_WINDOW_GUARD", "true")
+        assert _assert_in_window("noon", self._at(time(9, 28))) is True
+
+    def test_bypass_flag_does_not_affect_in_window_capture(self, monkeypatch):
+        monkeypatch.setenv("PSI_BYPASS_WINDOW_GUARD", "true")
+        assert _assert_in_window("noon", self._at(time(13, 0))) is False
+
+
+class TestMarkBypass:
+    def test_stamps_only_when_bypassed(self):
+        assert _mark_bypass({"a": 1}, bypassed=True)["windowGuardBypassed"] is True
+        assert "windowGuardBypassed" not in _mark_bypass({"a": 1}, bypassed=False)
 
 
 class TestAssertBeforeCutoff:
@@ -500,3 +543,25 @@ class TestComputeRollingThresholdMean:
 
         result = compute_rolling_threshold_mean("2026-06-20")
         assert result == pytest.approx(0.02)
+
+
+class TestAfternoonPreOpenIsNotPmOpen:
+    """14:00-14:30 is SET's pre-open call auction, not the afternoon session open.
+
+    Reusing SET_AFTERNOON_PREOPEN_ICT as the pmopen lower bound let a 14:03 cron
+    record a pre-open quote as the PM open — the same defect the window guards
+    exist to prevent.
+    """
+
+    def test_pre_open_quote_is_rejected(self):
+        with pytest.raises(RuntimeError, match="pmopen capture attempted"):
+            _assert_in_window("pmopen", datetime(2026, 6, 15, 14, 3, tzinfo=UTC))
+
+    def test_session_open_is_accepted(self):
+        assert _assert_in_window("pmopen", datetime(2026, 6, 15, 14, 30, tzinfo=UTC)) is False
+
+    def test_noon_cutoff_still_uses_pre_open(self):
+        """noon must still close at 14:00, not 14:30 — the two bounds are distinct."""
+        assert SET_AFTERNOON_PREOPEN_ICT != SET_AFTERNOON_OPEN_ICT
+        with pytest.raises(RuntimeError, match="noon capture attempted"):
+            _assert_in_window("noon", datetime(2026, 6, 15, 14, 0, tzinfo=UTC))
