@@ -1,0 +1,51 @@
+{
+  "@context": "https://schema.org",
+  "@type": "Observation",
+  "name": "SET Market Outcome 2026-09-14 (Morning Session: ATO -> Lunch Break)",
+  "observationDate": "2026-09-14",
+  "observationPeriod": "2026-09-14T10:00:00+07:00/2026-09-14T12:30:00+07:00",
+  "measuredProperty": {
+    "@type": "DefinedTerm",
+    "name": "Actual Regime",
+    "inDefinedTermSet": "https://raw.githubusercontent.com/virachai/set-psi-validation/main/docs/010-regime-taxonomy-v01.json"
+  },
+  "variableMeasured": [
+    {
+      "@type": "QuantitativeValue",
+      "name": "ATO Price",
+      "value": 1603.0799560546875,
+      "unitText": "SET Index Points"
+    },
+    {
+      "@type": "QuantitativeValue",
+      "name": "Noon Price",
+      "value": 1594.8800048828125,
+      "unitText": "SET Index Points"
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "Morning Return %",
+      "value": -0.51
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "Intraday Volatility",
+      "value": 0.0087
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "Actual Regime",
+      "value": "Bearish"
+    }
+  ],
+  "date": "2026-09-14",
+  "atoPrice": 1603.0799560546875,
+  "noonPrice": 1594.8800048828125,
+  "returnPct": -0.51,
+  "volatilityIndex": 0.0087,
+  "thresholdMeanUsed": 0.02,
+  "actualRegime": "Bearish",
+  "window": "morning",
+  "status": "complete",
+  "backfilledFrom": "yahoo-30m"
+}

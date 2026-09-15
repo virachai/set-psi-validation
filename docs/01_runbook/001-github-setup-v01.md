@@ -149,12 +149,19 @@ Run these checks after setup to confirm the pipeline works.
 uv run scripts/python/predictions_loader.py
 # Expected: error about missing API key (confirms script loads)
 
-# Test market capture syntax
+# Test market capture syntax.
+# NOTE: captures are window-guarded (see capture_market.CAPTURE_WINDOWS). Each mode
+# only runs inside its real ICT window — ato >=10:00, noon 12:30-14:00,
+# pmopen 14:30-16:30, atc >=16:30 — and raises otherwise, on the manual --price
+# path too. Outside those hours, prefix the command with the bypass:
+#   PSI_BYPASS_WINDOW_GUARD=true uv run scripts/python/capture_market.py ...
+# which stamps "windowGuardBypassed": true on the record. CI rejects the flag,
+# so never set it in a workflow.
 uv run scripts/python/capture_market.py --mode ato --ato-price 1450.20
-# Expected: creates market-data/YYYY-MM-DD.json with ATO only
+# Expected: creates market-data/YYYY-MM-DD-HHMMSS-ato.json with ATO only
 
 uv run scripts/python/capture_market.py --mode atc --atc-price 1438.10 --volatility 1.95
-# Expected: updates market-data/YYYY-MM-DD.json with complete data
+# Expected: creates market-data/YYYY-MM-DD-HHMMSS-atc.json with complete data
 
 # Test validation engine
 uv run scripts/python/validation_engine.py

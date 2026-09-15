@@ -5,7 +5,9 @@ metadata:
   pinned: false
 ---
 
-`capture_market.py` enforces fail-closed lookahead-bias cutoffs (`_assert_before_cutoff`) for `noon`, `pmopen`, and `atc` captures: if the script is invoked after the mode's cutoff ICT time, it raises rather than writing a stale quote mislabeled as that checkpoint.
+`capture_market.py` enforces fail-closed time guards on captures: if the script is invoked outside a mode's valid ICT window, it raises rather than writing a quote mislabeled as that checkpoint.
+
+**Superseded as of 2026-09-15 (RFC 019):** this originally described one-sided *cutoffs* only (`_assert_before_cutoff`). The guard is now two-sided and table-driven — `CAPTURE_WINDOWS` plus `_assert_in_window` — covering `ato` as well, and `_assert_market_closed` was removed in favour of `_assert_in_window("atc")`. The `continue-on-error` reasoning below still holds, and now also absorbs *early* runs, not just late ones.
 
 `.github/workflows/intraday-pipeline.yml` originally only set `continue-on-error: true` on the ATO/Noon/PM-Open/ATC capture steps when the step-decider resolved to `all`. A manual `workflow_dispatch` run with an explicit single step (e.g. `step=noon`) fired outside that mode's valid time window hits the same cutoff guard but was not covered by `continue-on-error`, so the whole job hard-failed even though the guard was working correctly — the "error" is the guardrail doing its job, not a defect in the capture logic.
 

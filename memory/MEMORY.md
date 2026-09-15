@@ -49,4 +49,5 @@ metadata:
 - [Gauntlet Loop Enterprise Runbook](20260908-120000-gauntlet-loop-enterprise-runbook.md) - Level 99 enterprise-grade SOP and FMEA framework for Gauntlet Loop executions.
 - [PSI Validation Flow Frozen](20260908-140000-psi-validation-flow-frozen.md) - Confirmation of pipeline flow integrity and scope freeze for long-term execution.
 - [Workflow Dispatch Auto & Cutoff Fix](20260908-175500-workflow-dispatch-auto-cutoff-fix.md) - Added 'auto' default to workflow_dispatch, guarded closing auction transition, and tolerated expired captures in 'all' mode.
-- [Manual Dispatch Cutoff Guard](20260908-180000-manual-dispatch-cutoff-guard.md) - Extended continue-on-error to cover manual single-step workflow_dispatch runs hitting the lookahead-bias cutoff guard.
+- [API Versioning Strategy](20260915-140000-api-versioning-strategy.md) - Architectural strategy for versioning PSI APIs and evolving the validation pipeline to handle multi-version evaluation, ensuring backward compatibility and long-term data archival.
+- [Capture Window Enforcement (RFC 019)](20260915-193000-capture-window-enforcement.md) - Two-sided CAPTURE_WINDOWS guard on all four capture modes; pmopen opens 14:30 not 14:00; backfills stamped with backfilledFrom.

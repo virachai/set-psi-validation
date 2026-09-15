@@ -1,15 +1,39 @@
 {
-  "@context": "https://schema.org",
-  "@type": "Dataset",
-  "auditDate": "2026-09-08T15:33:27.123283",
-  "totalPredictions": 0,
-  "totalMarketData": 1,
-  "orphans": [],
+  "auditDate": "2026-09-15T19:36:03.705093",
+  "totalPredictions": 10,
+  "totalMarketData": 6,
+  "orphans": [
+    {
+      "date": "2026-09-11",
+      "session": "am",
+      "file": "predictions\\2026-09-11-092800-am.json"
+    },
+    {
+      "date": "2026-09-10",
+      "session": "am",
+      "file": "predictions\\2026-09-10-092800-am.json"
+    },
+    {
+      "date": "2026-09-14",
+      "session": "am",
+      "file": "predictions\\2026-09-14-092758-am.json"
+    },
+    {
+      "date": "2026-09-09",
+      "session": "am",
+      "file": "predictions\\2026-09-09-092759-am.json"
+    },
+    {
+      "date": "2026-09-15",
+      "session": "am",
+      "file": "predictions\\2026-09-15-092800-am.json"
+    }
+  ],
   "missingMatches": [
     {
       "date": "2026-09-08",
       "session": "full_day",
-      "file": "market-data\\2026-09-08-103630-ato.json"
+      "file": "market-data\\2026-09-08-164500-atc.json"
     }
   ],
   "validationErrors": []
