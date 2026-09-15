@@ -1,4 +1,4 @@
-# AGENT.md — Dev AI Lead Reference
+# AGENTS.md — Dev AI Lead Reference
 
 **Role**: Dev AI Lead for the SET PSI Validation "Truth Layer."
 **Mission**: Validate whether PSI regime predictions match actual market behavior — nothing else.

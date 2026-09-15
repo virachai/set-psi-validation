@@ -8,7 +8,7 @@ Welcome to the **SET PSI Validation** repository. This document serves as the ma
 
 - **[GEMINI.md](GEMINI.md)**: Foundational project instructions, engineering standards, and operational workflows.
 - **[CLAUDE.md](CLAUDE.md)**: AI collaboration guidelines and workspace conventions.
-- **[FLOW.md](docs/FLOW.md)**: Intraday market execution cycle (Pre-ATO, ATO, Noon, PM Open, ATC).
+- **[FLOW.md](FLOW.md)**: Intraday execution cycle and validation truth layer architecture diagram.
 - **[ROADMAP.md](docs/ROADMAP.md)**: Ecosystem roadmap and milestone tracker.
 
 ---
