@@ -23,10 +23,13 @@ The system follows a strict daily intraday workflow:
 The validation pipeline is driven by Python scripts in `scripts/python/`.
 
 - **Extract Market Data:**
+
   ```bash
   python scripts/python/extract_pdf.py
   ```
+
 - **Validate Predictions:**
+
   ```bash
   python scripts/python/validate_docs.py
   ```
@@ -34,6 +37,7 @@ The validation pipeline is driven by Python scripts in `scripts/python/`.
 ### Deployment
 
 - **Deploy System:**
+
   ```bash
   ./scripts/sh/deploy.sh
   ```
@@ -42,6 +46,7 @@ The validation pipeline is driven by Python scripts in `scripts/python/`.
 
 - **DeepSeek/Gemini Integration:**
   Use the setup scripts in `scripts/` to configure external model connectivity:
+
   ```bash
   ./scripts/setup_deepseek.sh
   ./scripts/Xsetup_gemini.sh
