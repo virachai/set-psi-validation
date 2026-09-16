@@ -344,27 +344,34 @@ class TestThreeWindowValidation:
         )
 
         records = run_daily_validation("2026-06-16")
-        assert len(records) == 1
-        assert records[0]["session"] == "pm"
-        assert records[0]["predictedRegime"] == "Sideways"
-        # No afternoonRegime -> status should be pending
-        assert records[0]["status"] == "pending"
-        assert records[0]["actualRegime"] is None
+        # No afternoonRegime -> the pm window is unresolved, so nothing is written
+        assert records == []
+        assert not list(self.val_dir.glob("*.json"))
 
-    def test_run_daily_validation_writes_pending_when_no_market_file(self):
-        """No market capture at all yet for this date: write a 'pending' record
-        instead of silently skipping the prediction."""
+    def test_run_daily_validation_skips_when_no_market_file(self):
+        """No market capture yet for this date: write no validation file at all."""
         (self.pred_dir / "2026-06-16-090000-full_day.json").write_text(
             json.dumps({"session": "full_day", "predictedRegime": "Bullish"}),
         )
 
         records = run_daily_validation("2026-06-16")
-        pending = [r for r in records if r["session"] == "full_day"]
-        assert len(pending) == 1
-        assert pending[0]["status"] == "pending"
-        assert pending[0]["actualRegime"] is None
-        assert pending[0]["isCorrect"] is None
-        assert pending[0]["deviationScore"] is None
+        assert records == []
+        assert not list(self.val_dir.glob("*.json"))
+
+    def test_full_day_ignores_noon_file_before_atc(self):
+        """A noon capture carries a morning-window actualRegime — it must not
+        complete full_day before the ATC capture exists."""
+        (self.market_dir / "2026-06-16-123000-noon.json").write_text(
+            json.dumps({"status": "complete", "actualRegime": "Bullish"}),
+        )
+        (self.pred_dir / "2026-06-16-090000-full_day.json").write_text(
+            json.dumps({"session": "full_day", "predictedRegime": "Bullish"}),
+        )
+
+        assert _resolve_market_outcome("2026-06-16", "full_day") is None
+        records = run_daily_validation("2026-06-16")
+        assert [r for r in records if r["session"] == "full_day"] == []
+        assert not (self.val_dir / "2026-06-16-090000-full_day.json").exists()
 
     def test_update_aggregate_metrics_excludes_pending_records(self):
         """Pending records (no actualRegime resolved) must not pollute accuracy/rolling metrics."""

@@ -6,6 +6,7 @@ Stores the results of the PSI validation engine.
 
 - Files follow the pattern `YYYY-MM-DD-HHMMSS-{session}.json`.
 - `session` is one of `am`, `pm`, `full_day`.
+- A file is written only once its session's market outcome exists (`am` → noon capture, `pm`/`full_day` → ATC capture); nothing is written before that.
 
 ## Schema
 

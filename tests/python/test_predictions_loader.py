@@ -196,7 +196,7 @@ class TestBuildSnapshot:
     # --- Lookahead Bias Gate ---
 
     def test_validate_timestamp_accepts_valid(self):
-        assert validate_timestamp("2026-06-15T09:00:00+07:00", "am") is True
+        assert validate_timestamp("2026-06-15T08:30:00+07:00", "am") is True
         assert validate_timestamp("2026-06-15T14:00:00+07:00", "pm") is True
 
     def test_validate_timestamp_rejects_invalid(self):
@@ -211,13 +211,13 @@ class TestBuildSnapshot:
     def test_validate_timestamp_rejects_calendar_date_mismatch(self):
         """A time-of-day-valid timestamp for the wrong trading date must be rejected."""
         assert (
-            validate_timestamp("2026-06-15T09:00:00+07:00", "am", expected_date="2026-06-16")
+            validate_timestamp("2026-06-15T08:30:00+07:00", "am", expected_date="2026-06-16")
             is False
         )
 
     def test_validate_timestamp_accepts_matching_date_and_offset(self):
         assert (
-            validate_timestamp("2026-06-15T09:00:00+07:00", "am", expected_date="2026-06-15")
+            validate_timestamp("2026-06-15T08:30:00+07:00", "am", expected_date="2026-06-15")
             is True
         )
 
@@ -238,3 +238,9 @@ class TestBuildSnapshot:
         assert validate_timestamp("2026-06-15T08:00:00+07:00", "am") is True
         assert validate_timestamp("2026-06-15T09:00:00+07:00", "full_day") is True
         assert validate_timestamp("2026-06-15T13:00:00+07:00", "pm") is True
+
+    def test_am_and_full_day_windows_do_not_overlap(self):
+        """A single step=all run at 09:28 must not capture am alongside full_day."""
+        assert validate_timestamp("2026-06-15T09:28:00+07:00", "am") is False
+        assert validate_timestamp("2026-06-15T09:28:00+07:00", "full_day") is True
+        assert validate_timestamp("2026-06-15T09:00:00+07:00", "am") is False
