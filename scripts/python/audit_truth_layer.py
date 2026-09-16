@@ -59,7 +59,7 @@ def get_file_metadata(path: Path) -> tuple[str, str]:
 
 
 def run_deep_audit() -> dict[str, Any]:
-    """Perform deep audit on predictions and market data."""
+    """Perform deep audit and classify historical missing prediction matches."""
     prediction_files = list(PREDICTIONS_DIR.glob("*.json"))
     market_files = list(MARKET_DATA_DIR.glob("*.json"))
 
@@ -73,18 +73,26 @@ def run_deep_audit() -> dict[str, Any]:
         date, session = get_file_metadata(market_file)
         markets[(date, session)] = market_file
 
-    orphans = []  # Prediction exists, market data missing
-    missing_matches = []  # Market data exists, prediction missing
+    orphans = []
+    expected_missing_matches = []
+    unexpected_missing_matches = []
     validation_errors = []
+    prediction_dates = {date for date, _session in preds}
+    earliest_prediction_date = min(prediction_dates) if prediction_dates else None
 
     all_keys = set(preds.keys()) | set(markets.keys())
     for key in all_keys:
         if key in preds and key not in markets:
             orphans.append({"date": key[0], "session": key[1], "file": str(preds[key])})
         elif key not in preds and key in markets:
-            missing_matches.append({"date": key[0], "session": key[1], "file": str(markets[key])})
+            finding = {"date": key[0], "session": key[1], "file": str(markets[key])}
+            if earliest_prediction_date is None or key[0] < earliest_prediction_date:
+                finding["classification"] = "expected_missing"
+                expected_missing_matches.append(finding)
+            else:
+                finding["classification"] = "unexpected_missing"
+                unexpected_missing_matches.append(finding)
         else:
-            # Check integrity
             p_data = load_json(preds[key])
             m_data = load_json(markets[key])
             if not p_data or not m_data:
@@ -92,17 +100,16 @@ def run_deep_audit() -> dict[str, Any]:
                     {"date": key[0], "session": key[1], "error": "Malformed JSON"},
                 )
 
-    # Aggregate results
     report = {
         "auditDate": pd.Timestamp.now().isoformat(),
         "totalPredictions": len(preds),
         "totalMarketData": len(markets),
         "orphans": orphans,
-        "missingMatches": missing_matches,
+        "missingMatches": unexpected_missing_matches,
+        "expectedMissingMatches": expected_missing_matches,
         "validationErrors": validation_errors,
     }
 
-    # Save report
     REPORTS_DIR.mkdir(exist_ok=True)
     with (REPORTS_DIR / "audit_report.json").open("w", encoding="utf-8") as f:
         json.dump(report, f, indent=2)

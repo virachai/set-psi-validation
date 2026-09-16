@@ -104,5 +104,5 @@ A clean state should satisfy all of the following:
 - every session window has one code-level source of truth;
 - workflow YAML passes `actionlint`/equivalent validation;
 - at least one end-to-end test exercises each AM/full-day/PM path;
-- historical missing matches are explicitly classified;
+- historical missing matches are explicitly classified; the 2026-09-08 ATC-only record is treated as `expected_missing` because it predates the earliest retained prediction (2026-09-09), while any market record on/after the retained prediction start is `unexpected_missing`;
 - the full test + lint + type-check + docs + artifact audit pipeline remains green.

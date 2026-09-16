@@ -2,6 +2,7 @@
 
 import json
 import sys
+from datetime import time
 from pathlib import Path
 
 import pytest
@@ -9,6 +10,10 @@ import pytest
 # Ensure scripts/python is importable
 sys.path.insert(0, str(Path(__file__).parents[2] / "scripts" / "python"))
 
+import audit_truth_layer
+from audit_truth_layer import run_deep_audit
+from capture_market import save_market_data
+from predictions_loader import build_snapshot, save_snapshot
 from regime_rules import compare_regimes, derive_actual_regime
 from validation_engine import (
     _resolve_market_outcome,
@@ -166,6 +171,107 @@ class TestThreeWindowValidation:
                 assert r["isCorrect"] is True
             elif r["session"] == "full_day":
                 assert r["isCorrect"] is True
+
+    def test_artifact_chain_prediction_market_validation_metrics(self, monkeypatch):
+        monkeypatch.setattr("predictions_loader.PREDICTIONS_DIR", str(self.pred_dir))
+        monkeypatch.setattr("capture_market.MARKET_DATA_DIR", str(self.market_dir))
+
+        prediction = build_snapshot(
+            {"data": {"regime": "SIDEWAYS", "psi": 0.8}},
+            session="full_day",
+        )
+        prediction.update(
+            {
+                "observationDate": "2026-06-16T09:30:00+07:00",
+                "timestamp": "2026-06-16T09:30:00+07:00",
+                "date": "2026-06-16",
+            },
+        )
+        prediction_path = save_snapshot(prediction)
+        assert Path(prediction_path).exists()
+
+        market_path = save_market_data(
+            {
+                "actualRegime": "Sideways",
+                "status": "ok",
+                "observationPeriod": "2026-06-16T10:00:00+07:00/2026-06-16T16:30:00+07:00",
+            },
+            "2026-06-16",
+            "atc",
+            captured_at=time(16, 30),
+        )
+        assert Path(market_path).exists()
+
+        records = run_daily_validation("2026-06-16")
+        assert len(records) == 1
+        assert records[0]["session"] == "full_day"
+        assert records[0]["predictedRegime"] == "Sideways"
+        assert records[0]["actualRegime"] == "Sideways"
+        assert records[0]["isCorrect"] is True
+        assert records[0]["status"] == "complete"
+        assert list(self.val_dir.glob("*.json"))
+
+        update_aggregate_metrics()
+        metrics = json.loads((self.rep_dir / "metrics.json").read_text())
+        assert metrics["metrics"]["overall_accuracy"] == 1.0
+        assert metrics["metrics"]["by_window"]["full_day"]["total_count"] == 1
+        assert metrics["metrics"]["by_window"]["full_day"]["overall_accuracy"] == 1.0
+
+    def test_truth_audit_classifies_historical_missing_prediction(self):
+        audit_truth_layer.PREDICTIONS_DIR = self.pred_dir
+        audit_truth_layer.MARKET_DATA_DIR = self.market_dir
+        audit_truth_layer.REPORTS_DIR = self.rep_dir
+
+        (self.market_dir / "2026-09-08-164500-atc.json").write_text(
+            '{"actualRegime": "Sideways"}',
+            encoding="utf-8",
+        )
+        (self.market_dir / "2026-09-09-164500-atc.json").write_text(
+            '{"actualRegime": "Sideways"}',
+            encoding="utf-8",
+        )
+        (self.pred_dir / "2026-09-09-093000-full_day.json").write_text(
+            '{"predictedRegime": "Sideways"}',
+            encoding="utf-8",
+        )
+
+        report = run_deep_audit()
+
+        assert report["missingMatches"] == []
+        assert report["expectedMissingMatches"] == [
+            {
+                "date": "2026-09-08",
+                "session": "full_day",
+                "file": str(self.market_dir / "2026-09-08-164500-atc.json"),
+                "classification": "expected_missing",
+            },
+        ]
+
+    def test_truth_audit_flags_missing_prediction_after_retained_start(self):
+        audit_truth_layer.PREDICTIONS_DIR = self.pred_dir
+        audit_truth_layer.MARKET_DATA_DIR = self.market_dir
+        audit_truth_layer.REPORTS_DIR = self.rep_dir
+
+        (self.pred_dir / "2026-09-09-093000-full_day.json").write_text(
+            '{"predictedRegime": "Sideways"}',
+            encoding="utf-8",
+        )
+        (self.market_dir / "2026-09-10-164500-atc.json").write_text(
+            '{"actualRegime": "Sideways"}',
+            encoding="utf-8",
+        )
+
+        report = run_deep_audit()
+
+        assert report["missingMatches"] == [
+            {
+                "date": "2026-09-10",
+                "session": "full_day",
+                "file": str(self.market_dir / "2026-09-10-164500-atc.json"),
+                "classification": "unexpected_missing",
+            },
+        ]
+        assert report["expectedMissingMatches"] == []
 
     def test_update_aggregate_metrics_by_window(self):
         # Create validation files manually
