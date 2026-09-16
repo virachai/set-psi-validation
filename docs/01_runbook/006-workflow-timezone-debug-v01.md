@@ -11,13 +11,18 @@
 
 The pipeline is synchronized with the **Stock Exchange of Thailand (SET)** schedule (ICT Time):
 
-| Step                | ICT Time | UTC Trigger | Detection Window (ICT)         |
-| :------------------ | :------- | :---------- | :----------------------------- |
-| **Prediction (AM)** | 09:00    | 02:00       | `H_ICT == 09` or `H_UTC == 02` |
-| **ATO Capture**     | 10:00    | 03:00       | `H_ICT == 10` or `H_UTC == 03` |
-| **Prediction (PM)** | 14:00    | 07:00       | `H_ICT == 14` or `H_UTC == 07` |
-| **ATC Capture**     | 16:30    | 09:30       | `H_ICT == 16` or `H_UTC == 09` |
-| **Validation**      | 17:00    | 10:00       | `H_ICT == 17` or `H_UTC == 10` |
+Cron fires at :03/:33 every hour (UTC 00–13); the step-decider in `intraday-pipeline.yml` picks the step from ICT time:
+
+| Step                      | Detection Window (ICT) | UTC         |
+| :------------------------ | :--------------------- | :---------- |
+| **Prediction (AM)**       | 08:00–08:59            | 01:00–01:59 |
+| **Prediction (Full Day)** | 09:00–09:59            | 02:00–02:59 |
+| **ATO Capture**           | 10:00–12:29            | 03:00–05:29 |
+| **Noon Capture**          | 12:30–12:59            | 05:30–05:59 |
+| **Prediction (PM)**       | 13:00–14:29            | 06:00–07:29 |
+| **PM Open Capture**       | 14:30–16:19            | 07:30–09:19 |
+| **ATC Capture**           | 16:40–16:59            | 09:40–09:59 |
+| **Validation**            | 17:00–17:59            | 10:00–10:59 |
 
 ---
 
@@ -28,9 +33,9 @@ Every workflow run starts with a **Determine Step** phase. Open the logs for thi
 ### 2.1. Normal Logs (Target hit)
 
 ```text
-System Time (UTC): Wed Jun 17 02:00:05 UTC 2026
-Market Time (ICT): Wed Jun 17 09:00:05 +07 2026
-Verification -> ICT: 09 | UTC: 02
+System Time (UTC): Wed Jun 17 01:03:05 UTC 2026
+Market Time (ICT): Wed Jun 17 08:03:05 +07 2026
+Verification -> ICT: 08 | UTC: 01
 (Step matches prediction-am)
 ```
 
@@ -45,7 +50,7 @@ _Note: This is normal for Push events or manual runs outside schedule. The workf
 
 ### 2.3. Lookahead Bias Warning
 
-If you see `[WARN] Lookahead Bias: am prediction captured at 10:33 ICT`:
+If you see `[WARN] Lookahead Bias: am prediction captured at 09:03 ICT`:
 
 - **Cause**: The capture script ran after the session cutoff.
 - **Impact**: The prediction for that session is skipped to ensure data integrity.
@@ -95,8 +100,9 @@ _Manual selection bypasses the hourly time-check, allowing recovery at any time.
 
 If the market schedule changes, update these in `scripts/python/predictions_loader.py`:
 
-- `PSI_CUTOFF_AM`: Default `10:00:00`
-- `PSI_CUTOFF_PM`: Default `14:30:00`
+- `PSI_OPEN_AM` / `PSI_CUTOFF_AM`: Default `08:00:00` / `08:59:59` (must end before full-day opens)
+- `PSI_OPEN_FULL_DAY` / `PSI_CUTOFF_FULL_DAY`: Default `09:00:00` / `10:00:00`
+- `PSI_OPEN_PM` / `PSI_CUTOFF_PM`: Default `13:00:00` / `14:30:00`
 
 And update the `step-decider` in `.github/workflows/intraday-pipeline.yml`.
 
