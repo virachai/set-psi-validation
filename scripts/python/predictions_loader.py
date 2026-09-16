@@ -330,7 +330,7 @@ def main() -> None:
             snapshot.get("date"),
         ):
             print(
-                f"[SKIP] Prediction capture skipped — " f"outside {args.session} window.",
+                f"[SKIP] Prediction capture skipped — outside {args.session} window.",
             )
             return
         save_snapshot(snapshot)
@@ -338,7 +338,7 @@ def main() -> None:
     except httpx.HTTPStatusError as e:
         if e.response.status_code in [401, 403]:
             print(
-                f"[SKIP] API Authentication failed ({e.response.status_code}). " "Check secrets.",
+                f"[SKIP] API Authentication failed ({e.response.status_code}). Check secrets.",
             )
             return
         print(f"[ERROR] API returned {e.response.status_code}: {e.response.text}")

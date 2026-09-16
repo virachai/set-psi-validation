@@ -51,3 +51,6 @@ uv.lock
 app.jsonl
 # window-guard quarantine (bad captures; originals recoverable from git history)
 quarantine/
+
+# Serena MCP tool local state
+.serena/
