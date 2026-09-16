@@ -455,6 +455,29 @@ class TestThreeWindowValidation:
         expected_f1 = 2 * (2 / 3) * 1.0 / ((2 / 3) + 1.0)
         assert round(metrics["f1"]["Bullish"], 4) == round(expected_f1, 4)
 
+    def test_update_aggregate_metrics_f1_is_zero_not_none_when_all_wrong(self):
+        """Defined precision/recall of 0.0 must yield F1 0.0; None is reserved for no data."""
+        # Bullish and Bearish each predicted and each occurred, but never matched.
+        records = [
+            {"predictedRegime": "Bullish", "actualRegime": "Bearish", "isCorrect": False},
+            {"predictedRegime": "Bearish", "actualRegime": "Bullish", "isCorrect": False},
+        ]
+        for i, rec in enumerate(records):
+            date_str = f"2026-06-{i + 1:02d}"
+            (self.val_dir / f"{date_str}-full_day.json").write_text(
+                json.dumps({"date": date_str, "session": "full_day", **rec}),
+            )
+
+        update_aggregate_metrics()
+        metrics = json.loads((self.rep_dir / "metrics.json").read_text())["metrics"]
+
+        assert metrics["precision"]["Bullish"] == 0.0
+        assert metrics["hit_rates"]["Bullish"] == 0.0
+        assert metrics["f1"]["Bullish"] == 0.0
+        assert metrics["f1"]["Bearish"] == 0.0
+        # Never predicted and never occurred -> undefined, not zero.
+        assert metrics["f1"]["Sideways"] is None
+
 
 class TestResolveMarketOutcome:
     """am -> ATO->Noon window, pm -> PM Open->ATC window, full_day -> ATO->ATC (RFC 016/017)."""

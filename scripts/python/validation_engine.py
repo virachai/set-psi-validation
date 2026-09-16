@@ -353,10 +353,13 @@ def _compute_precision_and_f1(
         precision[regime] = regime_precision
 
         regime_recall = hit_rates[regime]
-        if regime_precision and regime_recall:
-            f1[regime] = 2 * regime_precision * regime_recall / (regime_precision + regime_recall)
-        else:
+        # None = undefined (no data); 0.0 is a defined score and must not be dropped.
+        if regime_precision is None or regime_recall is None:
             f1[regime] = None
+        elif regime_precision + regime_recall == 0:
+            f1[regime] = 0.0
+        else:
+            f1[regime] = 2 * regime_precision * regime_recall / (regime_precision + regime_recall)
     return precision, f1
 
 
