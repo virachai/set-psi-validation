@@ -1,0 +1,3 @@
+# Normalize text files to LF in the index and working tree on every OS,
+# so Windows and Linux (/workspace mount) checkouts see identical bytes.
+* text=auto eol=lf
