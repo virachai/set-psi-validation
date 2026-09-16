@@ -7,6 +7,7 @@ import pytest
 
 sys.path.insert(0, str(pathlib.Path(__file__).parents[2] / "scripts" / "python"))
 
+from prediction_windows import MARKET_WINDOWS, validate_prediction_timestamp
 from predictions_loader import (
     REGIME_TAXONOMY_URL,
     VALID_REGIMES,
@@ -244,3 +245,25 @@ class TestBuildSnapshot:
         assert validate_timestamp("2026-06-15T09:28:00+07:00", "am") is False
         assert validate_timestamp("2026-06-15T09:28:00+07:00", "full_day") is True
         assert validate_timestamp("2026-06-15T09:00:00+07:00", "am") is False
+
+
+def test_shared_prediction_window_boundaries():
+    """The shared resolver defines all session boundaries consumed by the pipeline."""
+    # Shared resolver imported at module scope after test path setup.
+
+    assert MARKET_WINDOWS == {
+        "am": {"open": "08:00:00", "cutoff": "08:59:59"},
+        "pm": {"open": "13:00:00", "cutoff": "14:30:00"},
+        "full_day": {"open": "09:00:00", "cutoff": "10:00:00"},
+    }
+    for session, window in MARKET_WINDOWS.items():
+        assert validate_prediction_timestamp(
+            f"2026-06-15T{window['open']}+07:00",
+            session,
+            "2026-06-15",
+        )[0]
+        assert validate_prediction_timestamp(
+            f"2026-06-15T{window['cutoff']}+07:00",
+            session,
+            "2026-06-15",
+        )[0]

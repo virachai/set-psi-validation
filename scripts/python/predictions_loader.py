@@ -20,6 +20,7 @@ from pathlib import Path
 
 import httpx
 from dotenv import load_dotenv
+from prediction_windows import validate_prediction_timestamp
 from utils import log_failure, log_warning
 
 load_dotenv()
@@ -28,21 +29,6 @@ load_dotenv()
 
 ICT_OFFSET = timedelta(hours=7)
 PREDICTIONS_DIR = "predictions"
-MARKET_WINDOWS = {
-    "am": {
-        "open": os.getenv("PSI_OPEN_AM", "08:00:00"),
-        # Ends where full_day opens so one run can never emit both sessions.
-        "cutoff": os.getenv("PSI_CUTOFF_AM", "08:59:59"),
-    },
-    "pm": {
-        "open": os.getenv("PSI_OPEN_PM", "13:00:00"),
-        "cutoff": os.getenv("PSI_CUTOFF_PM", "14:30:00"),
-    },
-    "full_day": {
-        "open": os.getenv("PSI_OPEN_FULL_DAY", "09:00:00"),
-        "cutoff": os.getenv("PSI_CUTOFF_FULL_DAY", "10:00:00"),
-    },
-}
 PSI_API_URL = os.getenv("PSI_API_URL", "https://api.psi-engine.dev/v1/predict")
 PSI_API_KEY = os.getenv("PSI_ENGINE_API_KEY")
 if PSI_API_KEY:
@@ -64,17 +50,8 @@ def _to_ict(dt: datetime) -> datetime:
 
 
 def validate_timestamp(timestamp_iso: str, session: str, expected_date: str | None = None) -> bool:
-    """Ensure the prediction timestamp is before the session cutoff (in ICT).
-
-    Rejects a naive (offset-less) timestamp outright — silently assuming the
-    host's local timezone would risk mis-scoring the lookahead check. When
-    expected_date (YYYY-MM-DD) is given, also rejects a timestamp whose ICT
-    calendar date doesn't match it, catching a prediction mistakenly dated
-    for the wrong trading day.
-    """
+    """Validate a prediction timestamp against the shared ICT session window."""
     if os.getenv("PSI_BYPASS_LOOKAHEAD", "false").lower() == "true":
-        # Production guard: reject bypassing lookahead bias check.
-        # This is a critical security gate for model validation integrity.
         error_msg = (
             "CRITICAL: PSI_BYPASS_LOOKAHEAD is enabled. This is strictly prohibited in production."
         )
@@ -82,48 +59,14 @@ def validate_timestamp(timestamp_iso: str, session: str, expected_date: str | No
         log_failure("predictions_loader", error_msg)
         raise RuntimeError(error_msg)
 
-    dt = datetime.fromisoformat(timestamp_iso)
-    if dt.tzinfo is None:
-        error_msg = f"Timestamp '{timestamp_iso}' for {session} session has no timezone offset."
-        print(f"[WARN] {error_msg}")
-        log_warning("predictions_loader", error_msg)
-        return False
+    valid, reason = validate_prediction_timestamp(timestamp_iso, session, expected_date)
+    if valid:
+        return True
 
-    # Convert to ICT (UTC+7) for window comparison
-    dt_ict = _to_ict(dt)
-    time_str = dt_ict.strftime("%H:%M:%S")
-    window = MARKET_WINDOWS.get(session, {})
-    open_time = window.get("open", "00:00:00")
-    cutoff = window.get("cutoff", "10:00:00")
-
-    if time_str > cutoff:
-        error_msg = (
-            f"Lookahead Bias: {session} prediction captured at {time_str} ICT (cutoff {cutoff})"
-        )
-        print(f"[WARN] {error_msg}")
-        log_warning("predictions_loader", error_msg)
-        return False
-
-    if time_str < open_time:
-        error_msg = (
-            f"Out-of-window: {session} prediction captured at {time_str} ICT "
-            f"(window opens {open_time}). Rejects premature batch/backfill captures "
-            f"(e.g. workflow_dispatch step=all outside market hours)."
-        )
-        print(f"[WARN] {error_msg}")
-        log_warning("predictions_loader", error_msg)
-        return False
-
-    if expected_date is not None and dt_ict.date().isoformat() != expected_date:
-        error_msg = (
-            f"Timestamp date {dt_ict.date().isoformat()} does not match expected "
-            f"trading date {expected_date} for {session} session."
-        )
-        print(f"[WARN] {error_msg}")
-        log_warning("predictions_loader", error_msg)
-        return False
-
-    return True
+    error_msg = reason or f"Invalid {session} prediction timestamp."
+    print(f"[WARN] {error_msg}")
+    log_warning("predictions_loader", error_msg)
+    return False
 
 
 def fetch_prediction() -> dict:

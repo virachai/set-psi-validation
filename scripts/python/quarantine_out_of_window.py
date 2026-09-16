@@ -30,7 +30,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from capture_market import CAPTURE_WINDOWS
-from predictions_loader import MARKET_WINDOWS, _to_ict
+from prediction_windows import ICT, MARKET_WINDOWS, validate_prediction_timestamp
 
 MARKET_DATA_DIR = Path("market-data")
 PREDICTIONS_DIR = Path("predictions")
@@ -84,18 +84,10 @@ def find_out_of_window_predictions() -> list[tuple[Path, str]]:
         observed = json.loads(path.read_text(encoding="utf-8")).get("observationDate")
         if not observed:
             continue
-        made_at = _to_ict(datetime.fromisoformat(observed)).strftime("%H:%M:%S")
-        if made_at < window["open"]:
-            offenders.append(
-                (
-                    path,
-                    f"made at {made_at} ICT, before the {session} window opens ({window['open']})",
-                ),
-            )
-        elif made_at > window["cutoff"]:
-            offenders.append(
-                (path, f"made at {made_at} ICT, after the {session} cutoff ({window['cutoff']})"),
-            )
+        valid, reason = validate_prediction_timestamp(observed, session, path.name[:10])
+        if not valid:
+            made_at = datetime.fromisoformat(observed).astimezone(ICT).strftime("%H:%M:%S")
+            offenders.append((path, f"made at {made_at} ICT: {reason}"))
     return offenders
 
 

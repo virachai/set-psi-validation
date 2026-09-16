@@ -16,11 +16,12 @@ Governance: Compliant with "Lean PSI Validator" principles.
 import argparse
 import json
 import sys
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
+from prediction_windows import validate_prediction_timestamp
 from regime_rules import (
     VALID_REGIMES,
     compare_regimes,
@@ -97,40 +98,17 @@ def find_latest_market_file(directory: str, date_str: str) -> str | None:
 
 
 def find_latest_prediction_file(directory: str, date_str: str, session: str) -> str | None:
-    """Find the newest prediction file for a date/session.
-
-    Real artifacts are accepted only when they contain a timezone-aware
-    observation timestamp inside the authoritative session window. Minimal
-    legacy fixtures without a timestamp are retained for backward-compatible
-    unit tests and old data migration.
-    """
+    """Find the newest prediction whose timestamp passes the shared session gate."""
     files = sorted(Path(directory).glob(f"{date_str}-*-{session}.json"), reverse=True)
-    windows = {
-        "am": ("08:00:00", "08:59:59"),
-        "full_day": ("09:00:00", "10:00:00"),
-        "pm": ("13:00:00", "14:30:00"),
-    }
-    window = windows.get(session)
     for path in files:
         data = load_json(str(path))
         if not data:
             continue
         observed = data.get("observationDate") or data.get("timestamp")
         if not observed:
-            # Legacy records predate timestamp governance; allow them to be
-            # validated, while all newly generated records carry observationDate.
             return str(path)
-        try:
-            dt = datetime.fromisoformat(observed)
-        except ValueError:
-            continue
-        if dt.tzinfo is None or window is None:
-            continue
-        dt_ict = dt.astimezone(timezone(ICT_OFFSET))
-        if dt_ict.date().isoformat() != date_str:
-            continue
-        time_str = dt_ict.strftime("%H:%M:%S")
-        if window[0] <= time_str <= window[1]:
+        valid, _ = validate_prediction_timestamp(observed, session, date_str)
+        if valid:
             return str(path)
     return None
 

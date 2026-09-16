@@ -560,9 +560,8 @@ def handle_atc(
         },
     )
 
-    now_ict = datetime.now(UTC) + ICT_OFFSET
     period_start = f"{date_str}T10:00:00+07:00"
-    period_end = now_ict.strftime("%Y-%m-%dT%H:%M:%S+07:00")
+    period_end = f"{date_str}T16:30:00+07:00"
 
     variable_measured = [
         {

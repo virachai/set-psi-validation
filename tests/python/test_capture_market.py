@@ -152,7 +152,7 @@ class TestHandleAtc:
 
         assert result["@type"] == "Observation"
         assert result["status"] == "complete"
-        assert "observationPeriod" in result
+        assert result["observationPeriod"] == "2026-06-14T10:00:00+07:00/2026-06-14T16:30:00+07:00"
 
         measures = {m["name"]: m["value"] for m in result["variableMeasured"]}
         assert "ATO Price" in measures
