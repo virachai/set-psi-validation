@@ -10,8 +10,18 @@ on:
       - "validation/**"
       - "catalog.json"
   schedule:
-    - cron: "3,33 0-13 * * 1-5" # :03/:33 past each hour, UTC 00:00-13:59 = ICT 07:00-20:59 — wide window to tolerate Actions queue delay, offset off :00/:30 to avoid GH Actions high-load minutes
-    - cron: "48 9 * * 1-5" # UTC 09:48 = ICT 16:48 (captures ATC after 16:40 market close settlement)
+    # Retry within every prediction/capture window. GitHub scheduled jobs can be
+    # delayed, so a single daily trigger is not reliable enough for market-time
+    # artifacts. The step-decider remains the final time-window safety gate.
+    - cron: "3,13,23,33,43,53 1 * * 1-5"   # ICT 08:03-08:53 — AM prediction
+    - cron: "3,13,23,33,43,53 2 * * 1-5"   # ICT 09:03-09:53 — Full-day prediction
+    - cron: "3,13,23,33,43,53 3-4 * * 1-5" # ICT 10:03-11:53 — ATO retry window
+    - cron: "3,13,23,33,43,53 5 * * 1-5"   # ICT 12:03-12:53 — ATO / noon
+    - cron: "3,13,23,33,43,53 6 * * 1-5"   # ICT 13:03-13:53 — PM prediction
+    - cron: "33,43,53 7 * * 1-5"           # ICT 14:33-14:53 — PM open
+    - cron: "3,13,23,33,43,53 8 * * 1-5"   # ICT 15:03-15:53 — PM open retry
+    - cron: "3,13,23 9 * * 1-5"            # ICT 16:03-16:23 — PM open final retry
+    - cron: "48 9 * * 1-5"                 # ICT 16:48 — ATC settlement
   workflow_dispatch:
     inputs:
       step:

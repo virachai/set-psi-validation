@@ -11,7 +11,7 @@
 
 The pipeline is synchronized with the **Stock Exchange of Thailand (SET)** schedule (ICT Time):
 
-Cron fires at :03/:33 every hour (UTC 00–13); the step-decider in `intraday-pipeline.yml` picks the step from ICT time:
+Scheduled retries fire throughout each operational window; the step-decider in `intraday-pipeline.yml` picks the step from ICT time. The scheduler is intentionally redundant because GitHub Actions can delay scheduled jobs:
 
 | Step                      | Detection Window (ICT) | UTC         |
 | :------------------------ | :--------------------- | :---------- |
@@ -76,7 +76,7 @@ If you see `[WARN] Lookahead Bias: am prediction captured at 09:03 ICT`:
 
 ### 3.3. Job Ran but Skipped Everything (`step=none`)
 
-- **Symptom**: Job ran at 09:05 ICT but log says `Verification -> ICT: 08 | UTC: 01`.
+- **Symptom**: Job ran at a time that does not match the expected bucket.
 - **Root Cause**: Runner system clock drift or incorrect TZ environment.
 - **Fix**: Check `H_UTC` in logs. If UTC is correct, the Dual-Zone logic will still catch it. If both are wrong, verify the `Asia/Bangkok` timezone string in the workflow file.
 

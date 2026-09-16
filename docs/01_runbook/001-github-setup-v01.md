@@ -87,8 +87,8 @@ You will be prompted to paste each value.
 
 | Cron (UTC)     | Local ICT | Step                 | Script                         |
 | :------------- | :-------- | :------------------- | :----------------------------- |
-| `0 2 * * 1-5`  | 09:00     | Prediction Capture   | `predictions_loader.py`        |
-| `0 3 * * 1-5`  | 10:00     | ATO Capture          | `capture_market.py --mode ato` |
+| `3,13,23,33,43,53 1 * * 1-5` | 08:03–08:53 | AM Prediction | `predictions_loader.py --session am` |
+| `3,13,23,33,43,53 3-4 * * 1-5` | 10:03–11:53 | ATO retry window | `capture_market.py --mode ato` |
 | `30 9 * * 1-5` | 16:30     | ATC Capture          | `capture_market.py --mode atc` |
 | `0 10 * * 1-5` | 17:00     | Validation & Metrics | `validation_engine.py`         |
 
