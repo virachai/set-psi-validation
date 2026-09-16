@@ -16,7 +16,7 @@ Governance: Compliant with "Lean PSI Validator" principles.
 import argparse
 import json
 import sys
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -76,27 +76,17 @@ def find_latest_file(directory: str, date_str: str) -> str | None:
 
 
 def find_latest_market_file(directory: str, date_str: str) -> str | None:
-    """Find the latest completed market data file (preferring *-atc.json)."""
+    """Find the latest full-day (ATO -> ATC) market file: *-atc.json, else legacy YYYY-MM-DD.json.
+
+    Noon/pmopen captures are never returned — their actualRegime covers a
+    shorter window and must not stand in for the full-day outcome.
+    """
     market_dir = Path(directory)
-    # 1. Prefer completed ATC file: {date_str}-*-atc.json
     atc_files = sorted(market_dir.glob(f"{date_str}-*-atc.json"))
     if atc_files:
         return str(atc_files[-1])
 
-    # 2. Check general {date_str}-*.json for completed status or actualRegime
-    # (excluding explicit *-ato.json files)
-    all_files = sorted(market_dir.glob(f"{date_str}-*.json"))
-    for f in reversed(all_files):
-        if f.name.endswith("-ato.json"):
-            continue
-        data = load_json(str(f))
-        if data and (
-            _extract_regime_value(data, "actualRegime", "Actual Regime")
-            or data.get("status") == "complete"
-        ):
-            return str(f)
-
-    # 3. Fallback to legacy YYYY-MM-DD.json
+    # Fallback to legacy YYYY-MM-DD.json
     legacy = market_dir / f"{date_str}.json"
     if legacy.exists():
         data = load_json(str(legacy))
@@ -107,10 +97,41 @@ def find_latest_market_file(directory: str, date_str: str) -> str | None:
 
 
 def find_latest_prediction_file(directory: str, date_str: str, session: str) -> str | None:
-    """Find the latest prediction file matching YYYY-MM-DD-*-session.json."""
-    files = sorted(Path(directory).glob(f"{date_str}-*-{session}.json"))
-    if files:
-        return str(files[-1])
+    """Find the newest prediction file for a date/session.
+
+    Real artifacts are accepted only when they contain a timezone-aware
+    observation timestamp inside the authoritative session window. Minimal
+    legacy fixtures without a timestamp are retained for backward-compatible
+    unit tests and old data migration.
+    """
+    files = sorted(Path(directory).glob(f"{date_str}-*-{session}.json"), reverse=True)
+    windows = {
+        "am": ("08:00:00", "08:59:59"),
+        "full_day": ("09:00:00", "10:00:00"),
+        "pm": ("13:00:00", "14:30:00"),
+    }
+    window = windows.get(session)
+    for path in files:
+        data = load_json(str(path))
+        if not data:
+            continue
+        observed = data.get("observationDate") or data.get("timestamp")
+        if not observed:
+            # Legacy records predate timestamp governance; allow them to be
+            # validated, while all newly generated records carry observationDate.
+            return str(path)
+        try:
+            dt = datetime.fromisoformat(observed)
+        except ValueError:
+            continue
+        if dt.tzinfo is None or window is None:
+            continue
+        dt_ict = dt.astimezone(timezone(ICT_OFFSET))
+        if dt_ict.date().isoformat() != date_str:
+            continue
+        time_str = dt_ict.strftime("%H:%M:%S")
+        if window[0] <= time_str <= window[1]:
+            return str(path)
     return None
 
 
@@ -285,12 +306,12 @@ def run_daily_validation(date_str: str) -> list[dict[str, Any]]:
 
         outcome = _resolve_market_outcome(date_str, session)
         if not outcome:
-            msg = f"Could not resolve market outcome for {date_str} ({session}) — marking pending"
-            print(f"[PENDING] {msg}")
-            log_event("WARN", "validation_engine", msg)
-            market_path, actual_regime, fallback_used = None, None, False
-        else:
-            market_path, actual_regime, fallback_used = outcome
+            # Write nothing until the session's own window has closed and been captured.
+            msg = f"No market outcome for {date_str} ({session}) yet — skipping"
+            print(f"[SKIP] {msg}")
+            log_event("INFO", "validation_engine", msg)
+            continue
+        market_path, actual_regime, fallback_used = outcome
 
         record = _build_validation_record(
             date_str,
@@ -338,12 +359,7 @@ def _compute_precision_and_f1(
     confusion: pd.DataFrame,
     hit_rates: dict[str, float | None],
 ) -> tuple[dict[str, float | None], dict[str, float | None]]:
-    """Derive per-regime Precision and F1 from the confusion matrix and recall.
-
-    Precision = correct predictions of a regime / all predictions of that
-    regime (the confusion matrix's row sum). F1 is the harmonic mean of
-    precision and the already-computed recall (hit_rates).
-    """
+    """Derive per-regime precision and F1 without losing valid zero scores."""
     precision: dict[str, float | None] = {}
     f1: dict[str, float | None] = {}
     for regime in VALID_REGIMES:
@@ -353,13 +369,13 @@ def _compute_precision_and_f1(
         precision[regime] = regime_precision
 
         regime_recall = hit_rates[regime]
-        # None = undefined (no data); 0.0 is a defined score and must not be dropped.
-        if regime_precision is None or regime_recall is None:
-            f1[regime] = None
-        elif regime_precision + regime_recall == 0:
-            f1[regime] = 0.0
+        if regime_precision is not None and regime_recall is not None:
+            denominator = regime_precision + regime_recall
+            f1[regime] = (
+                2 * regime_precision * regime_recall / denominator if denominator > 0 else 0.0
+            )
         else:
-            f1[regime] = 2 * regime_precision * regime_recall / (regime_precision + regime_recall)
+            f1[regime] = None
     return precision, f1
 
 

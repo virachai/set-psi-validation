@@ -31,7 +31,8 @@ PREDICTIONS_DIR = "predictions"
 MARKET_WINDOWS = {
     "am": {
         "open": os.getenv("PSI_OPEN_AM", "08:00:00"),
-        "cutoff": os.getenv("PSI_CUTOFF_AM", "10:00:00"),
+        # Ends where full_day opens so one run can never emit both sessions.
+        "cutoff": os.getenv("PSI_CUTOFF_AM", "08:59:59"),
     },
     "pm": {
         "open": os.getenv("PSI_OPEN_PM", "13:00:00"),
@@ -269,6 +270,32 @@ def save_snapshot(snapshot: dict) -> str:
     return str(filepath)
 
 
+def _has_valid_existing_prediction(
+    date_str: str,
+    session: str,
+) -> Path | None:
+    """Return an existing prediction only when its timestamp passes the session gate."""
+    existing = sorted(
+        Path(PREDICTIONS_DIR).glob(f"{date_str}-*-{session}.json"),
+        reverse=True,
+    )
+    for existing_path in existing:
+        try:
+            existing_data = json.loads(existing_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not existing_data:
+            continue
+        existing_timestamp = existing_data.get("observationDate") or existing_data.get("timestamp")
+        if existing_timestamp and validate_timestamp(
+            existing_timestamp,
+            session,
+            date_str,
+        ):
+            return existing_path
+    return None
+
+
 # --- Entry Point ---
 
 
@@ -283,14 +310,12 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    # Idempotent: skip if today already has prediction for this session
-    today = datetime.now(UTC) + ICT_OFFSET
-    date_str = today.strftime("%Y-%m-%d")
-    existing = sorted(Path(PREDICTIONS_DIR).glob(f"{date_str}-*-{args.session}.json"))
+    date_str = (datetime.now(UTC) + ICT_OFFSET).strftime("%Y-%m-%d")
+    existing = _has_valid_existing_prediction(date_str, args.session)
     if existing:
-        latest = existing[-1].name
         print(
-            f"[SKIP] Prediction for {date_str} ({args.session}) already exists: {latest}",
+            f"[SKIP] Valid prediction for {date_str} ({args.session}) "
+            f"already exists: {existing.name}",
         )
         return
 
@@ -299,14 +324,22 @@ def main() -> None:
         if not data:
             return
         snapshot = build_snapshot(data, session=args.session)
-        if not validate_timestamp(snapshot["timestamp"], args.session, snapshot.get("date")):
-            print(f"[SKIP] Prediction capture skipped — outside {args.session} window.")
+        if not validate_timestamp(
+            snapshot["timestamp"],
+            args.session,
+            snapshot.get("date"),
+        ):
+            print(
+                f"[SKIP] Prediction capture skipped — " f"outside {args.session} window.",
+            )
             return
         save_snapshot(snapshot)
         print("[DONE] Prediction capture complete.")
     except httpx.HTTPStatusError as e:
         if e.response.status_code in [401, 403]:
-            print(f"[SKIP] API Authentication failed ({e.response.status_code}). Check secrets.")
+            print(
+                f"[SKIP] API Authentication failed ({e.response.status_code}). " "Check secrets.",
+            )
             return
         print(f"[ERROR] API returned {e.response.status_code}: {e.response.text}")
         sys.exit(1)

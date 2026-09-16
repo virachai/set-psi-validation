@@ -15,8 +15,8 @@ def validate_naming(path: str) -> bool:
     NNN-kebab-case-vNN pattern with a .md or .json extension.
     """
     if not Path(path).exists():
-        print(f"[SKIP] Directory not found: {path}")
-        return True
+        print(f"[FAIL] Directory not found: {path}")
+        return False
 
     pattern = re.compile(r"^\d{3}-[a-z0-9-]+-v\d{2}\.(md|json)$")
     all_pass = True
@@ -36,7 +36,7 @@ def validate_naming(path: str) -> bool:
 
 if __name__ == "__main__":
     # Validate documentation directories
-    targets: list[str] = ["docs/research_reports", "docs"]
+    targets: list[str] = ["docs/02_research_reports", "docs"]
     results = [validate_naming(t) for t in targets]
 
     if all(results):
