@@ -1,26 +1,15 @@
 # /// script
 # dependencies = ["python-dotenv", "httpx", "yfinance"]
 # ///
-"""Market Data Capture (ATO / Noon / PM Open / ATC).
+"""Market Data Capture (Single Daily Cycle, ATO -> ATC).
 
-Captures all four SET intraday checkpoints — morning open (ATO), morning close
-(Noon/lunch break), afternoon open (PM Open), and session close (ATC) — computes
-intraday metrics, derives the actual regime for each window, and saves each as a
-schema.org-compliant Observation JSON-LD file.
+Runs once after the SET close: fetches the day's opening (ATO) and closing (ATC)
+prices from the provider in a single call, computes return/volatility, derives the
+full-day actual regime, and saves a schema.org-compliant Observation JSON-LD file
+(see RFC 020).
 
 Modes:
-  --mode ato     : Capture opening price (partial record, awaits Noon/ATC).
-  --mode noon    : Capture the morning session's close (~12:30 ICT, lunch break).
-                   Derives the morning-window (ATO -> Noon) actual regime, so
-                   `am` predictions can be scored against real morning behavior
-                   instead of the full trading day (see RFC 016 / RFC 017).
-  --mode pmopen  : Capture the afternoon session's open (~14:30 ICT, partial
-                   record, awaits ATC).
-  --mode atc     : Capture closing price, compute return/volatility, derive the
-                   full-day (ATO -> ATC) regime, and — when a pmopen record
-                   exists for the date — also derive the afternoon-window
-                   (PM Open -> ATC) regime, so `pm` predictions can be scored
-                   against the afternoon session specifically.
+  --mode atc     : The only mode (default).
 
 Output: market-data/YYYY-MM-DD-HHMMSS-{mode}.json
 
@@ -52,25 +41,11 @@ REGIME_TAXONOMY_URL = (
 )
 
 SET_MARKET_CLOSE_ICT = time(16, 30)
-SET_AFTERNOON_PREOPEN_ICT = time(14, 0)  # noon capture must land before afternoon pre-open
 
-SET_MARKET_OPEN_ICT = time(10, 0)
-# The afternoon continuous session opens at 14:30; 14:00-14:30 is the pre-open call
-# auction, so a quote taken then is not yet the PM open.
-SET_AFTERNOON_OPEN_ICT = time(14, 30)
-
-# The ICT wall-clock window during which each mode's quote is a truthful stand-in
-# for the snapshot it claims to be.
-#
-# `noon` and `pmopen` read the provider's *current* price, so they need both
-# bounds — too early and the quote predates the snapshot, too late and it has
-# already moved past it. `ato` reads the provider's session-open field and `atc`
-# the post-close price, both of which stay correct for the rest of the day; they
-# only need a lower bound (cutoff `None`) to reject a pre-open / pre-close read.
+# The ICT wall-clock window during which a mode's quote is a truthful stand-in for
+# the snapshot it claims to be. `atc` reads the post-close price, which stays correct
+# for the rest of the day, so it only needs a lower bound (cutoff `None`).
 CAPTURE_WINDOWS: dict[str, tuple[time, time | None]] = {
-    "ato": (SET_MARKET_OPEN_ICT, None),
-    "noon": (time(12, 30), SET_AFTERNOON_PREOPEN_ICT),
-    "pmopen": (SET_AFTERNOON_OPEN_ICT, SET_MARKET_CLOSE_ICT),
     "atc": (SET_MARKET_CLOSE_ICT, None),
 }
 MAX_INTRADAY_VOLATILITY = 0.05
@@ -198,37 +173,6 @@ def extract_market_prices(eod: dict) -> tuple[float, float, float]:
 # --- I/O Helpers ---
 
 
-def load_existing(date_str: str, mode: str | None = None) -> dict:
-    """Load an existing market data file, or return a minimal skeleton."""
-    market_dir = Path(MARKET_DATA_DIR)
-    if mode:
-        files = sorted(market_dir.glob(f"{date_str}-*-{mode}.json"))
-        if files:
-            with files[-1].open(encoding="utf-8") as f:
-                return json.load(f)
-
-    # Specific preference: when looking for prior ATO (mode is None or ato), prefer *-ato.json
-    ato_files = sorted(market_dir.glob(f"{date_str}-*-ato.json"))
-    if ato_files:
-        with ato_files[-1].open(encoding="utf-8") as f:
-            data = json.load(f)
-            if data.get("atoPrice") is not None:
-                return data
-
-    files = sorted(market_dir.glob(f"{date_str}-*.json"))
-    filepath = files[-1] if files else None
-
-    if filepath is None:
-        legacy = market_dir / f"{date_str}.json"
-        if legacy.exists():
-            filepath = legacy
-
-    if filepath and filepath.exists():
-        with filepath.open(encoding="utf-8") as f:
-            return json.load(f)
-    return {}
-
-
 def save_market_data(
     record: dict,
     date_str: str,
@@ -327,225 +271,24 @@ def compute_rolling_threshold_mean(
 # --- Mode Handlers ---
 
 
-def handle_ato(date_str: str, ato_price: float) -> dict:
-    """Create a partial market outcome Observation with ATO price only."""
-    log_event("INFO", "capture_market", f"Handling ATO for {date_str}", {"ato_price": ato_price})
-    return {
-        "@context": "https://schema.org",
-        "@type": "Observation",
-        "name": f"SET Market Outcome {date_str} (partial — ATO only)",
-        "observationDate": date_str,
-        "measuredProperty": {
-            "@type": "DefinedTerm",
-            "name": "Actual Regime",
-            "inDefinedTermSet": REGIME_TAXONOMY_URL,
-        },
-        "variableMeasured": [
-            {
-                "@type": "QuantitativeValue",
-                "name": "ATO Price",
-                "value": ato_price,
-                "unitText": "SET Index Points",
-            },
-        ],
-        # --- original fields preserved for backward compatibility ---
-        "date": date_str,
-        "atoPrice": ato_price,
-        "status": "partial",
-    }
-
-
-def handle_noon(
-    date_str: str,
-    noon_price: float,
-    volatility_index: float,
-    threshold_mean: float = DEFAULT_THRESHOLD_MEAN,
-) -> dict:
-    """Create the morning-session (ATO -> lunch break) outcome Observation.
-
-    Captures SET's 10:00-12:30 ICT morning session close and derives its own
-    "actualRegime" the same way handle_atc does for the full day — this lets
-    `am` predictions be scored against the morning window specifically
-    (ato_price -> noon_price) instead of always the full day's ato->atc move.
-    Uses the same field name ("actualRegime") as the ATC record so
-    validation_engine's existing regime-extraction logic works unchanged on
-    whichever file (noon or atc) it is pointed at for a given session.
-    """
-    existing = load_existing(date_str)
-    ato_price: float | None = existing.get("atoPrice")
-
-    if ato_price is None:
-        msg = f"No ATO price found for {date_str}. Cannot compute morning-session return."
-        print(f"[FAIL] {msg}")
-        log_failure("capture_market", msg)
-        raise RuntimeError(msg)
-
-    return_pct = round((noon_price - ato_price) / ato_price * 100, 2) if ato_price > 0 else 0.0
-    actual_regime = derive_actual_regime(ato_price, noon_price, volatility_index, threshold_mean)
-
-    log_event(
-        "INFO",
-        "capture_market",
-        f"Handling Noon for {date_str}",
-        {
-            "ato_price": ato_price,
-            "noon_price": noon_price,
-            "morning_return_pct": return_pct,
-            "regime": actual_regime,
-        },
-    )
-
-    period_start = f"{date_str}T10:00:00+07:00"
-    period_end = f"{date_str}T12:30:00+07:00"
-
-    return {
-        "@context": "https://schema.org",
-        "@type": "Observation",
-        "name": f"SET Market Outcome {date_str} (Morning Session: ATO -> Lunch Break)",
-        "observationDate": date_str,
-        "observationPeriod": f"{period_start}/{period_end}",
-        "measuredProperty": {
-            "@type": "DefinedTerm",
-            "name": "Actual Regime",
-            "inDefinedTermSet": REGIME_TAXONOMY_URL,
-        },
-        "variableMeasured": [
-            {
-                "@type": "QuantitativeValue",
-                "name": "ATO Price",
-                "value": ato_price,
-                "unitText": "SET Index Points",
-            },
-            {
-                "@type": "QuantitativeValue",
-                "name": "Noon Price",
-                "value": noon_price,
-                "unitText": "SET Index Points",
-            },
-            {
-                "@type": "PropertyValue",
-                "name": "Morning Return %",
-                "value": return_pct,
-            },
-            {
-                "@type": "PropertyValue",
-                "name": "Intraday Volatility",
-                "value": volatility_index,
-            },
-            {
-                "@type": "PropertyValue",
-                "name": "Actual Regime",
-                "value": (actual_regime if actual_regime in VALID_REGIMES else "Unclassified"),
-            },
-        ],
-        # --- original fields preserved for backward compatibility ---
-        "date": date_str,
-        "atoPrice": ato_price,
-        "noonPrice": noon_price,
-        "returnPct": return_pct,
-        "volatilityIndex": volatility_index,
-        "thresholdMeanUsed": threshold_mean,
-        "actualRegime": actual_regime,
-        "window": "morning",
-        "status": "complete",
-    }
-
-
-def handle_pmopen(date_str: str, pm_open_price: float) -> dict:
-    """Create a partial market outcome Observation with the PM-open price only.
-
-    Mirrors handle_ato's shape for the afternoon session's open (~14:30 ICT).
-    """
-    log_event(
-        "INFO",
-        "capture_market",
-        f"Handling PM Open for {date_str}",
-        {"pm_open_price": pm_open_price},
-    )
-    return {
-        "@context": "https://schema.org",
-        "@type": "Observation",
-        "name": f"SET Market Outcome {date_str} (partial — PM Open only)",
-        "observationDate": date_str,
-        "measuredProperty": {
-            "@type": "DefinedTerm",
-            "name": "Actual Regime",
-            "inDefinedTermSet": REGIME_TAXONOMY_URL,
-        },
-        "variableMeasured": [
-            {
-                "@type": "QuantitativeValue",
-                "name": "PM Open Price",
-                "value": pm_open_price,
-                "unitText": "SET Index Points",
-            },
-        ],
-        # --- original fields preserved for backward compatibility ---
-        "date": date_str,
-        "pmOpenPrice": pm_open_price,
-        "window": "afternoon",
-        "status": "partial",
-    }
-
-
-def _resolve_afternoon_window(
-    date_str: str,
-    atc_price: float,
-    volatility_index: float,
-    threshold_mean: float,
-) -> dict | None:
-    """Derive the afternoon (PM Open -> ATC) window, if a pmopen record exists.
-
-    Returns None when no pmopen capture is on record for this date (e.g.
-    historical dates from before RFC 016/017 shipped), so handle_atc can fall
-    back to full-day-only fields exactly as before.
-    """
-    pmopen_existing = load_existing(date_str, mode="pmopen")
-    pm_open_price = pmopen_existing.get("pmOpenPrice")
-    if pm_open_price is None:
-        return None
-
-    afternoon_return_pct = (
-        round((atc_price - pm_open_price) / pm_open_price * 100, 2) if pm_open_price > 0 else 0.0
-    )
-    afternoon_regime = derive_actual_regime(
-        pm_open_price,
-        atc_price,
-        volatility_index,
-        threshold_mean,
-    )
-    return {
-        "pmOpenPrice": pm_open_price,
-        "afternoonReturnPct": afternoon_return_pct,
-        "afternoonRegime": afternoon_regime,
-    }
-
-
 def handle_atc(
     date_str: str,
+    ato_price: float,
     atc_price: float,
     volatility_index: float,
     threshold_mean: float = DEFAULT_THRESHOLD_MEAN,
 ) -> dict:
-    """Create or update a complete market outcome Observation.
-
-    Merges with existing ATO data if present, and — when a pmopen record
-    exists for the date — also derives the afternoon (PM Open -> ATC) window
-    so `pm` predictions can be scored against the afternoon session alone
-    rather than always the full trading day.
-    """
-    existing = load_existing(date_str)
-    ato_price: float | None = existing.get("atoPrice")
-
-    if ato_price is None:
-        msg = f"No ATO price found for {date_str}. Cannot compute full-day return."
+    """Create or update a complete market outcome Observation."""
+    if ato_price is None or ato_price <= 0:
+        msg = (
+            f"Invalid ATO price ({ato_price}) found for {date_str}. Cannot compute full-day return."
+        )
         print(f"[FAIL] {msg}")
         log_failure("capture_market", msg)
         raise RuntimeError(msg)
 
-    return_pct = round((atc_price - ato_price) / ato_price * 100, 2) if ato_price > 0 else 0.0
+    return_pct = round((atc_price - ato_price) / ato_price * 100, 2)
     actual_regime = derive_actual_regime(ato_price, atc_price, volatility_index, threshold_mean)
-    afternoon = _resolve_afternoon_window(date_str, atc_price, volatility_index, threshold_mean)
 
     log_event(
         "INFO",
@@ -556,7 +299,6 @@ def handle_atc(
             "atc_price": atc_price,
             "return_pct": return_pct,
             "regime": actual_regime,
-            "afternoon": afternoon,
         },
     )
 
@@ -592,31 +334,6 @@ def handle_atc(
             "value": (actual_regime if actual_regime in VALID_REGIMES else "Unclassified"),
         },
     ]
-    if afternoon is not None:
-        variable_measured.extend(
-            [
-                {
-                    "@type": "QuantitativeValue",
-                    "name": "PM Open Price",
-                    "value": afternoon["pmOpenPrice"],
-                    "unitText": "SET Index Points",
-                },
-                {
-                    "@type": "PropertyValue",
-                    "name": "Afternoon Return %",
-                    "value": afternoon["afternoonReturnPct"],
-                },
-                {
-                    "@type": "PropertyValue",
-                    "name": "Afternoon Actual Regime",
-                    "value": (
-                        afternoon["afternoonRegime"]
-                        if afternoon["afternoonRegime"] in VALID_REGIMES
-                        else "Unclassified"
-                    ),
-                },
-            ],
-        )
 
     return {
         "@context": "https://schema.org",
@@ -630,7 +347,6 @@ def handle_atc(
             "inDefinedTermSet": REGIME_TAXONOMY_URL,
         },
         "variableMeasured": variable_measured,
-        # --- original fields preserved for backward compatibility ---
         "date": date_str,
         "atoPrice": ato_price,
         "atcPrice": atc_price,
@@ -638,9 +354,6 @@ def handle_atc(
         "volatilityIndex": volatility_index,
         "thresholdMeanUsed": threshold_mean,
         "actualRegime": actual_regime,
-        "pmOpenPrice": afternoon["pmOpenPrice"] if afternoon else None,
-        "afternoonReturnPct": afternoon["afternoonReturnPct"] if afternoon else None,
-        "afternoonRegime": afternoon["afternoonRegime"] if afternoon else None,
         "status": "complete",
     }
 
@@ -649,90 +362,58 @@ def handle_atc(
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    """Build the CLI argument parser for capture modes."""
-    parser = argparse.ArgumentParser(description="Capture SET market data (ATO/ATC).")
+    """Build the command-line argument parser."""
+    parser = argparse.ArgumentParser(description="Capture SET Market Data (Single Cycle).")
     parser.add_argument(
         "--mode",
-        required=True,
-        choices=["ato", "noon", "pmopen", "atc"],
-        help=(
-            "Capture mode: ato (open), noon (lunch-break close), "
-            "pmopen (afternoon open), or atc (close)."
-        ),
+        choices=["atc"],
+        default="atc",
+        help="Capture mode.",
+    )
+    parser.add_argument(
+        "--symbol",
+        type=str,
+        help="Market symbol to fetch (e.g., ^SET.BK). If omitted, manual mode is assumed.",
+    )
+    parser.add_argument(
+        "--provider",
+        type=str,
+        choices=["finnhub", "yahoo", "setsmart"],
+        default="setsmart",
+        help="Data provider to use if --symbol is provided.",
     )
     parser.add_argument(
         "--ato-price",
         type=float,
-        help="ATO price (manual, required without --symbol).",
-    )
-    parser.add_argument(
-        "--noon-price",
-        type=float,
-        help="Noon/lunch-break price (manual, required without --symbol for --mode noon).",
-    )
-    parser.add_argument(
-        "--pmopen-price",
-        type=float,
-        help="Afternoon-open price (manual, required without --symbol for --mode pmopen).",
+        help="Manual entry: The official opening price (ATO).",
     )
     parser.add_argument(
         "--atc-price",
         type=float,
-        help="ATC price (manual, required without --symbol for --mode atc).",
+        help="Manual entry: The official closing price (ATC).",
     )
     parser.add_argument(
         "--volatility",
         type=float,
         default=0.01,
-        help="Intraday volatility proxy (manual).",
+        help="Manual entry: The intraday volatility (high-low)/mid.",
     )
     parser.add_argument(
         "--threshold",
         type=float,
         default=None,
-        help=(
-            "Volatility threshold mean. If omitted, computed automatically from the "
-            f"trailing {THRESHOLD_ROLLING_WINDOW_DAYS}-day rolling average of prior "
-            f"days' volatilityIndex (falls back to {DEFAULT_THRESHOLD_MEAN} until at least "
-            f"{THRESHOLD_MIN_HISTORY_DAYS} days of history exist)."
-        ),
-    )
-    parser.add_argument(
-        "--symbol",
-        help=(
-            "Market symbol (e.g. SET, SET50 or stock ticker). "
-            "Fetches live data from API instead of manual prices."
-        ),
-    )
-    parser.add_argument(
-        "--provider",
-        choices=["setsmart", "finnhub", "yahoo"],
-        default="yahoo",
-        help="API provider for symbol data (default: yahoo).",
+        help="Override the rolling threshold mean. If omitted, computes from last 30 days.",
     )
     return parser
 
 
 def _already_captured(date_str: str, mode: str) -> bool:
-    """Return True (and log) if today's market data for this mode already exists."""
-    existing = load_existing(date_str, mode=mode)
-    if mode == "ato" and existing.get("atoPrice") is not None:
-        print(f"[SKIP] ATO data for {date_str} already exists (atoPrice={existing['atoPrice']}).")
-        return True
-    if mode == "noon" and existing.get("noonPrice") is not None:
-        print(
-            f"[SKIP] Noon data for {date_str} already exists (noonPrice={existing['noonPrice']}).",
-        )
-        return True
-    if mode == "pmopen" and existing.get("pmOpenPrice") is not None:
-        print(
-            f"[SKIP] PM Open data for {date_str} already exists "
-            f"(pmOpenPrice={existing['pmOpenPrice']}).",
-        )
-        return True
-    if mode == "atc" and existing.get("status") == "complete":
-        print(f"[SKIP] ATC data for {date_str} already exists (status=complete).")
-        return True
+    """Return True (and log) if today's complete market data for this mode already exists."""
+    for path in sorted(Path(MARKET_DATA_DIR).glob(f"{date_str}-*-{mode}.json")):
+        with path.open(encoding="utf-8") as f:
+            if json.load(f).get("status") == "complete":
+                print(f"[SKIP] {mode.upper()} data for {date_str} already exists.")
+                return True
     return False
 
 
@@ -828,51 +509,6 @@ def _resolve_threshold(args: argparse.Namespace, date_str: str) -> float:
     return compute_rolling_threshold_mean(date_str)
 
 
-def _capture_ato(args: argparse.Namespace, parser: argparse.ArgumentParser, date_str: str) -> dict:
-    """Resolve the ATO price (live or manual) and build its record."""
-    bypassed = _assert_in_window("ato")
-    if args.symbol:
-        ato_price, _, _ = _fetch_live_prices(args.provider, args.symbol, date_str, "ato")
-    else:
-        if args.ato_price is None:
-            parser.error("--ato-price is required for --mode ato (or use --symbol).")
-        log_event("INFO", "capture_market", "Starting manual price entry", {"mode": "ato"})
-        ato_price = args.ato_price
-    return _mark_bypass(handle_ato(date_str, ato_price), bypassed=bypassed)
-
-
-def _capture_noon(args: argparse.Namespace, parser: argparse.ArgumentParser, date_str: str) -> dict:
-    """Resolve the Noon (lunch-break) price (live or manual) and build its record."""
-    bypassed = _assert_in_window("noon")
-    if args.symbol:
-        _, noon_price, volatility = _fetch_live_prices(args.provider, args.symbol, date_str, "noon")
-    else:
-        if args.noon_price is None:
-            parser.error("--noon-price is required for --mode noon (or use --symbol).")
-        log_event("INFO", "capture_market", "Starting manual price entry", {"mode": "noon"})
-        noon_price = args.noon_price
-        volatility = args.volatility
-    threshold = _resolve_threshold(args, date_str)
-    return _mark_bypass(handle_noon(date_str, noon_price, volatility, threshold), bypassed=bypassed)
-
-
-def _capture_pmopen(
-    args: argparse.Namespace,
-    parser: argparse.ArgumentParser,
-    date_str: str,
-) -> dict:
-    """Resolve the afternoon-open price (live or manual) and build its record."""
-    bypassed = _assert_in_window("pmopen")
-    if args.symbol:
-        _, pm_open_price, _ = _fetch_live_prices(args.provider, args.symbol, date_str, "pmopen")
-    else:
-        if args.pmopen_price is None:
-            parser.error("--pmopen-price is required for --mode pmopen (or use --symbol).")
-        log_event("INFO", "capture_market", "Starting manual price entry", {"mode": "pmopen"})
-        pm_open_price = args.pmopen_price
-    return _mark_bypass(handle_pmopen(date_str, pm_open_price), bypassed=bypassed)
-
-
 def _assert_before_cutoff(mode: str, cutoff: time, now_ict: datetime | None = None) -> None:
     """Fail closed if called at/after `cutoff` ICT.
 
@@ -947,40 +583,42 @@ def _assert_in_window(mode: str, now_ict: datetime | None = None) -> bool:
 
 
 def _capture_atc(args: argparse.Namespace, parser: argparse.ArgumentParser, date_str: str) -> dict:
-    """Resolve the ATC price (live or manual) and build its record."""
+    """Resolve the ATO and ATC prices and build its record."""
     bypassed = _assert_in_window("atc")
     if args.symbol:
-        _, atc_price, volatility = _fetch_live_prices(args.provider, args.symbol, date_str, "atc")
+        ato_price, atc_price, volatility = _fetch_live_prices(
+            args.provider,
+            args.symbol,
+            date_str,
+            "atc",
+        )
     else:
-        if args.atc_price is None:
-            parser.error("--atc-price is required for --mode atc (or use --symbol).")
+        if args.atc_price is None or args.ato_price is None:
+            parser.error(
+                "--ato-price and --atc-price are required for --mode atc (or use --symbol).",
+            )
         log_event("INFO", "capture_market", "Starting manual price entry", {"mode": "atc"})
+        ato_price = args.ato_price
         atc_price = args.atc_price
         volatility = args.volatility
     threshold = _resolve_threshold(args, date_str)
-    return _mark_bypass(handle_atc(date_str, atc_price, volatility, threshold), bypassed=bypassed)
-
-
-_MODE_HANDLERS = {
-    "ato": _capture_ato,
-    "noon": _capture_noon,
-    "pmopen": _capture_pmopen,
-    "atc": _capture_atc,
-}
+    return _mark_bypass(
+        handle_atc(date_str, ato_price, atc_price, volatility, threshold),
+        bypassed=bypassed,
+    )
 
 
 def main() -> None:
-    """Capture ATO, Noon, or ATC market data for today and persist the Observation."""
+    """Capture ATC market data for today and persist the Observation."""
     parser = _build_parser()
     args = parser.parse_args()
     date_str = (datetime.now(UTC) + ICT_OFFSET).strftime("%Y-%m-%d")
 
-    # Idempotent: skip if today already has market data for this mode
     if _already_captured(date_str, args.mode):
         return
 
     try:
-        record = _MODE_HANDLERS[args.mode](args, parser, date_str)
+        record = _capture_atc(args, parser, date_str)
         save_market_data(record, date_str, args.mode)
         print(f"[DONE] Market {args.mode.upper()} capture complete.")
     except Exception as e:

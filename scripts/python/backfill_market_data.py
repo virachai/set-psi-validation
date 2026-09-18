@@ -1,28 +1,24 @@
 # /// script
 # dependencies = ["python-dotenv", "httpx", "yfinance", "pandas"]
 # ///
-"""Rebuild market-data captures for past dates from Yahoo 30-minute intraday bars.
+"""Rebuild the single-cycle atc record for past dates from Yahoo 30-minute bars.
 
-Live capture reads a *current* quote, so a run that fires outside its window
-records the wrong price (see `CAPTURE_WINDOWS` in capture_market.py). Historical
-30m bars carry their own ICT timestamps, so each checkpoint can be recovered at
-the exact window it belongs to:
+Historical 30m bars carry their own ICT timestamps, so the day's prices can be
+recovered at the exact point they belong to (RFC 020 single daily cycle):
 
-    ato     open  of the 10:00 bar   (SET morning session open)
-    noon    close of the 12:30 bar   (morning session close / lunch break)
-    pmopen  open  of the 14:30 bar   (SET afternoon session open)
-    atc     the existing atc record's atcPrice, else the last 30m bar's close
+    ATO     open  of the 10:00 bar   (SET morning session open)
+    ATC     the existing atc record's atcPrice, else the last 30m bar's close
 
 ATC is NOT re-derived from bars. The final 30m bar ends at 16:30 and so excludes
 the closing auction, which is precisely the print "ATC" names, and Yahoo returns
 no historical daily series for ^SET.BK. The atc captures already on disk were
 taken after 16:30 by the live path, so their atcPrice is genuine — the backfill
-keeps it and only recomputes the returns that were derived from bad ATO/PM-open
-inputs. A date with no atc record falls back to the last intraday close, which
+keeps it and only recomputes the return that was derived from a bad ATO input.
+A date with no atc record falls back to the last intraday close, which
 understates the auction.
 
-Records are built with the same `handle_*` functions the live path uses, so the
-schema and regime derivation stay single-sourced. Each file is written under the
+The record is built with the same `handle_atc` the live path uses, so the
+schema and regime derivation stay single-sourced. The file is written under the
 window's true ICT time, so `quarantine_out_of_window.py` passes it.
 
 Yahoo retains 30m bars for roughly the last 60 days; older dates cannot be
@@ -46,9 +42,6 @@ from capture_market import (
     MAX_INTRADAY_VOLATILITY,
     compute_rolling_threshold_mean,
     handle_atc,
-    handle_ato,
-    handle_noon,
-    handle_pmopen,
     save_market_data,
 )
 
@@ -56,13 +49,7 @@ DEFAULT_SYMBOL = "^SET.BK"
 BAR_SOURCE = "yahoo-30m"
 
 ATO_BAR = time(10, 0)
-NOON_BAR = time(12, 30)
-PMOPEN_BAR = time(14, 30)
 ATC_STAMP = time(16, 45)  # after the 16:30 closing auction settles
-
-# Bars belonging to the morning session (ATO -> lunch break), used for the
-# morning volatility proxy.
-MORNING_END = time(12, 30)
 
 
 def _volatility(high: float, low: float) -> float:
@@ -118,19 +105,13 @@ def _existing_atc(date_str: str) -> tuple[float, float] | None:
 
 
 def backfill_day(day_bars, date_str: str, *, apply: bool) -> None:  # noqa: ANN001
-    """Rebuild all four checkpoints for one trading date, in dependency order."""
+    """Rebuild the single atc record (ATO -> ATC) for one trading date."""
     ato_bar = _bar_at(day_bars, ATO_BAR)
-    noon_bar = _bar_at(day_bars, NOON_BAR)
-    pmopen_bar = _bar_at(day_bars, PMOPEN_BAR)
-    if ato_bar is None or noon_bar is None or pmopen_bar is None:
-        print(f"[SKIP] {date_str}: incomplete intraday session in Yahoo bars.")
+    if ato_bar is None:
+        print(f"[SKIP] {date_str}: no 10:00 bar in Yahoo intraday data.")
         return
 
-    morning = day_bars[[t.time() <= MORNING_END for t in day_bars.index]]
     ato_price = float(ato_bar["Open"])
-    noon_price = float(noon_bar["Close"])
-    pm_open_price = float(pmopen_bar["Open"])
-    morning_vol = _volatility(float(morning["High"].max()), float(morning["Low"].min()))
     captured_atc = _existing_atc(date_str)
     if captured_atc is not None:
         atc_price, day_vol = captured_atc
@@ -141,42 +122,15 @@ def backfill_day(day_bars, date_str: str, *, apply: bool) -> None:  # noqa: ANN0
 
     print(
         f"[{'WRITE' if apply else 'DRY-RUN'}] {date_str}: "
-        f"ato={ato_price:.2f} noon={noon_price:.2f} "
-        f"pmopen={pm_open_price:.2f} atc={atc_price:.2f} vol={day_vol}",
+        f"ato={ato_price:.2f} atc={atc_price:.2f} vol={day_vol}",
     )
     if not apply:
         return
 
-    # Order matters: handle_noon reads the ato record, handle_atc reads both.
-    # Each record supersedes its predecessor before the next handler reads it.
-    written = save_market_data(
-        _stamp_provenance(handle_ato(date_str, ato_price), BAR_SOURCE),
-        date_str,
-        "ato",
-        ATO_BAR,
-    )
-    _supersede(date_str, "ato", Path(written))
-
     threshold = compute_rolling_threshold_mean(date_str)
     written = save_market_data(
-        _stamp_provenance(handle_noon(date_str, noon_price, morning_vol, threshold), BAR_SOURCE),
-        date_str,
-        "noon",
-        NOON_BAR,
-    )
-    _supersede(date_str, "noon", Path(written))
-
-    written = save_market_data(
-        _stamp_provenance(handle_pmopen(date_str, pm_open_price), BAR_SOURCE),
-        date_str,
-        "pmopen",
-        PMOPEN_BAR,
-    )
-    _supersede(date_str, "pmopen", Path(written))
-
-    written = save_market_data(
         _stamp_provenance(
-            handle_atc(date_str, atc_price, day_vol, threshold),
+            handle_atc(date_str, ato_price, atc_price, day_vol, threshold),
             f"{BAR_SOURCE}+captured-atc",
         ),
         date_str,

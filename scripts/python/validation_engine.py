@@ -37,7 +37,7 @@ MARKET_DATA_DIR = "market-data"
 VALIDATION_DIR = "validation"
 REPORTS_DIR = "reports"
 
-SESSIONS = ("am", "pm", "full_day")
+SESSIONS = ("full_day",)
 
 # --- File I/O ---
 
@@ -205,30 +205,8 @@ def _build_validation_record(
     }
 
 
-def _resolve_market_outcome(date_str: str, session: str) -> tuple[str, str, bool] | None:
-    """Resolve the (market_path, actual_regime, fallback_used) for one session's own window.
-
-    am        -> the noon (morning-session close) file's own "actualRegime",
-                 i.e. the ATO -> Noon window.
-    pm        -> the full-day atc file's "afternoonRegime" (PM Open -> ATC).
-    full_day  -> the full-day atc file's "actualRegime" (unchanged).
-
-    fallback_used is True whenever an am/pm session had to score against the
-    broader full-day window instead of its own dedicated window — an audit
-    signal, without adding a separate alerting layer.
-    """
-    # AM resolution
-    if session == "am":
-        noon_files = sorted(Path(MARKET_DATA_DIR).glob(f"{date_str}-*-noon.json"))
-        if noon_files:
-            noon_path = str(noon_files[-1])
-            noon_data = load_json(noon_path)
-            regime = noon_data and _extract_regime_value(noon_data, "actualRegime", "Actual Regime")
-            if regime:
-                return noon_path, regime, False
-        return None
-
-    # PM and Full Day resolution
+def _resolve_market_outcome(date_str: str) -> tuple[str, str, bool] | None:
+    """Resolve the (market_path, actual_regime, fallback_used) for the full-day window."""
     market_path = find_latest_market_file(MARKET_DATA_DIR, date_str)
     if not market_path:
         return None
@@ -236,70 +214,57 @@ def _resolve_market_outcome(date_str: str, session: str) -> tuple[str, str, bool
     if not market:
         return None
 
-    regime = None
-    if session == "pm":
-        regime = _extract_regime_value(market, "afternoonRegime", "Afternoon Actual Regime")
-    else:
-        regime = _extract_regime_value(market, "actualRegime", "Actual Regime")
-
+    regime = _extract_regime_value(market, "actualRegime", "Actual Regime")
     return (market_path, regime, False) if regime else None
 
 
 def run_daily_validation(date_str: str) -> list[dict[str, Any]]:
-    """Validate a single date across all 3 windows (am, pm, full_day).
+    """Validate a single date for the full_day window."""
+    session = "full_day"
+    records: list[dict[str, Any]] = []
 
-    Each session is scored against its own market window via
-    _resolve_market_outcome() — am against ATO->Noon, pm against
-    PM Open->ATC, full_day against ATO->ATC.
-    A session whose market outcome cannot be resolved at all (no capture
-    file yet for this date) gets a "pending" record instead of being skipped
-    — see _build_validation_record.
-    """
-    records = []
-    # Loop over the 3 sessions
-    for session in SESSIONS:
-        pred_path = _resolve_prediction_path(date_str, session)
-        if not pred_path:
-            log_event("INFO", "validation_engine", f"No prediction for {date_str} ({session})")
-            continue
+    pred_path = _resolve_prediction_path(date_str, session)
+    if not pred_path:
+        log_event("INFO", "validation_engine", f"No prediction for {date_str} ({session})")
+        return records
 
-        prediction = load_json(pred_path)
-        if not prediction:
-            log_event(
-                "WARN",
-                "validation_engine",
-                f"Missing prediction data for {date_str} ({session})",
-            )
-            continue
-
-        predicted_regime = _extract_regime_value(
-            prediction,
-            "predictedRegime",
-            "Predicted Regime",
+    prediction = load_json(pred_path)
+    if not prediction:
+        log_event(
+            "WARN",
+            "validation_engine",
+            f"Missing prediction data for {date_str} ({session})",
         )
-        if not predicted_regime:
-            msg = f"Could not extract predicted regime from {pred_path}"
-            log_event("ERROR", "validation_engine", msg)
-            continue
+        return records
 
-        outcome = _resolve_market_outcome(date_str, session)
-        if not outcome:
-            # Write nothing until the session's own window has closed and been captured.
-            msg = f"No market outcome for {date_str} ({session}) yet — skipping"
-            print(f"[SKIP] {msg}")
-            log_event("INFO", "validation_engine", msg)
-            continue
-        market_path, actual_regime, fallback_used = outcome
+    predicted_regime = _extract_regime_value(
+        prediction,
+        "predictedRegime",
+        "Predicted Regime",
+    )
+    if not predicted_regime:
+        msg = f"Could not extract predicted regime from {pred_path}"
+        log_event("ERROR", "validation_engine", msg)
+        return records
 
-        record = _build_validation_record(
-            date_str,
-            session,
-            pred_path,
-            market_path,
-            (predicted_regime, actual_regime, fallback_used),
-        )
-        save_json(str(Path(VALIDATION_DIR) / f"{record['file_id']}.json"), record)
-        records.append(record)
+    outcome = _resolve_market_outcome(date_str)
+    if not outcome:
+        msg = f"No market outcome for {date_str} ({session}) yet — skipping"
+        print(f"[SKIP] {msg}")
+        log_event("INFO", "validation_engine", msg)
+        return records
+
+    market_path, actual_regime, fallback_used = outcome
+
+    record = _build_validation_record(
+        date_str,
+        session,
+        pred_path,
+        market_path,
+        (predicted_regime, actual_regime, fallback_used),
+    )
+    save_json(str(Path(VALIDATION_DIR) / f"{record['file_id']}.json"), record)
+    records.append(record)
 
     return records
 
@@ -364,7 +329,7 @@ def _load_completed_validation_records(validation_dir: Path) -> list[dict[str, A
     actualRegime/isCorrect — excluded here rather than letting a None
     isCorrect corrupt accuracy/rolling/confusion.
     """
-    records = []
+    records: list[dict[str, Any]] = []
     for f in sorted(validation_dir.iterdir()):
         if f.suffix != ".json":
             continue

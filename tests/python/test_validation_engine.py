@@ -139,38 +139,22 @@ class TestThreeWindowValidation:
         assert found_pm is not None
         assert Path(found_pm).name == "2026-06-16-140000-pm.json"
 
-    def test_run_daily_validation_3_windows(self):
-        # Write market data
-        (self.market_dir / "2026-06-16-120000-noon.json").write_text(
+    def test_run_daily_validation_full_day_only(self):
+        """Single cycle: only the full_day prediction is scored; legacy am/pm are ignored."""
+        (self.market_dir / "2026-06-16-163000-atc.json").write_text(
             json.dumps({"actualRegime": "Bullish"}),
         )
-        (self.market_dir / "2026-06-16-163000-atc.json").write_text(
-            json.dumps({"actualRegime": "Bullish", "afternoonRegime": "Bearish"}),
-        )
-
-        # Write predictions for am, pm, and full_day
         (self.pred_dir / "2026-06-16-090000-am.json").write_text(
-            json.dumps({"session": "am", "predictedRegime": "Bullish"}),
-        )
-        (self.pred_dir / "2026-06-16-140000-pm.json").write_text(
-            json.dumps({"session": "pm", "predictedRegime": "Bearish"}),
+            json.dumps({"session": "am", "predictedRegime": "Bearish"}),
         )
         (self.pred_dir / "2026-06-16-090000-full_day.json").write_text(
             json.dumps({"session": "full_day", "predictedRegime": "Bullish"}),
         )
 
         records = run_daily_validation("2026-06-16")
-        assert len(records) == 3
-
-        # Validate correctness values
-        for r in records:
-            if r["session"] == "am":
-                assert r["isCorrect"] is True
-            elif r["session"] == "pm":
-                # Bearish predicted, Bearish actual (from afternoonRegime)
-                assert r["isCorrect"] is True
-            elif r["session"] == "full_day":
-                assert r["isCorrect"] is True
+        assert len(records) == 1
+        assert records[0]["session"] == "full_day"
+        assert records[0]["isCorrect"] is True
 
     def test_artifact_chain_prediction_market_validation_metrics(self, monkeypatch):
         monkeypatch.setattr("predictions_loader.PREDICTIONS_DIR", str(self.pred_dir))
@@ -311,11 +295,10 @@ class TestThreeWindowValidation:
         assert "by_window" in metrics_data["metrics"]
         by_window = metrics_data["metrics"]["by_window"]
 
-        assert by_window["am"]["overall_accuracy"] == 1.0
-        assert by_window["am"]["total_count"] == 1
-        assert by_window["pm"]["overall_accuracy"] == 0.0
-        assert by_window["pm"]["total_count"] == 1
+        # Single cycle: only full_day is broken out; legacy am/pm still count overall.
+        assert set(by_window) == {"full_day"}
         assert by_window["full_day"]["total_count"] == 0
+        assert metrics_data["metrics"]["total_count"] == 2
 
     def test_update_aggregate_metrics_rolling_and_hit_rates(self):
         # Create 10 days of data to test rolling 7D
@@ -433,8 +416,8 @@ class TestThreeWindowValidation:
         assert not orphan_file.exists()
         assert (self.val_dir / "2026-06-16-090000-am.json").exists()
 
-    def test_run_daily_validation_with_ato_and_atc_files(self):
-        """End-to-end: with both ATO and ATC files present, evaluate against ATC outcome."""
+    def test_run_daily_validation_with_legacy_ato_and_atc_files(self):
+        """A legacy ATO file alongside the ATC file must not shadow the ATC outcome."""
         (self.market_dir / "2026-06-16-100000-ato.json").write_text(
             json.dumps({"status": "partial", "atoPrice": 100.0}),
         )
@@ -445,14 +428,14 @@ class TestThreeWindowValidation:
             "atcPrice": 98.0,
         }
         (self.market_dir / "2026-06-16-163000-atc.json").write_text(json.dumps(atc_data))
-        (self.pred_dir / "2026-06-16-140000-pm.json").write_text(
-            json.dumps({"session": "pm", "predictedRegime": "Sideways"}),
+        (self.pred_dir / "2026-06-16-090000-full_day.json").write_text(
+            json.dumps({"session": "full_day", "predictedRegime": "Sideways"}),
         )
 
         records = run_daily_validation("2026-06-16")
-        # No afternoonRegime -> the pm window is unresolved, so nothing is written
-        assert records == []
-        assert not list(self.val_dir.glob("*.json"))
+        assert len(records) == 1
+        assert records[0]["actualRegime"] == "Bearish"
+        assert records[0]["isCorrect"] is False
 
     def test_run_daily_validation_skips_when_no_market_file(self):
         """No market capture yet for this date: write no validation file at all."""
@@ -464,8 +447,8 @@ class TestThreeWindowValidation:
         assert records == []
         assert not list(self.val_dir.glob("*.json"))
 
-    def test_full_day_ignores_noon_file_before_atc(self):
-        """A noon capture carries a morning-window actualRegime — it must not
+    def test_full_day_ignores_legacy_noon_file_before_atc(self):
+        """A legacy noon capture carries a morning-window actualRegime — it must not
         complete full_day before the ATC capture exists."""
         (self.market_dir / "2026-06-16-123000-noon.json").write_text(
             json.dumps({"status": "complete", "actualRegime": "Bullish"}),
@@ -474,7 +457,7 @@ class TestThreeWindowValidation:
             json.dumps({"session": "full_day", "predictedRegime": "Bullish"}),
         )
 
-        assert _resolve_market_outcome("2026-06-16", "full_day") is None
+        assert _resolve_market_outcome("2026-06-16") is None
         records = run_daily_validation("2026-06-16")
         assert [r for r in records if r["session"] == "full_day"] == []
         assert not (self.val_dir / "2026-06-16-090000-full_day.json").exists()
@@ -593,7 +576,7 @@ class TestThreeWindowValidation:
 
 
 class TestResolveMarketOutcome:
-    """am -> ATO->Noon window, pm -> PM Open->ATC window, full_day -> ATO->ATC (RFC 016/017)."""
+    """Single cycle: the outcome is always the ATC file's full-day actualRegime (RFC 020)."""
 
     @pytest.fixture(autouse=True)
     def setup_dirs(self, monkeypatch, tmp_path):
@@ -604,30 +587,11 @@ class TestResolveMarketOutcome:
     def _write(self, name: str, data: dict) -> None:
         (self.market_dir / name).write_text(json.dumps(data))
 
-    def test_am_prefers_noon_file_when_present(self):
+    def test_uses_atc_actual_regime(self):
         self._write(
             "2026-06-16-123000-noon.json",
             {"status": "complete", "actualRegime": "Sideways"},
         )
-        self._write(
-            "2026-06-16-163000-atc.json",
-            {"status": "complete", "actualRegime": "Bearish"},
-        )
-
-        market_path, regime, fallback_used = _resolve_market_outcome("2026-06-16", "am")
-        assert regime == "Sideways"
-        assert market_path.endswith("-noon.json")
-        assert fallback_used is False
-
-    def test_am_returns_none_without_noon_file(self):
-        self._write(
-            "2026-06-16-163000-atc.json",
-            {"status": "complete", "actualRegime": "Bearish"},
-        )
-
-        assert _resolve_market_outcome("2026-06-16", "am") is None
-
-    def test_pm_prefers_afternoon_regime_when_present(self):
         self._write(
             "2026-06-16-163000-atc.json",
             {
@@ -637,38 +601,10 @@ class TestResolveMarketOutcome:
             },
         )
 
-        market_path, regime, fallback_used = _resolve_market_outcome("2026-06-16", "pm")
-        assert regime == "Bullish"
+        market_path, regime, fallback_used = _resolve_market_outcome("2026-06-16")
+        assert regime == "Bearish"
         assert market_path.endswith("-atc.json")
         assert fallback_used is False
 
-    def test_pm_returns_none_without_afternoon_regime(self):
-        self._write(
-            "2026-06-16-163000-atc.json",
-            {"status": "complete", "actualRegime": "Bearish"},
-        )
-
-        assert _resolve_market_outcome("2026-06-16", "pm") is None
-
-    def test_full_day_always_uses_atc_actual_regime(self):
-        self._write(
-            "2026-06-16-123000-noon.json",
-            {"status": "complete", "actualRegime": "Sideways"},
-        )
-        self._write(
-            "2026-06-16-163000-atc.json",
-            {
-                "status": "complete",
-                "actualRegime": "Bearish",
-                "afternoonRegime": "Bullish",
-            },
-        )
-
-        _market_path, regime, fallback_used = _resolve_market_outcome("2026-06-16", "full_day")
-        assert regime == "Bearish"
-        assert fallback_used is False
-
     def test_no_market_data_returns_none(self):
-        assert _resolve_market_outcome("2026-06-16", "am") is None
-        assert _resolve_market_outcome("2026-06-16", "pm") is None
-        assert _resolve_market_outcome("2026-06-16", "full_day") is None
+        assert _resolve_market_outcome("2026-06-16") is None

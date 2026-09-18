@@ -1,4 +1,4 @@
-"""Tests for capture_market.py — ATO/ATC capture, regime derivation, output."""
+"""Tests for capture_market.py — single-cycle ATC capture, regime derivation, output."""
 
 import json
 import pathlib
@@ -10,12 +10,10 @@ import pytest
 sys.path.insert(0, str(pathlib.Path(__file__).parents[2] / "scripts" / "python"))
 
 from capture_market import (
-    REGIME_TAXONOMY_URL,
-    SET_AFTERNOON_OPEN_ICT,
-    SET_AFTERNOON_PREOPEN_ICT,
     SET_MARKET_CLOSE_ICT,
     THRESHOLD_MIN_HISTORY_DAYS,
     VALID_REGIMES,
+    _already_captured,
     _assert_after_open,
     _assert_before_cutoff,
     _assert_in_window,
@@ -24,10 +22,6 @@ from capture_market import (
     compute_rolling_threshold_mean,
     extract_market_prices,
     handle_atc,
-    handle_ato,
-    handle_noon,
-    handle_pmopen,
-    load_existing,
     save_market_data,
 )
 from regime_rules import DEFAULT_THRESHOLD_MEAN, derive_actual_regime
@@ -97,58 +91,13 @@ class TestDeriveActualRegime:
         assert derive_actual_regime(100.0, 101.0, 0.03, self.THRESHOLD) == "Unclassified"
 
 
-# --- handle_ato ---
-
-
-class TestHandleAto:
-    def test_output_structure(self):
-        result = handle_ato("2026-06-14", 1450.20)
-
-        assert result["@context"] == "https://schema.org"
-        assert result["@type"] == "Observation"
-        assert "observationDate" in result
-
-        # measuredProperty points to taxonomy
-        assert result["measuredProperty"]["@type"] == "DefinedTerm"
-        assert result["measuredProperty"]["inDefinedTermSet"] == REGIME_TAXONOMY_URL
-
-        # variableMeasured has ATO price
-        measures = {m["name"]: m["value"] for m in result["variableMeasured"]}
-        assert measures["ATO Price"] == 1450.20
-
-        # Backward-compat fields
-        assert result["date"] == "2026-06-14"
-        assert result["atoPrice"] == 1450.20
-        assert result["status"] == "partial"
-
-    def test_ato_price_zero(self):
-        result = handle_ato("2026-06-14", 0.0)
-        measures = {m["name"]: m["value"] for m in result["variableMeasured"]}
-        assert measures["ATO Price"] == 0.0
-
-    def test_schema_org_compliant(self):
-        """Verify all required schema.org Observation fields are present."""
-        result = handle_ato("2026-06-14", 1500.0)
-        assert "@context" in result
-        assert "@type" in result
-        assert "name" in result
-        assert "observationDate" in result
-        assert "measuredProperty" in result
-        assert "variableMeasured" in result
-
-
-# --- handle_atc ---
+# --- ---
 
 
 class TestHandleAtc:
-    def test_complete_output_structure(self, tmp_path, monkeypatch):
-        """Full ATC record, built on top of a prior ATO capture."""
-        monkeypatch.chdir(tmp_path)
-        mdir = tmp_path / "market-data"
-        mdir.mkdir()
-        (mdir / "2026-06-14-100000-ato.json").write_text(json.dumps({"atoPrice": 1420.0}))
-
-        result = handle_atc("2026-06-14", 1438.10, 1.95, 0.02)
+    def test_complete_output_structure(self):
+        """Full ATC record built from ATO and ATC prices fetched in one call."""
+        result = handle_atc("2026-06-14", 1420.0, 1438.10, 1.95, 0.02)
 
         assert result["@type"] == "Observation"
         assert result["status"] == "complete"
@@ -162,54 +111,30 @@ class TestHandleAtc:
         assert "Actual Regime" in measures
 
         # Backward-compat fields
+        assert result["atoPrice"] == 1420.0
         assert result["atcPrice"] == 1438.10
         assert result["volatilityIndex"] == 1.95
 
-    def test_regime_in_valid_list(self, tmp_path, monkeypatch):
+    def test_regime_in_valid_list(self):
         """ActualRegime value must be in VALID_REGIMES or Unclassified."""
-        monkeypatch.chdir(tmp_path)
-        mdir = tmp_path / "market-data"
-        mdir.mkdir()
-        regimes_seen = set()
-
-        # Bullish
-        (mdir / "2026-06-01-100000-ato.json").write_text(json.dumps({"atoPrice": 100.0}))
-        r = handle_atc("2026-06-01", 101.0, 0.01, 0.02)
-        regimes_seen.add(r["actualRegime"])
-
-        # Bearish
-        (mdir / "2026-06-02-100000-ato.json").write_text(json.dumps({"atoPrice": 100.0}))
-        r = handle_atc("2026-06-02", 99.0, 0.01, 0.02)
-        regimes_seen.add(r["actualRegime"])
-
-        # Risk-Off
-        (mdir / "2026-06-03-100000-ato.json").write_text(json.dumps({"atoPrice": 100.0}))
-        r = handle_atc("2026-06-03", 99.0, 0.03, 0.02)
-        regimes_seen.add(r["actualRegime"])
-
-        for regime in regimes_seen:
+        cases = [(101.0, 0.01), (99.0, 0.01), (99.0, 0.03)]  # Bullish, Bearish, Risk-Off
+        for atc, vol in cases:
+            regime = handle_atc("2026-06-01", 100.0, atc, vol, 0.02)["actualRegime"]
             assert regime in VALID_REGIMES or regime == "Unclassified"
 
-    def test_return_pct_calculation(self, tmp_path, monkeypatch):
+    def test_return_pct_calculation(self):
         """Verify return % is computed correctly."""
-        monkeypatch.chdir(tmp_path)
-
-        # Create existing ATO file
-        ato_file = tmp_path / "market-data" / "2026-06-14.json"
-        ato_file.parent.mkdir()
-        ato_file.write_text(json.dumps({"atoPrice": 100.0}))
-
-        result = handle_atc("2026-06-14", 101.50, 0.01, 0.02)
+        result = handle_atc("2026-06-14", 100.0, 101.50, 0.01, 0.02)
         assert result["returnPct"] == 1.5  # (101.5 - 100) / 100 * 100
         assert result["atoPrice"] == 100.0
         assert result["atcPrice"] == 101.50
 
-    def test_atc_fails_closed_when_no_ato(self, tmp_path, monkeypatch):
-        """No ATO file exists: handle_atc must fail closed, not fabricate a 0% return."""
-        monkeypatch.chdir(tmp_path)
-
-        with pytest.raises(RuntimeError, match="No ATO price found"):
-            handle_atc("2026-06-14", 1450.0, 0.01, 0.02)
+    @pytest.mark.parametrize("ato", [0.0, -1.0, None])
+    def test_atc_fails_closed_on_invalid_ato(self, ato, tmp_path, monkeypatch):
+        """An invalid ATO price must fail closed, not fabricate a return."""
+        monkeypatch.chdir(tmp_path)  # keep log_failure output out of the repo
+        with pytest.raises(RuntimeError, match="Invalid ATO price"):
+            handle_atc("2026-06-14", ato, 1450.0, 0.01, 0.02)
 
     @pytest.mark.parametrize(
         ("ato", "atc", "vol", "threshold", "expected_regime"),
@@ -223,35 +148,15 @@ class TestHandleAtc:
     )
     def test_regime_derivation_integration(
         self,
-        tmp_path,
-        monkeypatch,
         ato: float,
         atc: float,
         vol: float,
         threshold: float,
         expected_regime: str,
     ) -> None:
-        """End-to-end: ATO file + handle_atc → correct regime."""
-        monkeypatch.chdir(tmp_path)
-        mdir = tmp_path / "market-data"
-        mdir.mkdir()
-        (mdir / "2026-06-14.json").write_text(json.dumps({"atoPrice": ato}))
-
-        result = handle_atc("2026-06-14", atc, vol, threshold)
+        """End-to-end: ATO/ATC prices + handle_atc -> correct regime."""
+        result = handle_atc("2026-06-14", ato, atc, vol, threshold)
         assert result["actualRegime"] == expected_regime
-
-    def test_load_existing_prefers_ato_file(self, tmp_path, monkeypatch):
-        """Ensure load_existing properly extracts atoPrice from *-ato.json when both exist."""
-        monkeypatch.chdir(tmp_path)
-        mdir = tmp_path / "market-data"
-        mdir.mkdir()
-        ato_payload = {"atoPrice": 1550.0, "status": "partial"}
-        atc_payload = {"atcPrice": 1540.0, "status": "complete"}
-        (mdir / "2026-06-14-100000-ato.json").write_text(json.dumps(ato_payload))
-        (mdir / "2026-06-14-163000-atc.json").write_text(json.dumps(atc_payload))
-
-        loaded = load_existing("2026-06-14")
-        assert loaded.get("atoPrice") == 1550.0
 
     def test_fetch_live_prices_fails_closed(self, monkeypatch):
         """Ensure _fetch_live_prices raises RuntimeError if provider returns no data."""
@@ -296,120 +201,26 @@ class TestHandleAtc:
             _fetch_live_prices("yahoo", "^SET.BK", "2026-06-14", "atc")
 
 
-class TestHandleNoon:
-    """Morning-session close (ATO -> Noon) capture — used to score `am` predictions."""
-
-    def test_complete_output_structure(self, tmp_path, monkeypatch):
-        monkeypatch.chdir(tmp_path)
-        mdir = tmp_path / "market-data"
-        mdir.mkdir()
-        (mdir / "2026-06-14-100000-ato.json").write_text(
-            json.dumps({"atoPrice": 100.0, "status": "partial"}),
-        )
-
-        result = handle_noon("2026-06-14", 101.0, 0.01, 0.02)
-
-        assert result["window"] == "morning"
-        assert result["status"] == "complete"
-        assert result["atoPrice"] == 100.0
-        assert result["noonPrice"] == 101.0
-        assert result["returnPct"] == 1.0
-        assert result["actualRegime"] == "Bullish"
-
-        measures = {m["name"]: m["value"] for m in result["variableMeasured"]}
-        assert measures["Noon Price"] == 101.0
-        assert measures["Morning Return %"] == 1.0
-
-    def test_fails_closed_when_no_ato(self, tmp_path, monkeypatch):
-        """No ATO file exists: handle_noon must fail closed, not fabricate a 0% return."""
-        monkeypatch.chdir(tmp_path)
-        with pytest.raises(RuntimeError, match="No ATO price found"):
-            handle_noon("2026-06-14", 1450.0, 0.01, 0.02)
-
-    def test_actual_regime_reuses_same_field_name_as_atc(self, tmp_path, monkeypatch):
-        """The noon record must expose 'actualRegime' the same way the atc record
-        does, so validation_engine's generic regime extraction works on either
-        file unchanged."""
-        monkeypatch.chdir(tmp_path)
-        mdir = tmp_path / "market-data"
-        mdir.mkdir()
-        (mdir / "2026-06-14-100000-ato.json").write_text(json.dumps({"atoPrice": 100.0}))
-        noon_result = handle_noon("2026-06-14", 100.05, 0.01, 0.02)
-        atc_result = handle_atc("2026-06-14", 100.05, 0.01, 0.02)
-        assert noon_result["actualRegime"] == atc_result["actualRegime"] == "Sideways"
-
-
-class TestHandlePmopen:
-    """Afternoon-session open (partial) capture — awaits ATC to derive the afternoon window."""
-
-    def test_output_structure(self, tmp_path, monkeypatch):
-        monkeypatch.chdir(tmp_path)
-        result = handle_pmopen("2026-06-14", 1445.0)
-        assert result["window"] == "afternoon"
-        assert result["status"] == "partial"
-        assert result["pmOpenPrice"] == 1445.0
-        measures = {m["name"]: m["value"] for m in result["variableMeasured"]}
-        assert measures["PM Open Price"] == 1445.0
-
-
-class TestHandleAtcAfternoonWindow:
-    """handle_atc must also derive the PM Open -> ATC window when a pmopen record exists."""
-
-    def test_no_pmopen_record_omits_afternoon_fields(self, tmp_path, monkeypatch):
-        """Backward compatibility: without a pmopen capture, afternoon fields are None
-        and no 'Afternoon Actual Regime' entry appears in variableMeasured."""
-        monkeypatch.chdir(tmp_path)
-        mdir = tmp_path / "market-data"
-        mdir.mkdir()
-        (mdir / "2026-06-14-100000-ato.json").write_text(json.dumps({"atoPrice": 1420.0}))
-        result = handle_atc("2026-06-14", 1438.10, 0.01, 0.02)
-        assert result["pmOpenPrice"] is None
-        assert result["afternoonReturnPct"] is None
-        assert result["afternoonRegime"] is None
-        names = {m["name"] for m in result["variableMeasured"]}
-        assert "Afternoon Actual Regime" not in names
-
-    def test_with_pmopen_record_derives_afternoon_window(self, tmp_path, monkeypatch):
-        monkeypatch.chdir(tmp_path)
-        mdir = tmp_path / "market-data"
-        mdir.mkdir()
-        (mdir / "2026-06-14-100000-ato.json").write_text(json.dumps({"atoPrice": 100.0}))
-        (mdir / "2026-06-14-143000-pmopen.json").write_text(
-            json.dumps({"pmOpenPrice": 100.0, "status": "partial"}),
-        )
-
-        result = handle_atc("2026-06-14", 101.0, 0.01, 0.02)
-
-        assert result["pmOpenPrice"] == 100.0
-        assert result["afternoonReturnPct"] == 1.0
-        assert result["afternoonRegime"] == "Bullish"
-        # Full-day regime (ato 100.0 -> atc 101.0) computed independently too.
-        assert result["actualRegime"] == "Bullish"
-
-        measures = {m["name"]: m["value"] for m in result["variableMeasured"]}
-        assert measures["Afternoon Actual Regime"] == "Bullish"
-        assert measures["Afternoon Return %"] == 1.0
-
-
 class TestAssertAfterOpen:
     """Fail-closed guard against a capture taken before its window opens."""
 
     def test_raises_before_open(self):
-        with pytest.raises(RuntimeError, match="noon capture attempted"):
-            _assert_after_open("noon", time(12, 30), datetime(2026, 6, 14, 12, 29, tzinfo=UTC))
+        with pytest.raises(RuntimeError, match="atc capture attempted"):
+            _assert_after_open(
+                "atc",
+                SET_MARKET_CLOSE_ICT,
+                datetime(2026, 6, 14, 16, 29, tzinfo=UTC),
+            )
 
     def test_passes_at_boundary(self):
-        _assert_after_open("noon", time(12, 30), datetime(2026, 6, 14, 12, 30, tzinfo=UTC))
+        _assert_after_open("atc", SET_MARKET_CLOSE_ICT, datetime(2026, 6, 14, 16, 30, tzinfo=UTC))
 
     def test_passes_after_open(self):
-        _assert_after_open("noon", time(12, 30), datetime(2026, 6, 14, 12, 31, tzinfo=UTC))
+        _assert_after_open("atc", SET_MARKET_CLOSE_ICT, datetime(2026, 6, 14, 16, 31, tzinfo=UTC))
 
 
 # (mode, too-early, in-window, too-late-or-None)
 _WINDOW_CASES = [
-    ("ato", time(9, 59), time(10, 15), None),
-    ("noon", time(12, 29), time(13, 0), time(14, 0)),
-    ("pmopen", time(14, 29), time(15, 0), time(16, 30)),
     ("atc", time(16, 29), time(16, 45), None),
 ]
 
@@ -432,11 +243,11 @@ class TestAssertInWindow:
 
     def test_bypass_flag_downgrades_to_warning(self, monkeypatch):
         monkeypatch.setenv("PSI_BYPASS_WINDOW_GUARD", "true")
-        assert _assert_in_window("noon", self._at(time(9, 28))) is True
+        assert _assert_in_window("atc", self._at(time(9, 28))) is True
 
     def test_bypass_flag_does_not_affect_in_window_capture(self, monkeypatch):
         monkeypatch.setenv("PSI_BYPASS_WINDOW_GUARD", "true")
-        assert _assert_in_window("noon", self._at(time(13, 0))) is False
+        assert _assert_in_window("atc", self._at(time(16, 45))) is False
 
 
 class TestMarkBypass:
@@ -448,28 +259,41 @@ class TestMarkBypass:
 class TestAssertBeforeCutoff:
     """Fail-closed guard against a delayed cron recording a stale live quote."""
 
+    CUTOFF = time(14, 0)
+
     def test_passes_before_cutoff(self):
-        _assert_before_cutoff(
-            "noon",
-            SET_AFTERNOON_PREOPEN_ICT,
-            datetime(2026, 6, 14, 13, 59, tzinfo=UTC),
-        )  # must not raise
+        _assert_before_cutoff("atc", self.CUTOFF, datetime(2026, 6, 14, 13, 59, tzinfo=UTC))
 
     def test_raises_at_boundary(self):
-        with pytest.raises(RuntimeError, match="noon capture attempted"):
-            _assert_before_cutoff(
-                "noon",
-                SET_AFTERNOON_PREOPEN_ICT,
-                datetime(2026, 6, 14, 14, 0, tzinfo=UTC),
-            )
+        with pytest.raises(RuntimeError, match="atc capture attempted"):
+            _assert_before_cutoff("atc", self.CUTOFF, datetime(2026, 6, 14, 14, 0, tzinfo=UTC))
 
     def test_raises_after_cutoff(self):
-        with pytest.raises(RuntimeError, match="pmopen capture attempted"):
-            _assert_before_cutoff(
-                "pmopen",
-                SET_MARKET_CLOSE_ICT,
-                datetime(2026, 6, 14, 20, 36, tzinfo=UTC),
-            )
+        with pytest.raises(RuntimeError, match="atc capture attempted"):
+            _assert_before_cutoff("atc", self.CUTOFF, datetime(2026, 6, 14, 20, 36, tzinfo=UTC))
+
+
+class TestAlreadyCaptured:
+    """Idempotency: evening retries must skip once a complete ATC record exists."""
+
+    def test_false_without_market_data(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        assert _already_captured("2026-06-14", "atc") is False
+
+    def test_ignores_partial_and_other_dates(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        mdir = tmp_path / "market-data"
+        mdir.mkdir()
+        (mdir / "2026-06-14-163000-atc.json").write_text(json.dumps({"status": "partial"}))
+        (mdir / "2026-06-13-163000-atc.json").write_text(json.dumps({"status": "complete"}))
+        assert _already_captured("2026-06-14", "atc") is False
+
+    def test_true_when_complete(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        mdir = tmp_path / "market-data"
+        mdir.mkdir()
+        (mdir / "2026-06-14-170000-atc.json").write_text(json.dumps({"status": "complete"}))
+        assert _already_captured("2026-06-14", "atc") is True
 
 
 class TestSaveMarketDataAtomic:
@@ -543,25 +367,3 @@ class TestComputeRollingThresholdMean:
 
         result = compute_rolling_threshold_mean("2026-06-20")
         assert result == pytest.approx(0.02)
-
-
-class TestAfternoonPreOpenIsNotPmOpen:
-    """14:00-14:30 is SET's pre-open call auction, not the afternoon session open.
-
-    Reusing SET_AFTERNOON_PREOPEN_ICT as the pmopen lower bound let a 14:03 cron
-    record a pre-open quote as the PM open — the same defect the window guards
-    exist to prevent.
-    """
-
-    def test_pre_open_quote_is_rejected(self):
-        with pytest.raises(RuntimeError, match="pmopen capture attempted"):
-            _assert_in_window("pmopen", datetime(2026, 6, 15, 14, 3, tzinfo=UTC))
-
-    def test_session_open_is_accepted(self):
-        assert _assert_in_window("pmopen", datetime(2026, 6, 15, 14, 30, tzinfo=UTC)) is False
-
-    def test_noon_cutoff_still_uses_pre_open(self):
-        """noon must still close at 14:00, not 14:30 — the two bounds are distinct."""
-        assert SET_AFTERNOON_PREOPEN_ICT != SET_AFTERNOON_OPEN_ICT
-        with pytest.raises(RuntimeError, match="noon capture attempted"):
-            _assert_in_window("noon", datetime(2026, 6, 15, 14, 0, tzinfo=UTC))

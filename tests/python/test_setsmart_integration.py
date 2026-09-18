@@ -22,7 +22,6 @@ from capture_market import (
     extract_market_prices,
     fetch_setsmart_eod,
     handle_atc,
-    handle_ato,
 )
 
 EOD_PAYLOAD = {
@@ -84,7 +83,7 @@ class TestSetsmartRequestContract:
 
 
 class TestFullPipelineAgainstStub:
-    """End-to-end: stubbed API -> ATO -> ATC -> persisted schema.org file."""
+    """End-to-end: stubbed API -> single ATC capture -> persisted schema.org file."""
 
     def test_ato_atc_cycle_produces_valid_observation(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
@@ -99,12 +98,14 @@ class TestFullPipelineAgainstStub:
         assert ato_price == 1500.0
         assert atc_price == 1510.0
 
-        # ATO capture -> file
-        ato_record = handle_ato("2026-08-28", ato_price)
-        capture_market.save_market_data(ato_record, "2026-08-28", "ato")
-
-        # ATC capture merges the ATO file and derives the regime
-        atc_record = handle_atc("2026-08-28", atc_price, volatility, threshold_mean=0.02)
+        # Single-cycle ATC capture: ATO and ATC come from the same EOD call
+        atc_record = handle_atc(
+            "2026-08-28",
+            ato_price,
+            atc_price,
+            volatility,
+            threshold_mean=0.02,
+        )
         filepath = capture_market.save_market_data(atc_record, "2026-08-28", "atc")
 
         # --- Output schema assertions (schema.org Observation JSON-LD) ---
