@@ -7,16 +7,12 @@ from pathlib import Path
 
 WORKFLOW = Path(".github/workflows/intraday-pipeline.yml")
 
+# Single daily cycle (RFC 020): a morning prediction retry window and a
+# post-close ATC capture + validation retry window.
 EXPECTED_CRONS = {
-    "3,13,23,33,43,53 1 * * 1-5",
-    "3,13,23,33,43,53 2 * * 1-5",
-    "3,13,23,33,43,53 3-4 * * 1-5",
-    "3,13,23,33,43,53 5 * * 1-5",
-    "3,13,23,33,43,53 6 * * 1-5",
-    "33,43,53 7 * * 1-5",
-    "3,13,23,33,43,53 8 * * 1-5",
-    "3,13,23 9 * * 1-5",
-    "48 9 * * 1-5",
+    "0,30 22,23 * * 0-4",  # ICT 05:00-06:59 Mon-Fri — prediction
+    "0,30 0,1,2 * * 1-5",  # ICT 07:00-09:59 — prediction
+    "45,15 9,10,11,12,13,14,15,16 * * 1-5",  # ICT 16:45-23:59 — atc + validation
 }
 
 
@@ -37,13 +33,8 @@ def validate() -> None:
         raise SystemExit(message)
 
     required_steps = {
-        "prediction-am": "predictions_loader.py --session am",
         "prediction-full-day": "predictions_loader.py --session full_day",
-        "prediction-pm": "predictions_loader.py --session pm",
-        "ato": "capture_market.py --mode ato",
-        "noon": "capture_market.py --mode noon",
-        "pmopen": "capture_market.py --mode pmopen",
-        "atc": "capture_market.py --mode atc",
+        "atc-and-validate": "capture_market.py --mode atc",
         "validation": "validation_engine.py",
     }
     for step, command in required_steps.items():
@@ -52,15 +43,9 @@ def validate() -> None:
             raise SystemExit(message)
 
     required_boundaries = [
-        'H_ICT" -lt 8',
-        'H_ICT" -ge 17',
-        'H_ICT" -eq 16 && "$M_ICT" -ge 40',
-        'H_ICT" -eq 16 && "$M_ICT" -ge 20',
-        'H_ICT" -ge 13',
-        'H_ICT" -eq 12 && "$M_ICT" -ge 30',
-        'H_ICT" -ge 10',
-        'H_ICT" -ge 9',
-        'H_ICT" -ge 8',
+        'H_ICT" -ge 5 && "$H_ICT" -lt 10',
+        'H_ICT" -eq 16 && "$M_ICT" -ge 45',
+        'H_ICT" -ge 17 && "$H_ICT" -le 23',
     ]
     for boundary in required_boundaries:
         if boundary not in text:
