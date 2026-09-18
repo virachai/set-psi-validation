@@ -7,7 +7,7 @@ description: Standardized JSONL data logging for PSI predictions and market obse
 
 ## When to Use
 
-Use this skill when capturing pre-market PSI predictions (Pre-ATO) or intraday market outcomes (ATO, Noon, PM Open, ATC) to ensure strict adherence to the project's unified JSONL formatting and timestamp conventions.
+Use this skill when capturing pre-market PSI predictions (Pre-ATO) or daily market outcomes (ATO -> ATC) to ensure strict adherence to the project's unified JSONL formatting and timestamp conventions.
 
 ## Core Concepts
 

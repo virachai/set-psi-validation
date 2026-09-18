@@ -83,14 +83,12 @@ You will be prompted to paste each value.
 
 ### File: `.github/workflows/intraday-pipeline.yml`
 
-**4 Scheduled Triggers (SET Market Hours — ICT timezone):**
+**Scheduled Retry Windows (single daily cycle, RFC 020):**
 
-| Cron (UTC)     | Local ICT | Step                 | Script                         |
-| :------------- | :-------- | :------------------- | :----------------------------- |
-| `3,13,23,33,43,53 1 * * 1-5` | 08:03–08:53 | AM Prediction | `predictions_loader.py --session am` |
-| `3,13,23,33,43,53 3-4 * * 1-5` | 10:03–11:53 | ATO retry window | `capture_market.py --mode ato` |
-| `30 9 * * 1-5` | 16:30     | ATC Capture          | `capture_market.py --mode atc` |
-| `0 10 * * 1-5` | 17:00     | Validation & Metrics | `validation_engine.py`         |
+| Cron (UTC)                                   | Local ICT   | Step                        | Script                                                    |
+| :------------------------------------------- | :---------- | :-------------------------- | :-------------------------------------------------------- |
+| `0,30 22,23 * * 0-4` + `0,30 0,1,2 * * 1-5`   | 05:00–09:59 | Full-Day Prediction         | `predictions_loader.py --session full_day`                |
+| `45,15 9-16 * * 1-5`                          | 16:45–23:59 | ATC Capture + Validation    | `capture_market.py --mode atc` then `validation_engine.py` |
 
 **Post-processing (runs after each step):**
 
@@ -102,11 +100,10 @@ You will be prompted to paste each value.
 1. Go to `https://github.com/owner/set-psi-validation/actions`
 2. Select **"Intraday Market Cycle"** from the left sidebar
 3. Click **"Run workflow"** → select step:
-   - `prediction` — run only prediction capture
-   - `ato` — run only ATO capture
-   - `atc` — run only ATC capture
-   - `validation` — run only validation & metrics
-   - `all` — run all steps sequentially
+   - `auto` — pick the step from the current ICT time (default)
+   - `prediction-full-day` — run only prediction capture
+   - `atc-and-validate` — run ATC capture then validation & metrics
+   - `all` — run both steps sequentially
 
 ---
 
@@ -131,7 +128,7 @@ set-psi-validation/
 │   └── aggregated-metrics.json                 # Dataset with metrics
 └── scripts/python/
     ├── predictions_loader.py                   # PSI Engine API caller
-    ├── capture_market.py                       # ATO/ATC data capture
+    ├── capture_market.py                       # Single-cycle ATC capture (ATO+ATC)
     ├── validation_engine.py                    # Regime comparison logic
     └── jsonld_enricher.py                      # Schema.org enrichment
 ```
@@ -150,17 +147,13 @@ uv run scripts/python/predictions_loader.py
 # Expected: error about missing API key (confirms script loads)
 
 # Test market capture syntax.
-# NOTE: captures are window-guarded (see capture_market.CAPTURE_WINDOWS). Each mode
-# only runs inside its real ICT window — ato >=10:00, noon 12:30-14:00,
-# pmopen 14:30-16:30, atc >=16:30 — and raises otherwise, on the manual --price
-# path too. Outside those hours, prefix the command with the bypass:
+# NOTE: captures are window-guarded (see capture_market.CAPTURE_WINDOWS). The atc
+# capture only runs at/after 16:30 ICT and raises otherwise, on the manual price
+# path too. Before then, prefix the command with the bypass:
 #   PSI_BYPASS_WINDOW_GUARD=true uv run scripts/python/capture_market.py ...
 # which stamps "windowGuardBypassed": true on the record. CI rejects the flag,
 # so never set it in a workflow.
-uv run scripts/python/capture_market.py --mode ato --ato-price 1450.20
-# Expected: creates market-data/YYYY-MM-DD-HHMMSS-ato.json with ATO only
-
-uv run scripts/python/capture_market.py --mode atc --atc-price 1438.10 --volatility 1.95
+uv run scripts/python/capture_market.py --mode atc --ato-price 1450.20 --atc-price 1438.10 --volatility 1.95
 # Expected: creates market-data/YYYY-MM-DD-HHMMSS-atc.json with complete data
 
 # Test validation engine

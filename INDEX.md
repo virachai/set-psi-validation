@@ -46,8 +46,8 @@ Welcome to the **SET PSI Validation** repository. This document serves as the ma
 
 - **[RFC-001 Validation Remediation](docs/02_rfc/001-rfc-psi-validation-remediation-v01.md)**
 - **[RFC-002 Modular Intraday Pipeline](docs/02_rfc/002-rfc-modular-intraday-pipeline-v01.md)**
-- **[RFC-016 Four-Session Market Data Timing](docs/02_rfc/016-rfc-four-session-market-data-timing-v01.md)**
-- **[RFC-017 Session-Aware Validation Alignment](docs/02_rfc/017-rfc-session-aware-validation-alignment-v01.md)**
+- **[RFC-019 Capture Window Enforcement](docs/02_rfc/019-rfc-capture-window-enforcement-v01.md)** (partially superseded by RFC-020)
+- **[RFC-020 Lean Single-Cycle Rollback](docs/02_rfc/020-rfc-lean-single-cycle-rollback-v01.md)**: One prediction, one ATC capture, one validation per day.
 - **[API Versioning Strategy](memory/20260915-140000-api-versioning-strategy.md)**: Multi-version architecture and longitudinal validation strategy.
 
 ---

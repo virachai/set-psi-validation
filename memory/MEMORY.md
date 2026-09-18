@@ -9,7 +9,6 @@ metadata:
 
 - [Project Overview](20260614-120000-project-overview.md) - Initial project structure and status tracking.
 - [Prediction Window Lower-Bound Gate](20260914-190000-prediction-window-lower-bound-gate.md) - Closed a gap where workflow_dispatch step=all could pass the lookahead-bias timestamp check for all three sessions at once.
-- [Modular Intraday Pipeline Refactor](20260905-150000-modular-intraday-pipeline-refactor.md) - Decomposed monolithic GitHub Action into modular, time-triggered workflows.
 - [PSI Design Complete](20260614-140000-psi-design-complete.md) - Architectural design phase finalized.
 - [Schema.org Mapping Complete](20260614-150000-schema-org-mapping.md) - Schema.org type mapping for all PSI data artifacts.
 - [Pipeline Implementation Complete](20260614-160000-pipeline-implementation.md) - RFC, scripts, workflows, tests, API integration with schema.org JSON-LD.
@@ -20,7 +19,6 @@ metadata:
 - [Secure Local Test Runner](20260614-220000-secure-local-test-runner.md) - Secure local test runner using .tmp/.env and run_tests.sh.
 - [Validation Engine & Dashboard Complete](20260614-190000-validation-engine-complete.md) - Phase 2 validation engine, Phase 3 dashboard, pyproject.toml, workflow fix.
 - [Taxonomy Renamed & CI Green](20260614-200000-taxonomy-rename-ci-green.md) - Renamed to naming convention, all refs updated, API and CI verified passing.
-- [Validation Engine Three-Window Analysis](20260615-195500-validation-engine-three-window.md) - Granular intraday (AM/PM) regime validation engine and rolling metrics aggregator.
 - [2026-06-15 Market Cycle Execution Report](20260615-203000-market-cycle-report.md) - Automated market cycle execution report.
 - [Memory: Community Standards Adoption](20260616-150000-community-standards-adoption.md) - Adoption of MIT license and community governance files.
 - [Workflow Scheduling Fixed](20260616-193000-workflow-scheduling-fixed.md) - Fixed incorrect cron times and Lookahead Bias error handling.
@@ -37,17 +35,11 @@ metadata:
 - [Ruff ALL Lint Standard](20260902-163000-ruff-all-lint-standard.md) - select=ALL in pyproject; scripts/python has no __init__.py (mypy module collision); tuple-row dict fix in stress_test_regime.
 - [Ruff Lint Fixes v2](20260902-183000-ruff-lint-fixes-v2.md) - Resolved CPY001 and PLR0917 lint errors in CI.
 - [Enterprise Husky Pre-Commit](20260902-190000-enterprise-husky-pre-commit.md) - Upgraded pre-commit hook to LV99 enterprise-grade validation.
-- [Session Validation Gap (RFC 017)](20260903-201000-session-validation-gap-rfc017.md) - am/pm validation records reuse the full-day market file; designed find_market_window() fix (spec only).
-- [AM/Full-Day Run Separated](20260903-203000-am-fullday-run-separated.md) - Fixed workflow bug where am and full_day predictions ran together in one step, producing identical files.
 - [Regime Scoring & Adaptive Threshold Fix](20260903-210000-regime-scoring-and-adaptive-threshold-fix.md) - Fixed Unclassified-counted-as-correct bug and replaced hardcoded volatility threshold with real 30-day rolling computation.
-- [Four-Session Capture Implemented](20260903-220000-four-session-capture-implemented.md) - Implemented RFC 016/017: noon and pmopen capture modes, and session-aware market-outcome resolution in validation_engine.py.
-- [Session Memory Report — 2026-09-03](20260903-223000-session-memory-report.md) - Standard-template consolidated summary of this session's four memory entries and outstanding uncommitted changes.
 - [20260903-120000-psi-validation-remediation-rfc.md](20260903-120000-psi-validation-remediation-rfc.md): RFC-001 creation for PSI validation pipeline findings remediation.
-- [20260904-000000-intraday-schedule-bugfix.md](20260904-000000-intraday-schedule-bugfix.md): Fixed disabled/wrong-timezone cron and a step-decider elif ordering bug causing captures to skew to morning-only.
-- [20260905-150000-modular-intraday-pipeline-refactor.md](20260905-150000-modular-intraday-pipeline-refactor.md): Decomposed monolithic GitHub Action into modular, time-triggered workflows.
 - [Finnhub vs yfinance for Thai Stock EOD Validation POC](20260908-103000-finnhub-vs-yfinance-thai-stock-poc.md) - Empirical POC testing Finnhub vs yfinance on Thai stocks; Finnhub locked behind 403 on free tier, yfinance verified viable for batch EOD validation.
 - [Gauntlet Loop Enterprise Runbook](20260908-120000-gauntlet-loop-enterprise-runbook.md) - Level 99 enterprise-grade SOP and FMEA framework for Gauntlet Loop executions.
 - [PSI Validation Flow Frozen](20260908-140000-psi-validation-flow-frozen.md) - Confirmation of pipeline flow integrity and scope freeze for long-term execution.
-- [Workflow Dispatch Auto & Cutoff Fix](20260908-175500-workflow-dispatch-auto-cutoff-fix.md) - Added 'auto' default to workflow_dispatch, guarded closing auction transition, and tolerated expired captures in 'all' mode.
 - [API Versioning Strategy](20260915-140000-api-versioning-strategy.md) - Architectural strategy for versioning PSI APIs and evolving the validation pipeline to handle multi-version evaluation, ensuring backward compatibility and long-term data archival.
-- [Capture Window Enforcement (RFC 019)](20260915-193000-capture-window-enforcement.md) - Two-sided CAPTURE_WINDOWS guard on all four capture modes; pmopen opens 14:30 not 14:00; backfills stamped with backfilledFrom.
+- [Capture Window Enforcement](20260915-193000-capture-window-enforcement.md) - The single atc capture is guarded by CAPTURE_WINDOWS (>= 16:30 ICT); backfills and bypassed captures must carry a provenance stamp.
+- RFC 020 (`docs/02_rfc/020-rfc-lean-single-cycle-rollback-v01.md`) - Single daily cycle: one full_day prediction, one post-close ATC capture, one validation. RFC 016/017 and their multi-session memory entries were deleted.

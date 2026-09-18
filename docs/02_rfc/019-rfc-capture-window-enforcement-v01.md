@@ -2,7 +2,9 @@
 
 > **Status**: Implemented
 > **Date**: 2026-09-15
-> **Supersedes nothing. Extends**: RFC 016 (four-session timing), RFC 017 (session-aware validation).
+> **Partially superseded by**: RFC 020 (single daily cycle). The `ato`, `noon` and `pmopen`
+> modes described below were removed; only the `atc` window (>= 16:30 ICT) and the
+> backfill provenance stamps remain in force. RFC 016/017 were deleted with that rollback.
 
 ---
 

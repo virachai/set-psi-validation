@@ -13,16 +13,10 @@ The pipeline is synchronized with the **Stock Exchange of Thailand (SET)** sched
 
 Scheduled retries fire throughout each operational window; the step-decider in `intraday-pipeline.yml` picks the step from ICT time. The scheduler is intentionally redundant because GitHub Actions can delay scheduled jobs:
 
-| Step                      | Detection Window (ICT) | UTC         |
-| :------------------------ | :--------------------- | :---------- |
-| **Prediction (AM)**       | 08:00–08:59            | 01:00–01:59 |
-| **Prediction (Full Day)** | 09:00–09:59            | 02:00–02:59 |
-| **ATO Capture**           | 10:00–12:29            | 03:00–05:29 |
-| **Noon Capture**          | 12:30–12:59            | 05:30–05:59 |
-| **Prediction (PM)**       | 13:00–14:29            | 06:00–07:29 |
-| **PM Open Capture**       | 14:30–16:19            | 07:30–09:19 |
-| **ATC Capture**           | 16:40–16:59            | 09:40–09:59 |
-| **Validation**            | 17:00–17:59            | 10:00–10:59 |
+| Step                         | Detection Window (ICT) | UTC                    |
+| :--------------------------- | :--------------------- | :--------------------- |
+| **Prediction (Full Day)**    | 05:00–09:59            | 22:00–02:59 (prev day) |
+| **ATC Capture + Validation** | 16:45–23:59            | 09:45–16:59            |
 
 ---
 
@@ -36,7 +30,7 @@ Every workflow run starts with a **Determine Step** phase. Open the logs for thi
 System Time (UTC): Wed Jun 17 01:03:05 UTC 2026
 Market Time (ICT): Wed Jun 17 08:03:05 +07 2026
 Verification -> ICT: 08 | UTC: 01
-(Step matches prediction-am)
+(Step matches prediction-full-day)
 ```
 
 ### 2.2. Ghost Run Logs (Outside window)
@@ -50,7 +44,7 @@ _Note: This is normal for Push events or manual runs outside schedule. The workf
 
 ### 2.3. Lookahead Bias Warning
 
-If you see `[WARN] Lookahead Bias: am prediction captured at 09:03 ICT`:
+If you see `[WARN] Lookahead Bias: full_day prediction captured at 10:03 ICT`:
 
 - **Cause**: The capture script ran after the session cutoff.
 - **Impact**: The prediction for that session is skipped to ensure data integrity.
@@ -89,7 +83,7 @@ If a scheduled step was missed or failed, **do not run `all`**. Run the specific
 1. Go to **Actions** tab -> **Intraday Market Cycle**.
 2. Click **Run workflow**.
 3. Select the branch (usually `main`).
-4. Select the specific **Step to run** (e.g., `ato`, `atc`, `prediction-pm`).
+4. Select the specific **Step to run** (e.g., `prediction-full-day`, `atc-and-validate`).
 5. Click **Run workflow**.
 
 _Manual selection bypasses the hourly time-check, allowing recovery at any time._
