@@ -7,12 +7,12 @@
     "@type": "DefinedTerm",
     "name": "Regime Prediction Accuracy"
   },
-  "datePublished": "2026-09-21T22:53:37+07:00",
+  "datePublished": "2026-09-22T16:58:02+07:00",
   "variableMeasured": [
     {
       "@type": "PropertyValue",
       "name": "Overall Accuracy",
-      "value": 0.6667
+      "value": 0.7
     },
     {
       "@type": "PropertyValue",
@@ -22,19 +22,19 @@
     {
       "@type": "PropertyValue",
       "name": "Rolling 30D Accuracy",
-      "value": 0.625
+      "value": 0.6667
     }
   ],
   "metrics": {
-    "overall_accuracy": 0.6666666666666666,
+    "overall_accuracy": 0.7,
     "rolling_7d": 0.5714285714285714,
-    "rolling_30d": 0.625,
+    "rolling_30d": 0.6666666666666666,
     "by_window": {
       "full_day": {
-        "overall_accuracy": 0.625,
+        "overall_accuracy": 0.6666666666666666,
         "rolling_7d": 0.5714285714285714,
-        "rolling_30d": 0.625,
-        "total_count": 8
+        "rolling_30d": 0.6666666666666666,
+        "total_count": 9
       }
     },
     "hit_rates": {
@@ -48,7 +48,7 @@
     "precision": {
       "Bullish": null,
       "Bearish": null,
-      "Sideways": 0.6666666666666666,
+      "Sideways": 0.7,
       "Risk-Off": null,
       "Crisis": null,
       "Unclassified": null
@@ -56,12 +56,12 @@
     "f1": {
       "Bullish": null,
       "Bearish": null,
-      "Sideways": 0.8,
+      "Sideways": 0.8235294117647058,
       "Risk-Off": null,
       "Crisis": null,
       "Unclassified": null
     },
-    "total_count": 9
+    "total_count": 10
   },
   "confusion_matrix": {
     "Bullish": {
@@ -83,7 +83,7 @@
     "Sideways": {
       "Bullish": 0,
       "Bearish": 0,
-      "Sideways": 6,
+      "Sideways": 7,
       "Risk-Off": 0,
       "Crisis": 0,
       "Unclassified": 0
@@ -181,6 +181,14 @@
     {
       "date": "2026-09-21",
       "file_id": "2026-09-21-092758-full_day",
+      "session": "full_day",
+      "predicted": "Sideways",
+      "actual": "Sideways",
+      "correct": true
+    },
+    {
+      "date": "2026-09-22",
+      "file_id": "2026-09-22-092834-full_day",
       "session": "full_day",
       "predicted": "Sideways",
       "actual": "Sideways",
