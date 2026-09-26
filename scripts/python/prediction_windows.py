@@ -7,14 +7,6 @@ ICT_OFFSET = timedelta(hours=7)
 ICT = timezone(ICT_OFFSET)
 
 MARKET_WINDOWS: dict[str, dict[str, str]] = {
-    "am": {
-        "open": os.getenv("PSI_OPEN_AM", "08:00:00"),
-        "cutoff": os.getenv("PSI_CUTOFF_AM", "08:59:59"),
-    },
-    "pm": {
-        "open": os.getenv("PSI_OPEN_PM", "13:00:00"),
-        "cutoff": os.getenv("PSI_CUTOFF_PM", "14:30:00"),
-    },
     "full_day": {
         "open": os.getenv("PSI_OPEN_FULL_DAY", "09:00:00"),
         "cutoff": os.getenv("PSI_CUTOFF_FULL_DAY", "10:00:00"),

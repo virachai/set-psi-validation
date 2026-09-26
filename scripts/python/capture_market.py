@@ -1,5 +1,5 @@
 # /// script
-# dependencies = ["python-dotenv", "httpx", "yfinance"]
+# dependencies = ["python-dotenv", "yfinance"]
 # ///
 """Market Data Capture (Single Daily Cycle, ATO -> ATC).
 
@@ -23,9 +23,8 @@ import sys
 from datetime import UTC, datetime, time, timedelta
 from pathlib import Path
 
-import httpx
 from dotenv import load_dotenv
-from providers import fetch_finnhub_quote, fetch_yahoo_quote
+from providers import fetch_yahoo_ato_open, fetch_yahoo_quote
 from regime_rules import DEFAULT_THRESHOLD_MEAN, VALID_REGIMES, derive_actual_regime
 from utils import log_event, log_failure
 
@@ -49,126 +48,8 @@ CAPTURE_WINDOWS: dict[str, tuple[time, time | None]] = {
     "atc": (SET_MARKET_CLOSE_ICT, None),
 }
 MAX_INTRADAY_VOLATILITY = 0.05
-MASK_KEY_MIN_LENGTH = 6  # longer keys show first/last 3 chars
 THRESHOLD_ROLLING_WINDOW_DAYS = 30
 THRESHOLD_MIN_HISTORY_DAYS = 5  # below this, historical mean is too noisy — use the static default
-
-# --- SETSMART API ---
-
-SETSMART_BASE_URL = "https://www.setsmart.com"
-SETSMART_API_KEY = os.getenv("SETSMART_API_KEY")
-if SETSMART_API_KEY:
-    masked_key = (
-        f"{SETSMART_API_KEY[:3]}***{SETSMART_API_KEY[-3:]}"
-        if len(SETSMART_API_KEY) > MASK_KEY_MIN_LENGTH
-        else "***"
-    )
-    print(f"[DEBUG] SETSMART_API_KEY loaded: {masked_key}")
-SET_INDEX_SYMBOL = os.getenv("SET_INDEX_SYMBOL", "SET")
-
-
-def _describe_setsmart_error(exc: httpx.HTTPError, symbol: str, date: str) -> str:
-    """Map an httpx failure to the matching SETSMART error message."""
-    if isinstance(exc, httpx.TimeoutException):
-        return f"SETSMART API timeout after 30s for {symbol} on {date}."
-    if isinstance(exc, httpx.HTTPStatusError):
-        return f"SETSMART API HTTP error: {exc}"
-    return f"Unexpected error fetching SETSMART data: {exc}"
-
-
-def fetch_setsmart_eod(
-    symbol: str,
-    date: str,
-    transport: httpx.BaseTransport | None = None,
-) -> dict | None:
-    """Fetch EOD price data from the SETSMART API for a given symbol and date.
-
-    transport: optional httpx transport for injecting a test stub (MockTransport).
-    """
-    if not SETSMART_API_KEY:
-        msg = "SETSMART_API_KEY not set. Skipping market data capture."
-        print(f"[SKIP] {msg}")
-        log_event("INFO", "capture_market", msg)
-        return None
-
-    url = f"{SETSMART_BASE_URL}/api/listed-company-api/eod-price-by-symbol"
-
-    params = {
-        "symbol": symbol,
-        "startDate": date,
-        "endDate": date,
-        "adjustedPriceFlag": "N",
-    }
-    headers = {"api-key": SETSMART_API_KEY, "Accept": "application/json"}
-
-    try:
-        with httpx.Client(timeout=30.0, transport=transport) as client:
-            response = client.get(url, params=params, headers=headers)
-            if response.status_code in [401, 403]:
-                msg = f"SETSMART Authentication failed ({response.status_code})."
-                print(f"[SKIP] {msg}")
-                log_event("ERROR", "capture_market", msg)
-                return None
-            response.raise_for_status()
-            data = response.json()
-    except httpx.HTTPError as e:
-        msg = _describe_setsmart_error(e, symbol, date)
-        log_event("ERROR", "capture_market", msg)
-        return None
-
-    if isinstance(data, list) and len(data) > 0:
-        log_event(
-            "INFO",
-            "capture_market",
-            f"Successfully fetched data for {symbol}",
-            {"date": date},
-        )
-        return data[0]
-
-    log_event("WARN", "capture_market", f"No EOD data returned for {symbol} on {date}")
-    return None
-
-
-def extract_market_prices(eod: dict) -> tuple[float, float, float]:
-    """Extract ATO/ATC/volatility from SETSMART EOD response.
-
-    Expected fields: open, close/high/low or alternate naming.
-    Returns (ato_price, atc_price, volatility_index).
-
-    Fails closed: raises RuntimeError if open/close/high/low cannot be
-    resolved to a positive value from any known field alias, rather than
-    silently substituting 0.0 (a fabricated zero-return observation is worse
-    than no observation at all).
-    """
-    open_raw = eod.get("open") or eod.get("openPrice")
-    close_raw = eod.get("close") or eod.get("closePrice") or eod.get("last")
-    if not open_raw:
-        msg = "Missing/invalid open price in EOD payload"
-        raise RuntimeError(msg)
-    if not close_raw:
-        msg = "Missing/invalid close price in EOD payload"
-        raise RuntimeError(msg)
-    open_price = float(open_raw)
-    close_price = float(close_raw)
-
-    high_raw = eod.get("high") or eod.get("highPrice")
-    low_raw = eod.get("low") or eod.get("lowPrice")
-    if not high_raw:
-        msg = "Missing/invalid high price in EOD payload"
-        raise RuntimeError(msg)
-    if not low_raw:
-        msg = "Missing/invalid low price in EOD payload"
-        raise RuntimeError(msg)
-    high = float(high_raw)
-    low = float(low_raw)
-
-    # Volatility proxy: (high - low) / mid_price, capped at 0.05
-    mid_price = (high + low) / 2
-    volatility = round((high - low) / mid_price, 4) if mid_price > 0 else 0.01
-    volatility = min(volatility, MAX_INTRADAY_VOLATILITY)
-
-    return open_price, close_price, volatility
-
 
 # --- I/O Helpers ---
 
@@ -378,9 +259,9 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--provider",
         type=str,
-        choices=["finnhub", "yahoo", "setsmart"],
-        default="setsmart",
-        help="Data provider to use if --symbol is provided.",
+        choices=["yahoo"],
+        default="yahoo",
+        help="Data provider to use if --symbol is provided (yahoo is the primary source).",
     )
     parser.add_argument(
         "--ato-price",
@@ -417,6 +298,49 @@ def _already_captured(date_str: str, mode: str) -> bool:
     return False
 
 
+def _fetch_yahoo_prices(symbol: str, date_str: str, mode: str) -> tuple[float, float, float]:
+    """Fetch ATO (10:00 bar open), ATC (daily close) and volatility from Yahoo Finance."""
+    log_event(
+        "INFO",
+        "capture_market",
+        f"Starting Yahoo Finance fetch for {symbol}",
+        {"mode": mode},
+    )
+    data = fetch_yahoo_quote(symbol)
+    if not data or float(data.get("c", 0.0)) == 0.0:
+        error_msg = f"Yahoo Finance returned no valid quote for {symbol} on {date_str}."
+        log_event("ERROR", "capture_market", error_msg)
+        raise RuntimeError(error_msg)
+    if not data.get("o"):
+        error_msg = f"Yahoo Finance returned no valid open price for {symbol} on {date_str}."
+        log_event("ERROR", "capture_market", error_msg)
+        raise RuntimeError(error_msg)
+    if not data.get("h") or not data.get("l"):
+        error_msg = f"Yahoo Finance returned no valid high/low price for {symbol} on {date_str}."
+        log_event("ERROR", "capture_market", error_msg)
+        raise RuntimeError(error_msg)
+    ato_price = fetch_yahoo_ato_open(symbol, date_str)
+    if not ato_price:
+        error_msg = f"Yahoo Finance returned no 10:00 bar (ATO) for {symbol} on {date_str}."
+        log_event("ERROR", "capture_market", error_msg)
+        raise RuntimeError(error_msg)
+    atc_price = float(data.get("c", 0.0))
+    high_p = float(data.get("h", atc_price))
+    low_p = float(data.get("l", ato_price))
+    mid_price = (high_p + low_p) / 2
+    volatility = round((high_p - low_p) / mid_price, 4) if mid_price > 0 else 0.01
+    volatility = min(volatility, MAX_INTRADAY_VOLATILITY)
+    if mode == "atc":
+        log_event(
+            "WARN",
+            "capture_market",
+            f"Yahoo Finance ATC is the daily bar close, not a verified auction print, "
+            f"for {symbol} on {date_str}.",
+        )
+    print(f"[YAHOO] ATO={ato_price}, ATC={atc_price}, Vol={volatility}")
+    return ato_price, atc_price, volatility
+
+
 def _fetch_live_prices(
     provider: str,
     symbol: str,
@@ -424,82 +348,11 @@ def _fetch_live_prices(
     mode: str,
 ) -> tuple[float, float, float]:
     """Fetch ATO/ATC/volatility from the chosen provider, enforcing fail-closed integrity."""
-    if provider == "finnhub":
-        log_event(
-            "INFO",
-            "capture_market",
-            f"Starting Finnhub fetch for {symbol}",
-            {"mode": mode},
-        )
-        data = fetch_finnhub_quote(symbol)
-        if not data or float(data.get("c", 0.0)) == 0.0:
-            error_msg = f"Finnhub API returned no valid quote for {symbol} on {date_str}."
-            log_event("ERROR", "capture_market", error_msg)
-            raise RuntimeError(error_msg)
-        if not data.get("o"):
-            error_msg = f"Finnhub API returned no valid open price for {symbol} on {date_str}."
-            log_event("ERROR", "capture_market", error_msg)
-            raise RuntimeError(error_msg)
-        ato_price = float(data.get("o", 0.0))
-        atc_price = float(data.get("c", 0.0))
-        volatility = 0.01
-        print(f"[FINNHUB] ATO={ato_price}, ATC={atc_price}, Vol={volatility}")
-        return ato_price, atc_price, volatility
-
     if provider == "yahoo":
-        log_event(
-            "INFO",
-            "capture_market",
-            f"Starting Yahoo Finance fetch for {symbol}",
-            {"mode": mode},
-        )
-        data = fetch_yahoo_quote(symbol)
-        if not data or float(data.get("c", 0.0)) == 0.0:
-            error_msg = f"Yahoo Finance returned no valid quote for {symbol} on {date_str}."
-            log_event("ERROR", "capture_market", error_msg)
-            raise RuntimeError(error_msg)
-        if not data.get("o"):
-            error_msg = f"Yahoo Finance returned no valid open price for {symbol} on {date_str}."
-            log_event("ERROR", "capture_market", error_msg)
-            raise RuntimeError(error_msg)
-        if not data.get("h") or not data.get("l"):
-            error_msg = (
-                f"Yahoo Finance returned no valid high/low price for {symbol} on {date_str}."
-            )
-            log_event("ERROR", "capture_market", error_msg)
-            raise RuntimeError(error_msg)
-        ato_price = float(data.get("o", 0.0))
-        atc_price = float(data.get("c", 0.0))
-        high_p = float(data.get("h", atc_price))
-        low_p = float(data.get("l", ato_price))
-        mid_price = (high_p + low_p) / 2
-        volatility = round((high_p - low_p) / mid_price, 4) if mid_price > 0 else 0.01
-        volatility = min(volatility, MAX_INTRADAY_VOLATILITY)
-        if mode in ("ato", "atc"):
-            log_event(
-                "WARN",
-                "capture_market",
-                f"Yahoo Finance provides only a daily bar, not a verified {mode.upper()} "
-                f"auction print, for {symbol} on {date_str}.",
-            )
-        print(f"[YAHOO] ATO={ato_price}, ATC={atc_price}, Vol={volatility}")
-        return ato_price, atc_price, volatility
+        return _fetch_yahoo_prices(symbol, date_str, mode)
 
-    # SETSMART
-    log_event(
-        "INFO",
-        "capture_market",
-        f"Starting SETSMART fetch for {symbol}",
-        {"mode": mode},
-    )
-    eod = fetch_setsmart_eod(symbol, date_str)
-    if eod is None:
-        error_msg = f"SETSMART API returned no data for {symbol} on {date_str}."
-        log_event("ERROR", "capture_market", error_msg)
-        raise RuntimeError(error_msg)
-    ato_price, atc_price, volatility = extract_market_prices(eod)
-    print(f"[SETSMART] ATO={ato_price}, ATC={atc_price}, Vol={volatility}")
-    return ato_price, atc_price, volatility
+    error_msg = f"Unknown market data provider: {provider}"
+    raise ValueError(error_msg)
 
 
 def _resolve_threshold(args: argparse.Namespace, date_str: str) -> float:

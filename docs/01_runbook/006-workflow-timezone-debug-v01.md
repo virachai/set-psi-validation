@@ -94,9 +94,7 @@ _Manual selection bypasses the hourly time-check, allowing recovery at any time.
 
 If the market schedule changes, update these in `scripts/python/predictions_loader.py`:
 
-- `PSI_OPEN_AM` / `PSI_CUTOFF_AM`: Default `08:00:00` / `08:59:59` (must end before full-day opens)
 - `PSI_OPEN_FULL_DAY` / `PSI_CUTOFF_FULL_DAY`: Default `09:00:00` / `10:00:00`
-- `PSI_OPEN_PM` / `PSI_CUTOFF_PM`: Default `13:00:00` / `14:30:00`
 
 And update the `step-decider` in `.github/workflows/intraday-pipeline.yml`.
 

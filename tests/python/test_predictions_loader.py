@@ -12,6 +12,7 @@ from predictions_loader import (
     REGIME_TAXONOMY_URL,
     VALID_REGIMES,
     build_snapshot,
+    has_degenerate_inputs,
     validate_timestamp,
 )
 
@@ -187,6 +188,28 @@ class TestBuildSnapshot:
         assert "additionalProperty" in snapshot
         assert snapshot["additionalProperty"][0]["name"] == "Avg Equity Change"
 
+    def test_degenerate_inputs_all_zero_rejected(self):
+        """All-zero market inputs are the Lambda's fallback default, not a forecast."""
+        data = dict(SAMPLE_LAMBDA_SCHEMA_ORG)
+        data["additionalProperty"] = [
+            {"@type": "PropertyValue", "name": "Avg Equity Change", "value": 0},
+            {"@type": "PropertyValue", "name": "DXY Change", "value": 0},
+            {"@type": "PropertyValue", "name": "USD/THB Change", "value": 0},
+        ]
+        assert has_degenerate_inputs(build_snapshot(data)) is True
+
+    def test_degenerate_inputs_any_nonzero_accepted(self):
+        data = dict(SAMPLE_LAMBDA_SCHEMA_ORG)
+        data["additionalProperty"] = [
+            {"@type": "PropertyValue", "name": "Avg Equity Change", "value": 0.23},
+            {"@type": "PropertyValue", "name": "DXY Change", "value": 0},
+        ]
+        assert has_degenerate_inputs(build_snapshot(data)) is False
+
+    def test_degenerate_inputs_absent_not_flagged(self):
+        """Legacy/RapidAPI responses carry no market inputs — nothing to judge."""
+        assert has_degenerate_inputs(build_snapshot(SAMPLE_API_RESPONSE)) is False
+
     def test_lambda_schema_org_regime_normalisation(self):
         """Case/separator normalisation must still apply on passthrough path."""
         data = dict(SAMPLE_LAMBDA_SCHEMA_ORG)
@@ -197,54 +220,42 @@ class TestBuildSnapshot:
     # --- Lookahead Bias Gate ---
 
     def test_validate_timestamp_accepts_valid(self):
-        assert validate_timestamp("2026-06-15T08:30:00+07:00", "am") is True
-        assert validate_timestamp("2026-06-15T14:00:00+07:00", "pm") is True
+        assert validate_timestamp("2026-06-15T09:30:00+07:00", "full_day") is True
 
     def test_validate_timestamp_rejects_invalid(self):
-        assert validate_timestamp("2026-06-15T11:00:00+07:00", "am") is False
-        assert validate_timestamp("2026-06-15T15:00:00+07:00", "pm") is False
+        assert validate_timestamp("2026-06-15T11:00:00+07:00", "full_day") is False
+
+    def test_validate_timestamp_rejects_removed_session(self):
+        """am/pm sessions no longer exist — a prediction claiming one is rejected."""
+        assert validate_timestamp("2026-06-15T08:30:00+07:00", "am") is False
 
     def test_validate_timestamp_rejects_naive_datetime(self):
         """A timestamp with no timezone offset must be rejected, not silently
         converted using the host's local timezone."""
-        assert validate_timestamp("2026-06-15T09:00:00", "am") is False
+        assert validate_timestamp("2026-06-15T09:30:00", "full_day") is False
 
     def test_validate_timestamp_rejects_calendar_date_mismatch(self):
         """A time-of-day-valid timestamp for the wrong trading date must be rejected."""
         assert (
-            validate_timestamp("2026-06-15T08:30:00+07:00", "am", expected_date="2026-06-16")
+            validate_timestamp("2026-06-15T09:30:00+07:00", "full_day", expected_date="2026-06-16")
             is False
         )
 
     def test_validate_timestamp_accepts_matching_date_and_offset(self):
         assert (
-            validate_timestamp("2026-06-15T08:30:00+07:00", "am", expected_date="2026-06-15")
+            validate_timestamp("2026-06-15T09:30:00+07:00", "full_day", expected_date="2026-06-15")
             is True
         )
 
     # --- Lower-bound (premature capture) gate ---
 
-    def test_validate_timestamp_rejects_premature_am(self):
-        """A capture before the am window opens (08:00) must be rejected —
-        catches workflow_dispatch step=all firing outside market hours."""
-        assert validate_timestamp("2026-06-15T02:27:58+07:00", "am") is False
-
     def test_validate_timestamp_rejects_premature_full_day(self):
+        """A capture before the window opens (09:00) must be rejected —
+        catches workflow_dispatch step=all firing outside market hours."""
         assert validate_timestamp("2026-06-15T02:27:58+07:00", "full_day") is False
 
-    def test_validate_timestamp_rejects_premature_pm(self):
-        assert validate_timestamp("2026-06-15T02:27:58+07:00", "pm") is False
-
     def test_validate_timestamp_accepts_at_window_open(self):
-        assert validate_timestamp("2026-06-15T08:00:00+07:00", "am") is True
         assert validate_timestamp("2026-06-15T09:00:00+07:00", "full_day") is True
-        assert validate_timestamp("2026-06-15T13:00:00+07:00", "pm") is True
-
-    def test_am_and_full_day_windows_do_not_overlap(self):
-        """A single step=all run at 09:28 must not capture am alongside full_day."""
-        assert validate_timestamp("2026-06-15T09:28:00+07:00", "am") is False
-        assert validate_timestamp("2026-06-15T09:28:00+07:00", "full_day") is True
-        assert validate_timestamp("2026-06-15T09:00:00+07:00", "am") is False
 
 
 def test_shared_prediction_window_boundaries():
@@ -252,8 +263,6 @@ def test_shared_prediction_window_boundaries():
     # Shared resolver imported at module scope after test path setup.
 
     assert MARKET_WINDOWS == {
-        "am": {"open": "08:00:00", "cutoff": "08:59:59"},
-        "pm": {"open": "13:00:00", "cutoff": "14:30:00"},
         "full_day": {"open": "09:00:00", "cutoff": "10:00:00"},
     }
     for session, window in MARKET_WINDOWS.items():

@@ -37,8 +37,6 @@ MARKET_DATA_DIR = "market-data"
 VALIDATION_DIR = "validation"
 REPORTS_DIR = "reports"
 
-SESSIONS = ("full_day",)
-
 # --- File I/O ---
 
 
@@ -66,35 +64,13 @@ def save_json(filepath: str, data: object) -> None:
 # --- Engine Actions ---
 
 
-def find_latest_file(directory: str, date_str: str) -> str | None:
-    """Find the latest file matching YYYY-MM-DD-*.json."""
-    files = sorted(Path(directory).glob(f"{date_str}-*.json"))
-    if not files:
-        # Fallback to legacy YYYY-MM-DD.json
-        legacy = Path(directory) / f"{date_str}.json"
-        return str(legacy) if legacy.exists() else None
-    return str(files[-1])
-
-
 def find_latest_market_file(directory: str, date_str: str) -> str | None:
-    """Find the latest full-day (ATO -> ATC) market file: *-atc.json, else legacy YYYY-MM-DD.json.
+    """Find the latest full-day (ATO -> ATC) market file: *-atc.json.
 
-    Noon/pmopen captures are never returned — their actualRegime covers a
-    shorter window and must not stand in for the full-day outcome.
+    Other capture modes are never returned — only atc covers the full-day window.
     """
-    market_dir = Path(directory)
-    atc_files = sorted(market_dir.glob(f"{date_str}-*-atc.json"))
-    if atc_files:
-        return str(atc_files[-1])
-
-    # Fallback to legacy YYYY-MM-DD.json
-    legacy = market_dir / f"{date_str}.json"
-    if legacy.exists():
-        data = load_json(str(legacy))
-        if data and _extract_regime_value(data, "actualRegime", "Actual Regime"):
-            return str(legacy)
-
-    return None
+    atc_files = sorted(Path(directory).glob(f"{date_str}-*-atc.json"))
+    return str(atc_files[-1]) if atc_files else None
 
 
 def find_latest_prediction_file(directory: str, date_str: str, session: str) -> str | None:
@@ -134,19 +110,16 @@ def _build_validation_record(
     session: str,
     pred_path: str,
     market_path: str | None,
-    regimes: tuple[str, str | None, bool],
+    regimes: tuple[str, str | None],
 ) -> dict[str, Any]:
     """Build the schema.org Observation record for one validated session.
 
-    regimes: (predicted_regime, actual_regime, fallback_used) tuple. When
-    actual_regime is None (no market outcome could be resolved yet for this
-    session), the record is marked "pending" — isCorrect/deviationScore stay
-    None instead of fabricating a comparison against a truth that doesn't
-    exist yet. fallback_used is True when an am/pm session was scored
-    against the full-day window instead of its own dedicated window (see
-    _resolve_market_outcome) — recorded for audit trail purposes only.
+    regimes: (predicted_regime, actual_regime) tuple. When actual_regime is
+    None (no market outcome could be resolved yet for this session), the
+    record is marked "pending" — isCorrect/deviationScore stay None instead of
+    fabricating a comparison against a truth that doesn't exist yet.
     """
-    predicted_regime, actual_regime, fallback_used = regimes
+    predicted_regime, actual_regime = regimes
     if actual_regime is None:
         status = "pending"
         is_correct = None
@@ -201,12 +174,11 @@ def _build_validation_record(
         "actualRegime": actual_regime,
         "isCorrect": is_correct,
         "deviationScore": deviation,
-        "fallbackUsed": fallback_used,
     }
 
 
-def _resolve_market_outcome(date_str: str) -> tuple[str, str, bool] | None:
-    """Resolve the (market_path, actual_regime, fallback_used) for the full-day window."""
+def _resolve_market_outcome(date_str: str) -> tuple[str, str] | None:
+    """Resolve the (market_path, actual_regime) for the full-day window."""
     market_path = find_latest_market_file(MARKET_DATA_DIR, date_str)
     if not market_path:
         return None
@@ -215,7 +187,7 @@ def _resolve_market_outcome(date_str: str) -> tuple[str, str, bool] | None:
         return None
 
     regime = _extract_regime_value(market, "actualRegime", "Actual Regime")
-    return (market_path, regime, False) if regime else None
+    return (market_path, regime) if regime else None
 
 
 def run_daily_validation(date_str: str) -> list[dict[str, Any]]:
@@ -254,14 +226,14 @@ def run_daily_validation(date_str: str) -> list[dict[str, Any]]:
         log_event("INFO", "validation_engine", msg)
         return records
 
-    market_path, actual_regime, fallback_used = outcome
+    market_path, actual_regime = outcome
 
     record = _build_validation_record(
         date_str,
         session,
         pred_path,
         market_path,
-        (predicted_regime, actual_regime, fallback_used),
+        (predicted_regime, actual_regime),
     )
     save_json(str(Path(VALIDATION_DIR) / f"{record['file_id']}.json"), record)
     records.append(record)
@@ -372,7 +344,7 @@ def update_aggregate_metrics() -> None:
     total_accuracy = df["correct"].mean()
 
     # Rolling Accuracy (7D, 30D) — grouped by distinct trading date first, so a
-    # date with multiple sessions (am/pm/full_day) contributes one row instead
+    # date with multiple validation records contributes one row instead
     # of inflating the window with same-day duplicates.
     daily = df.groupby("date", as_index=False)["correct"].mean().sort_values("date")
     daily["rolling_7d"] = daily["correct"].rolling(window=7, min_periods=1).mean()
@@ -406,28 +378,6 @@ def update_aggregate_metrics() -> None:
     # confusion matrix already computed above, no new data source needed.
     precision, f1 = _compute_precision_and_f1(confusion, hit_rates)
 
-    # Calculate per-session metrics
-    by_window = {}
-    for s in SESSIONS:
-        sdf = df[df["session"] == s]
-        if not sdf.empty:
-            s_acc = sdf["correct"].mean()
-            s_7d = sdf["correct"].rolling(window=7, min_periods=1).mean().iloc[-1]
-            s_30d = sdf["correct"].rolling(window=30, min_periods=1).mean().iloc[-1]
-            by_window[s] = {
-                "overall_accuracy": float(s_acc),
-                "rolling_7d": float(s_7d),
-                "rolling_30d": float(s_30d),
-                "total_count": len(sdf),
-            }
-        else:
-            by_window[s] = {
-                "overall_accuracy": 0.0,
-                "rolling_7d": 0.0,
-                "rolling_30d": 0.0,
-                "total_count": 0,
-            }
-
     now_ict = datetime.now(UTC) + ICT_OFFSET
     metrics_report = {
         "@context": "https://schema.org",
@@ -457,7 +407,6 @@ def update_aggregate_metrics() -> None:
             "overall_accuracy": float(total_accuracy),
             "rolling_7d": float(rolling_7d_latest),
             "rolling_30d": float(rolling_30d_latest),
-            "by_window": by_window,
             "hit_rates": hit_rates,
             "precision": precision,
             "f1": f1,

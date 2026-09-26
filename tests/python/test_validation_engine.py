@@ -123,21 +123,16 @@ class TestThreeWindowValidation:
         monkeypatch.setattr("validation_engine.REPORTS_DIR", str(self.rep_dir))
 
     def test_find_latest_prediction_file(self):
-        # 1. Write prediction file with am session suffix
-        pred_am_path = self.pred_dir / "2026-06-16-090000-am.json"
-        pred_am_path.write_text(json.dumps({"session": "am", "predictedRegime": "Bullish"}))
+        (self.pred_dir / "2026-06-16-090000-full_day.json").write_text(
+            json.dumps({"session": "full_day", "predictedRegime": "Bullish"}),
+        )
+        (self.pred_dir / "2026-06-16-093000-full_day.json").write_text(
+            json.dumps({"session": "full_day", "predictedRegime": "Sideways"}),
+        )
 
-        found = find_latest_prediction_file(str(self.pred_dir), "2026-06-16", "am")
+        found = find_latest_prediction_file(str(self.pred_dir), "2026-06-16", "full_day")
         assert found is not None
-        assert Path(found).name == "2026-06-16-090000-am.json"
-
-        # 2. Write prediction file with explicit session suffix
-        pred_pm_path = self.pred_dir / "2026-06-16-140000-pm.json"
-        pred_pm_path.write_text(json.dumps({"session": "pm", "predictedRegime": "Sideways"}))
-
-        found_pm = find_latest_prediction_file(str(self.pred_dir), "2026-06-16", "pm")
-        assert found_pm is not None
-        assert Path(found_pm).name == "2026-06-16-140000-pm.json"
+        assert Path(found).name == "2026-06-16-093000-full_day.json"
 
     def test_run_daily_validation_full_day_only(self):
         """Single cycle: only the full_day prediction is scored; legacy am/pm are ignored."""
@@ -198,8 +193,8 @@ class TestThreeWindowValidation:
         update_aggregate_metrics()
         metrics = json.loads((self.rep_dir / "metrics.json").read_text())
         assert metrics["metrics"]["overall_accuracy"] == 1.0
-        assert metrics["metrics"]["by_window"]["full_day"]["total_count"] == 1
-        assert metrics["metrics"]["by_window"]["full_day"]["overall_accuracy"] == 1.0
+        assert metrics["metrics"]["total_count"] == 1
+        assert "by_window" not in metrics["metrics"]
 
     def test_truth_audit_classifies_historical_missing_prediction(self):
         audit_truth_layer.PREDICTIONS_DIR = self.pred_dir
@@ -256,49 +251,6 @@ class TestThreeWindowValidation:
             },
         ]
         assert report["expectedMissingMatches"] == []
-
-    def test_update_aggregate_metrics_by_window(self):
-        # Create validation files manually
-        val_am = self.val_dir / "2026-06-16-am.json"
-        val_am.write_text(
-            json.dumps(
-                {
-                    "date": "2026-06-16",
-                    "session": "am",
-                    "predictedRegime": "Bullish",
-                    "actualRegime": "Bullish",
-                    "isCorrect": True,
-                },
-            ),
-        )
-
-        val_pm = self.val_dir / "2026-06-16-pm.json"
-        val_pm.write_text(
-            json.dumps(
-                {
-                    "date": "2026-06-16",
-                    "session": "pm",
-                    "predictedRegime": "Bearish",
-                    "actualRegime": "Bullish",
-                    "isCorrect": False,
-                },
-            ),
-        )
-
-        update_aggregate_metrics()
-
-        metrics_file = self.rep_dir / "metrics.json"
-        assert metrics_file.exists()
-
-        metrics_data = json.loads(metrics_file.read_text())
-
-        assert "by_window" in metrics_data["metrics"]
-        by_window = metrics_data["metrics"]["by_window"]
-
-        # Single cycle: only full_day is broken out; legacy am/pm still count overall.
-        assert set(by_window) == {"full_day"}
-        assert by_window["full_day"]["total_count"] == 0
-        assert metrics_data["metrics"]["total_count"] == 2
 
     def test_update_aggregate_metrics_rolling_and_hit_rates(self):
         # Create 10 days of data to test rolling 7D
@@ -601,10 +553,9 @@ class TestResolveMarketOutcome:
             },
         )
 
-        market_path, regime, fallback_used = _resolve_market_outcome("2026-06-16")
+        market_path, regime = _resolve_market_outcome("2026-06-16")
         assert regime == "Bearish"
         assert market_path.endswith("-atc.json")
-        assert fallback_used is False
 
     def test_no_market_data_returns_none(self):
         assert _resolve_market_outcome("2026-06-16") is None

@@ -94,8 +94,6 @@ jobs:
           uv run scripts/python/capture_market.py --mode atc --symbol ^SET.BK --provider yahoo
           echo 'Running Validation & Metrics...'
           uv run scripts/python/validation_engine.py
-        env:
-          SETSMART_API_KEY: ${{ secrets.SETSMART_API_KEY }}
 
       - name: Enrich JSON files with schema.org JSON-LD
         if: success() && steps.step-decider.outputs.step != 'none'
@@ -107,7 +105,7 @@ jobs:
         if: success() && steps.step-decider.outputs.step != 'none'
         run: |
           echo 'Verifying data integrity and logic before commit...'
-          uv run pytest tests/python/test_capture_market.py tests/python/test_validation_engine.py tests/python/test_setsmart_integration.py -q
+          uv run pytest tests/python/test_capture_market.py tests/python/test_validation_engine.py -q
 
       - name: Commit and Push changes
         if: success() && steps.step-decider.outputs.step != 'none'

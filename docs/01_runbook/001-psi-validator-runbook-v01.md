@@ -27,6 +27,6 @@ Use the unified test runner for all verification tasks:
 ## 3. Troubleshooting
 
 - **Lookahead Bias:** If predictions are captured outside the window, check `predictions_loader.py` logs. Use `PSI_BYPASS_LOOKAHEAD=1` for manual testing.
-- **Capture Window Guard:** `capture_market.py` refuses to capture before 16:30 ICT (`CAPTURE_WINDOWS`), on the live *and* manual price paths, so a pre-close quote is never recorded as the ATC. For a deliberate backfill use `PSI_BYPASS_WINDOW_GUARD=true`, which stamps `"windowGuardBypassed": true` on the record; to rebuild past dates from historical bars use `scripts/python/backfill_market_data.py`, which stamps `"backfilledFrom"`. CI fails if either bypass is enabled. See RFC 019.
+- **Capture Window Guard:** `capture_market.py` refuses to capture before 16:30 ICT (`CAPTURE_WINDOWS`), on the live *and* manual price paths, so a pre-close quote is never recorded as the ATC. For a deliberate manual capture use `PSI_BYPASS_WINDOW_GUARD=true`, which stamps `"windowGuardBypassed": true` on the record. Past dates are never backfilled: committed artifacts are evidence, so a missed day stays a gap and a wrong file is deleted. CI fails if the bypass is enabled. See RFC 019.
 - **Workflow Scheduling:** If GitHub Actions run out of sequence, verify the `step-decider` logic in `.github/workflows/intraday-pipeline.yml`.
 - **Market Data Missing:** Check `logs/failures.jsonl` for API connection issues.

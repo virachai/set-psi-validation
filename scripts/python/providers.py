@@ -1,47 +1,15 @@
-"""Market data providers: Finnhub REST API and Yahoo Finance (yfinance).
+"""Market data provider: Yahoo Finance (yfinance).
 
-Both providers return a normalized quote dict {c, o, h, l, pc} so callers
+The provider returns a normalized quote dict {c, o, h, l, pc} so callers
 (capture_market.py) can treat the data source uniformly.
 """
 
-import os
-from datetime import UTC, datetime
+from datetime import UTC, datetime, time
 from typing import Any
 
-import httpx
 import yfinance as yf
 
-DEFAULT_TIMEOUT = 30.0
-
-
-def fetch_finnhub_quote(symbol: str) -> dict[str, Any] | None:
-    """Fetch a real-time quote from the Finnhub API."""
-    api_key = os.getenv("FINNHUB_API_KEY")
-    if not api_key:
-        print("[ERROR] FINNHUB_API_KEY not found in environment variables.")
-        return None
-
-    # Finnhub API endpoint for real-time quotes
-    url = f"https://finnhub.io/api/v1/quote?symbol={symbol}&token={api_key}"
-
-    try:
-        with httpx.Client(timeout=DEFAULT_TIMEOUT) as client:
-            response = client.get(url)
-            response.raise_for_status()
-            data = response.json()
-            if data and data.get("c", 0) > 0:
-                quote = data.get("c")
-                open_p = data.get("o")
-                msg = (
-                    f"[FINNHUB] Successfully fetched live quote for {symbol}: c={quote}, o={open_p}"
-                )
-                print(msg)
-            if data is not None:
-                data["fetched_at"] = datetime.now(UTC).isoformat()
-            return data
-    except Exception as e:
-        print(f"[ERROR] Error fetching Finnhub data: {e}")
-        return None
+ATO_BAR_ICT = time(10, 0)  # SET morning session open (RFC 019: ato = open of the 10:00 bar)
 
 
 def fetch_yahoo_quote(symbol: str) -> dict[str, Any] | None:
@@ -83,3 +51,25 @@ def fetch_yahoo_quote(symbol: str) -> dict[str, Any] | None:
     fmt = f"o={open_p}, c={close_p}, h={high_p}, l={low_p}"
     print(f"[YFINANCE] Successfully fetched for {symbol}: {fmt}")
     return data
+
+
+def fetch_yahoo_ato_open(symbol: str, date_str: str) -> float | None:
+    """Return the open of the date's 10:00 ICT 30m bar — the ATO price.
+
+    The daily bar's Open is not the ATO print (RFC 015/019), so the ATO is
+    read from the intraday bar that the auction opens.
+    """
+    if symbol.upper() in ["SET", "^SET"]:
+        symbol = "^SET.BK"
+
+    try:
+        bars = yf.Ticker(symbol).history(period="1d", interval="30m")
+    except Exception as e:
+        print(f"[ERROR] Error fetching Yahoo intraday bars for {symbol}: {e}")
+        return None
+
+    for ts, bar in bars.iterrows():
+        if ts.date().isoformat() == date_str and ts.time() == ATO_BAR_ICT:
+            return float(bar["Open"])
+    print(f"[WARN] No 10:00 bar for {symbol} on {date_str} in Yahoo intraday data")
+    return None

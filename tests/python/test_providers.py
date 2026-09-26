@@ -1,4 +1,4 @@
-"""Tests for providers.py — Finnhub/Yahoo quote freshness metadata (RFC-001 ISS-09/ISS-10)."""
+"""Tests for providers.py — Yahoo quote freshness metadata (RFC-001 ISS-09/ISS-10)."""
 
 import pathlib
 import sys
@@ -8,18 +8,7 @@ import pandas as pd
 
 sys.path.insert(0, str(pathlib.Path(__file__).parents[2] / "scripts" / "python"))
 
-from providers import fetch_finnhub_quote, fetch_yahoo_quote
-
-
-class TestFetchFinnhubQuote:
-    def test_attaches_fetched_at(self, monkeypatch):
-        monkeypatch.setenv("FINNHUB_API_KEY", "test-key")
-        mock_response = MagicMock()
-        mock_response.json.return_value = {"c": 1450.0, "o": 1440.0}
-        mock_response.raise_for_status.return_value = None
-        with patch("httpx.Client.get", return_value=mock_response):
-            data = fetch_finnhub_quote("SET")
-        assert "fetched_at" in data
+from providers import fetch_yahoo_quote
 
 
 class TestFetchYahooQuote:

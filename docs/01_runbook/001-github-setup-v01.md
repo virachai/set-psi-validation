@@ -45,15 +45,6 @@ The pipeline requires **4 secrets** and **1 variable** to run the full intraday 
 | `PSI_ENGINE_API_KEY` | `predictions_loader.py`        | API key for PSI Engine (prediction generation). | **Yes**  |
 | `PSI_API_URL`        | `predictions_loader.py`        | Full URL to PSI Engine prediction endpoint.     | **Yes**  |
 | `RAPIDAPI_HOST`      | `predictions_loader.py`        | RapidAPI host header.                           | **Yes**  |
-| `SETSMART_API_KEY`   | `capture_market.py`            | API key for SETSMART market data source.        | **Yes**  |
-
-### Repository Variables
-
-> **GitHub UI → Settings → Secrets and variables → Actions → Variables**
-
-| Variable           | Used By             | Description                                 | Required |
-| :----------------- | :------------------ | :------------------------------------------ | :------- |
-| `SET_INDEX_SYMBOL` | `capture_market.py` | SETSMART symbol for the SET index (default: `SET`). | No  |
 
 ### Setting via CLI
 
@@ -62,10 +53,6 @@ The pipeline requires **4 secrets** and **1 variable** to run the full intraday 
 gh secret set PSI_ENGINE_API_KEY --repo owner/set-psi-validation
 gh secret set PSI_API_URL --repo owner/set-psi-validation
 gh secret set RAPIDAPI_HOST --repo owner/set-psi-validation
-gh secret set SETSMART_API_KEY --repo owner/set-psi-validation
-
-# Variables
-gh variable set SET_INDEX_SYMBOL --repo owner/set-psi-validation
 ```
 
 You will be prompted to paste each value.

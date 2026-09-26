@@ -16,7 +16,6 @@ import pandas as pd
 PREDICTIONS_DIR = Path("predictions")
 MARKET_DATA_DIR = Path("market-data")
 REPORTS_DIR = Path("reports")
-SESSIONS = ("am", "pm", "full_day")
 
 
 def load_json(filepath: Path) -> dict[str, Any] | None:
@@ -45,17 +44,8 @@ def _extract_regime_value(observation: dict, flat_key: str, measure_name: str) -
 
 
 def get_file_metadata(path: Path) -> tuple[str, str]:
-    """Extract (date, session) from filename (YYYY-MM-DD-*-session.json)."""
-    # Simplified extraction based on typical naming: YYYY-MM-DD-HHMMSS-session.json
-    parts = path.stem.split("-")
-    date_part = "-".join(parts[:3])
-    # Identify session from the end of the stem
-    session = "full_day"
-    if path.stem.endswith("-am"):
-        session = "am"
-    elif path.stem.endswith("-pm"):
-        session = "pm"
-    return date_part, session
+    """Extract (date, session) from filename (YYYY-MM-DD-*.json); full_day is the only session."""
+    return path.name[:10], "full_day"
 
 
 def run_deep_audit() -> dict[str, Any]:

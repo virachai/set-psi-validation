@@ -20,51 +20,10 @@ from capture_market import (
     _fetch_live_prices,
     _mark_bypass,
     compute_rolling_threshold_mean,
-    extract_market_prices,
     handle_atc,
     save_market_data,
 )
 from regime_rules import DEFAULT_THRESHOLD_MEAN, derive_actual_regime
-
-# --- extract_market_prices ---
-
-
-class TestExtractMarketPrices:
-    def test_normal_prices(self):
-        eod = {"open": 100.0, "close": 105.0, "high": 110.0, "low": 95.0}
-        ato, atc, vol = extract_market_prices(eod)
-        assert ato == 100.0
-        assert atc == 105.0
-        assert vol == 0.05  # (110-95)/100 = 0.15, capped at 0.05
-
-    def test_open_price_zero_fails_closed(self):
-        """A missing/zero open price must raise, not silently default to 0.0."""
-        eod = {"open": 0.0, "close": 105.0, "high": 110.0, "low": 95.0}
-        with pytest.raises(RuntimeError, match="Missing/invalid open price"):
-            extract_market_prices(eod)
-
-    def test_missing_high_fails_closed(self):
-        eod = {"open": 100.0, "close": 105.0, "low": 95.0}
-        with pytest.raises(RuntimeError, match="Missing/invalid high price"):
-            extract_market_prices(eod)
-
-    def test_missing_low_fails_closed(self):
-        eod = {"open": 100.0, "close": 105.0, "high": 110.0}
-        with pytest.raises(RuntimeError, match="Missing/invalid low price"):
-            extract_market_prices(eod)
-
-    def test_missing_close_fails_closed(self):
-        eod = {"open": 100.0, "high": 110.0, "low": 95.0}
-        with pytest.raises(RuntimeError, match="Missing/invalid close price"):
-            extract_market_prices(eod)
-
-    def test_alternate_field_names(self):
-        eod = {"openPrice": 100.0, "last": 102.0, "highPrice": 103.0, "lowPrice": 99.0}
-        ato, atc, vol = extract_market_prices(eod)
-        assert ato == 100.0
-        assert atc == 102.0
-        assert vol == 0.0396  # (103-99) / 101 = 0.039603...
-
 
 # --- derive_actual_regime (double-check parity with validation_engine) ---
 
@@ -160,30 +119,17 @@ class TestHandleAtc:
 
     def test_fetch_live_prices_fails_closed(self, monkeypatch):
         """Ensure _fetch_live_prices raises RuntimeError if provider returns no data."""
-        # Finnhub returning empty
-        monkeypatch.setattr("capture_market.fetch_finnhub_quote", lambda sym: {})
-        with pytest.raises(RuntimeError, match="Finnhub API returned no valid quote"):
-            _fetch_live_prices("finnhub", "SET", "2026-06-14", "atc")
-
         # Yahoo returning empty
         monkeypatch.setattr("capture_market.fetch_yahoo_quote", lambda sym: {})
         with pytest.raises(RuntimeError, match="Yahoo Finance returned no valid quote"):
             _fetch_live_prices("yahoo", "^SET.BK", "2026-06-14", "atc")
 
-        # SETSMART returning None
-        monkeypatch.setattr("capture_market.fetch_setsmart_eod", lambda sym, dt: None)
-        with pytest.raises(RuntimeError, match="SETSMART API returned no data"):
-            _fetch_live_prices("setsmart", "SET", "2026-06-14", "atc")
+        # Removed/unknown provider
+        with pytest.raises(ValueError, match="Unknown market data provider"):
+            _fetch_live_prices("unknown", "SET", "2026-06-14", "atc")
 
     def test_fetch_live_prices_fails_closed_on_missing_open(self, monkeypatch):
-        """Finnhub/Yahoo quotes with a valid close but missing open must still fail closed."""
-        monkeypatch.setattr(
-            "capture_market.fetch_finnhub_quote",
-            lambda sym: {"c": 1450.0, "o": 0.0},
-        )
-        with pytest.raises(RuntimeError, match="no valid open price"):
-            _fetch_live_prices("finnhub", "SET", "2026-06-14", "atc")
-
+        """Yahoo quotes with a valid close but missing open must still fail closed."""
         monkeypatch.setattr(
             "capture_market.fetch_yahoo_quote",
             lambda sym: {"c": 1450.0, "o": 0.0, "h": 1460.0, "l": 1440.0},
@@ -198,6 +144,26 @@ class TestHandleAtc:
             lambda sym: {"c": 1450.0, "o": 1440.0, "h": 0.0, "l": 1430.0},
         )
         with pytest.raises(RuntimeError, match="no valid high/low price"):
+            _fetch_live_prices("yahoo", "^SET.BK", "2026-06-14", "atc")
+
+    def test_yahoo_ato_is_10am_bar_open_not_daily_open(self, monkeypatch):
+        """RFC 019: ATO = open of the 10:00 bar; the daily bar's Open must not stand in."""
+        monkeypatch.setattr(
+            "capture_market.fetch_yahoo_quote",
+            lambda sym: {"c": 1450.0, "o": 1440.0, "h": 1460.0, "l": 1430.0},
+        )
+        monkeypatch.setattr("capture_market.fetch_yahoo_ato_open", lambda sym, dt: 1443.5)
+        ato, atc, _ = _fetch_live_prices("yahoo", "^SET.BK", "2026-06-14", "atc")
+        assert ato == 1443.5
+        assert atc == 1450.0
+
+    def test_yahoo_fails_closed_without_10am_bar(self, monkeypatch):
+        monkeypatch.setattr(
+            "capture_market.fetch_yahoo_quote",
+            lambda sym: {"c": 1450.0, "o": 1440.0, "h": 1460.0, "l": 1430.0},
+        )
+        monkeypatch.setattr("capture_market.fetch_yahoo_ato_open", lambda sym, dt: None)
+        with pytest.raises(RuntimeError, match="no 10:00 bar"):
             _fetch_live_prices("yahoo", "^SET.BK", "2026-06-14", "atc")
 
 

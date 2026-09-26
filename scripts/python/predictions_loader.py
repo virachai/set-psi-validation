@@ -192,6 +192,21 @@ def build_snapshot(raw: dict, session: str = "full_day") -> dict:
     }
 
 
+def has_degenerate_inputs(snapshot: dict) -> bool:
+    """Return True when every market input the Lambda reports is exactly zero.
+
+    All-zero Equity/DXY/USD-THB changes mean the engine's data sources failed
+    and it emitted its fallback default, not a forecast. Recording it would
+    score the default against reality (fails closed, like extract_market_prices).
+    """
+    inputs = [
+        pv.get("value")
+        for pv in snapshot.get("additionalProperty", [])
+        if isinstance(pv, dict) and isinstance(pv.get("value"), int | float)
+    ]
+    return bool(inputs) and all(v == 0 for v in inputs)
+
+
 def save_snapshot(snapshot: dict) -> str:
     """Write the prediction snapshot to predictions/YYYY-MM-DD-HHMMSS-session.json."""
     predictions_dir = Path(PREDICTIONS_DIR)
@@ -247,9 +262,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="PSI Prediction Loader")
     parser.add_argument(
         "--session",
-        choices=["am", "pm", "full_day"],
+        choices=["full_day"],
         default="full_day",
-        help="Prediction session window (am, pm, full_day).",
+        help="Prediction session window.",
     )
     args = parser.parse_args()
 
@@ -267,6 +282,11 @@ def main() -> None:
         if not data:
             return
         snapshot = build_snapshot(data, session=args.session)
+        if has_degenerate_inputs(snapshot):
+            error_msg = "PSI Engine returned all-zero market inputs (fallback default) — rejected."
+            print(f"[ERROR] {error_msg}")
+            log_failure("predictions_loader", error_msg)
+            sys.exit(1)
         if not validate_timestamp(
             snapshot["timestamp"],
             args.session,
