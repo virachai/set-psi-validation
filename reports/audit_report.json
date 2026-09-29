@@ -1,4 +1,6 @@
 {
+  "@context": "https://schema.org",
+  "@type": "Dataset",
   "auditDate": "2026-09-26T11:23:56.643296",
   "totalPredictions": 0,
   "totalMarketData": 6,
