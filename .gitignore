@@ -49,6 +49,7 @@ uv.lock
 .tmp/
 .ruff_cache/
 app.jsonl
+logs/*.jsonl
 # window-guard quarantine (bad captures; originals recoverable from git history)
 quarantine/
 

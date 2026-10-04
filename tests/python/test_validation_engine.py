@@ -221,7 +221,7 @@ class TestThreeWindowValidation:
             {
                 "date": "2026-09-08",
                 "session": "full_day",
-                "file": str(self.market_dir / "2026-09-08-164500-atc.json"),
+                "file": (self.market_dir / "2026-09-08-164500-atc.json").as_posix(),
                 "classification": "expected_missing",
             },
         ]
@@ -246,7 +246,7 @@ class TestThreeWindowValidation:
             {
                 "date": "2026-09-10",
                 "session": "full_day",
-                "file": str(self.market_dir / "2026-09-10-164500-atc.json"),
+                "file": (self.market_dir / "2026-09-10-164500-atc.json").as_posix(),
                 "classification": "unexpected_missing",
             },
         ]

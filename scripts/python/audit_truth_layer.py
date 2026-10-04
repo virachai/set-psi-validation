@@ -71,11 +71,11 @@ def run_deep_audit() -> dict[str, Any]:
     earliest_prediction_date = min(prediction_dates) if prediction_dates else None
 
     all_keys = set(preds.keys()) | set(markets.keys())
-    for key in all_keys:
+    for key in sorted(all_keys):
         if key in preds and key not in markets:
-            orphans.append({"date": key[0], "session": key[1], "file": str(preds[key])})
+            orphans.append({"date": key[0], "session": key[1], "file": preds[key].as_posix()})
         elif key not in preds and key in markets:
-            finding = {"date": key[0], "session": key[1], "file": str(markets[key])}
+            finding = {"date": key[0], "session": key[1], "file": markets[key].as_posix()}
             if earliest_prediction_date is None or key[0] < earliest_prediction_date:
                 finding["classification"] = "expected_missing"
                 expected_missing_matches.append(finding)
