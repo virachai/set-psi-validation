@@ -41,12 +41,16 @@ REPORTS_DIR = "reports"
 
 
 def load_json(filepath: str) -> dict[str, Any] | None:
-    """Load a JSON file, returning None when it is missing or empty."""
+    """Load a JSON file, returning None when it is missing or malformed."""
     path = Path(filepath)
     if not path.exists():
         return None
-    with path.open(encoding="utf-8") as f:
-        return json.load(f)
+    try:
+        with path.open(encoding="utf-8") as f:
+            return json.load(f)
+    except json.JSONDecodeError as e:
+        log_event("WARNING", "validation_engine", f"Rejected malformed JSON {path.name}: {e}")
+        return None
 
 
 def save_json(filepath: str, data: object) -> None:
@@ -65,12 +69,21 @@ def save_json(filepath: str, data: object) -> None:
 
 
 def find_latest_market_file(directory: str, date_str: str) -> str | None:
-    """Find the latest full-day (ATO -> ATC) market file: *-atc.json.
+    """Find the latest valid full-day (ATO -> ATC) market file: *-atc.json.
 
     Other capture modes are never returned — only atc covers the full-day window.
+    The filename only nominates candidates (RFC 021): the payload must be complete,
+    carry the requested date, and not come from a window-guard bypass.
     """
-    atc_files = sorted(Path(directory).glob(f"{date_str}-*-atc.json"))
-    return str(atc_files[-1]) if atc_files else None
+    atc_files = sorted(Path(directory).glob(f"{date_str}-*-atc.json"), reverse=True)
+    for path in atc_files:
+        data = load_json(str(path))
+        if not data or data.get("status") != "complete":
+            continue
+        if data.get("date") != date_str or data.get("windowGuardBypassed"):
+            continue
+        return str(path)
+    return None
 
 
 def find_latest_prediction_file(directory: str, date_str: str, session: str) -> str | None:
@@ -78,11 +91,11 @@ def find_latest_prediction_file(directory: str, date_str: str, session: str) -> 
     files = sorted(Path(directory).glob(f"{date_str}-*-{session}.json"), reverse=True)
     for path in files:
         data = load_json(str(path))
-        if not data:
+        if not data or data.get("date") != date_str:
             continue
         observed = data.get("observationDate") or data.get("timestamp")
         if not observed:
-            return str(path)
+            continue  # fail closed: no timestamp means the lookahead gate cannot run
         valid, _ = validate_prediction_timestamp(observed, session, date_str)
         if valid:
             return str(path)

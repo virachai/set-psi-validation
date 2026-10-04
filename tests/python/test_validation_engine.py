@@ -4,6 +4,7 @@ import json
 import sys
 from datetime import time
 from pathlib import Path
+from typing import ClassVar
 
 import pytest
 
@@ -124,10 +125,24 @@ class TestThreeWindowValidation:
 
     def test_find_latest_prediction_file(self):
         (self.pred_dir / "2026-06-16-090000-full_day.json").write_text(
-            json.dumps({"session": "full_day", "predictedRegime": "Bullish"}),
+            json.dumps(
+                {
+                    "session": "full_day",
+                    "predictedRegime": "Bullish",
+                    "date": "2026-06-16",
+                    "timestamp": "2026-06-16T09:00:00+07:00",
+                },
+            ),
         )
         (self.pred_dir / "2026-06-16-093000-full_day.json").write_text(
-            json.dumps({"session": "full_day", "predictedRegime": "Sideways"}),
+            json.dumps(
+                {
+                    "session": "full_day",
+                    "predictedRegime": "Sideways",
+                    "date": "2026-06-16",
+                    "timestamp": "2026-06-16T09:30:00+07:00",
+                },
+            ),
         )
 
         found = find_latest_prediction_file(str(self.pred_dir), "2026-06-16", "full_day")
@@ -137,13 +152,20 @@ class TestThreeWindowValidation:
     def test_run_daily_validation_full_day_only(self):
         """Single cycle: only the full_day prediction is scored; legacy am/pm are ignored."""
         (self.market_dir / "2026-06-16-163000-atc.json").write_text(
-            json.dumps({"actualRegime": "Bullish"}),
+            json.dumps({"status": "complete", "date": "2026-06-16", "actualRegime": "Bullish"}),
         )
         (self.pred_dir / "2026-06-16-090000-am.json").write_text(
             json.dumps({"session": "am", "predictedRegime": "Bearish"}),
         )
         (self.pred_dir / "2026-06-16-090000-full_day.json").write_text(
-            json.dumps({"session": "full_day", "predictedRegime": "Bullish"}),
+            json.dumps(
+                {
+                    "session": "full_day",
+                    "predictedRegime": "Bullish",
+                    "date": "2026-06-16",
+                    "timestamp": "2026-06-16T09:00:00+07:00",
+                },
+            ),
         )
 
         records = run_daily_validation("2026-06-16")
@@ -172,7 +194,8 @@ class TestThreeWindowValidation:
         market_path = save_market_data(
             {
                 "actualRegime": "Sideways",
-                "status": "ok",
+                "status": "complete",
+                "date": "2026-06-16",
                 "observationPeriod": "2026-06-16T10:00:00+07:00/2026-06-16T16:30:00+07:00",
             },
             "2026-06-16",
@@ -327,6 +350,7 @@ class TestThreeWindowValidation:
         )
         atc_data = {
             "status": "complete",
+            "date": "2026-06-16",
             "actualRegime": "Bearish",
             "atoPrice": 100.0,
             "atcPrice": 98.0,
@@ -375,13 +399,21 @@ class TestThreeWindowValidation:
         )
         atc_data = {
             "status": "complete",
+            "date": "2026-06-16",
             "actualRegime": "Bearish",
             "atoPrice": 100.0,
             "atcPrice": 98.0,
         }
         (self.market_dir / "2026-06-16-163000-atc.json").write_text(json.dumps(atc_data))
         (self.pred_dir / "2026-06-16-090000-full_day.json").write_text(
-            json.dumps({"session": "full_day", "predictedRegime": "Sideways"}),
+            json.dumps(
+                {
+                    "session": "full_day",
+                    "predictedRegime": "Sideways",
+                    "date": "2026-06-16",
+                    "timestamp": "2026-06-16T09:00:00+07:00",
+                },
+            ),
         )
 
         records = run_daily_validation("2026-06-16")
@@ -392,7 +424,14 @@ class TestThreeWindowValidation:
     def test_run_daily_validation_skips_when_no_market_file(self):
         """No market capture yet for this date: write no validation file at all."""
         (self.pred_dir / "2026-06-16-090000-full_day.json").write_text(
-            json.dumps({"session": "full_day", "predictedRegime": "Bullish"}),
+            json.dumps(
+                {
+                    "session": "full_day",
+                    "predictedRegime": "Bullish",
+                    "date": "2026-06-16",
+                    "timestamp": "2026-06-16T09:00:00+07:00",
+                },
+            ),
         )
 
         records = run_daily_validation("2026-06-16")
@@ -406,7 +445,14 @@ class TestThreeWindowValidation:
             json.dumps({"status": "complete", "actualRegime": "Bullish"}),
         )
         (self.pred_dir / "2026-06-16-090000-full_day.json").write_text(
-            json.dumps({"session": "full_day", "predictedRegime": "Bullish"}),
+            json.dumps(
+                {
+                    "session": "full_day",
+                    "predictedRegime": "Bullish",
+                    "date": "2026-06-16",
+                    "timestamp": "2026-06-16T09:00:00+07:00",
+                },
+            ),
         )
 
         assert _resolve_market_outcome("2026-06-16") is None
@@ -527,6 +573,74 @@ class TestThreeWindowValidation:
         assert metrics["f1"]["Sideways"] is None
 
 
+class TestPayloadValidatedResolution:
+    """RFC 021: filenames only nominate candidates; the payload must prove identity."""
+
+    DATE = "2026-06-16"
+    MARKET: ClassVar[dict] = {"status": "complete", "date": DATE, "actualRegime": "Bearish"}
+    PREDICTION: ClassVar[dict] = {
+        "session": "full_day",
+        "predictedRegime": "Bullish",
+        "date": DATE,
+        "timestamp": f"{DATE}T09:00:00+07:00",
+    }
+
+    @pytest.fixture(autouse=True)
+    def setup_dirs(self, tmp_path):
+        self.market_dir = tmp_path / "market-data"
+        self.pred_dir = tmp_path / "predictions"
+        self.market_dir.mkdir()
+        self.pred_dir.mkdir()
+
+    def _market(self, name: str, **overrides: object) -> None:
+        (self.market_dir / name).write_text(json.dumps({**self.MARKET, **overrides}))
+
+    def _prediction(self, name: str, **overrides: object) -> None:
+        data = {k: v for k, v in {**self.PREDICTION, **overrides}.items() if v is not None}
+        (self.pred_dir / name).write_text(json.dumps(data))
+
+    def _find_market(self) -> str | None:
+        return find_latest_market_file(str(self.market_dir), self.DATE)
+
+    def _find_prediction(self) -> str | None:
+        return find_latest_prediction_file(str(self.pred_dir), self.DATE, "full_day")
+
+    def test_market_with_wrong_payload_date_is_rejected(self):
+        self._market("2026-06-16-163000-atc.json", date="2026-06-15")
+        assert self._find_market() is None
+
+    def test_incomplete_market_is_rejected(self):
+        self._market("2026-06-16-163000-atc.json", status="partial")
+        assert self._find_market() is None
+
+    def test_bypassed_market_is_rejected(self):
+        self._market("2026-06-16-163000-atc.json", windowGuardBypassed=True)
+        assert self._find_market() is None
+
+    def test_invalid_later_market_falls_back_to_valid_earlier(self):
+        self._market("2026-06-16-163000-atc.json")
+        self._market("2026-06-16-170000-atc.json", status="partial")
+        assert Path(self._find_market()).name == "2026-06-16-163000-atc.json"
+
+    def test_malformed_market_json_is_rejected(self):
+        (self.market_dir / "2026-06-16-163000-atc.json").write_text("{not json")
+        assert self._find_market() is None
+
+    def test_prediction_with_wrong_payload_date_is_rejected(self):
+        self._prediction("2026-06-16-090000-full_day.json", date="2026-06-15")
+        assert self._find_prediction() is None
+
+    def test_prediction_without_timestamp_is_rejected(self):
+        self._prediction("2026-06-16-090000-full_day.json", timestamp=None)
+        assert self._find_prediction() is None
+
+    def test_valid_artifacts_still_resolve(self):
+        self._market("2026-06-16-163000-atc.json")
+        self._prediction("2026-06-16-090000-full_day.json")
+        assert self._find_market() is not None
+        assert self._find_prediction() is not None
+
+
 class TestResolveMarketOutcome:
     """Single cycle: the outcome is always the ATC file's full-day actualRegime (RFC 020)."""
 
@@ -548,6 +662,7 @@ class TestResolveMarketOutcome:
             "2026-06-16-163000-atc.json",
             {
                 "status": "complete",
+                "date": "2026-06-16",
                 "actualRegime": "Bearish",
                 "afternoonRegime": "Bullish",
             },
