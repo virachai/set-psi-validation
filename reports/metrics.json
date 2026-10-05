@@ -1,0 +1,118 @@
+{
+  "@context": "https://schema.org",
+  "@type": "Dataset",
+  "name": "PSI Aggregated Metrics",
+  "description": "Rolling performance metrics for PSI regime validation.",
+  "measuredProperty": {
+    "@type": "DefinedTerm",
+    "name": "Regime Prediction Accuracy"
+  },
+  "datePublished": "2026-10-05T16:58:01+07:00",
+  "variableMeasured": [
+    {
+      "@type": "PropertyValue",
+      "name": "Overall Accuracy",
+      "value": 0.0
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "Rolling 7D Accuracy",
+      "value": 0.0
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "Rolling 30D Accuracy",
+      "value": 0.0
+    }
+  ],
+  "metrics": {
+    "overall_accuracy": 0.0,
+    "rolling_7d": 0.0,
+    "rolling_30d": 0.0,
+    "hit_rates": {
+      "Bullish": null,
+      "Bearish": null,
+      "Sideways": 0.0,
+      "Risk-Off": null,
+      "Crisis": null,
+      "Unclassified": null
+    },
+    "precision": {
+      "Bullish": null,
+      "Bearish": 0.0,
+      "Sideways": null,
+      "Risk-Off": null,
+      "Crisis": null,
+      "Unclassified": null
+    },
+    "f1": {
+      "Bullish": null,
+      "Bearish": null,
+      "Sideways": null,
+      "Risk-Off": null,
+      "Crisis": null,
+      "Unclassified": null
+    },
+    "total_count": 1
+  },
+  "confusion_matrix": {
+    "Bullish": {
+      "Bullish": 0,
+      "Bearish": 0,
+      "Sideways": 0,
+      "Risk-Off": 0,
+      "Crisis": 0,
+      "Unclassified": 0
+    },
+    "Bearish": {
+      "Bullish": 0,
+      "Bearish": 0,
+      "Sideways": 0,
+      "Risk-Off": 0,
+      "Crisis": 0,
+      "Unclassified": 0
+    },
+    "Sideways": {
+      "Bullish": 0,
+      "Bearish": 1,
+      "Sideways": 0,
+      "Risk-Off": 0,
+      "Crisis": 0,
+      "Unclassified": 0
+    },
+    "Risk-Off": {
+      "Bullish": 0,
+      "Bearish": 0,
+      "Sideways": 0,
+      "Risk-Off": 0,
+      "Crisis": 0,
+      "Unclassified": 0
+    },
+    "Crisis": {
+      "Bullish": 0,
+      "Bearish": 0,
+      "Sideways": 0,
+      "Risk-Off": 0,
+      "Crisis": 0,
+      "Unclassified": 0
+    },
+    "Unclassified": {
+      "Bullish": 0,
+      "Bearish": 0,
+      "Sideways": 0,
+      "Risk-Off": 0,
+      "Crisis": 0,
+      "Unclassified": 0
+    }
+  },
+  "history": [
+    {
+      "date": "2026-10-05",
+      "file_id": "2026-10-05-092800-full_day",
+      "session": "full_day",
+      "predicted": "Bearish",
+      "actual": "Sideways",
+      "correct": false
+    }
+  ]
+}
