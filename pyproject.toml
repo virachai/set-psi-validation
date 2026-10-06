@@ -12,6 +12,7 @@ dependencies = [
     "numpy",
     "pdfplumber",
     "yfinance>=1.7.0",
+    "websockets>=17.1",
 ]
 
 [dependency-groups]
