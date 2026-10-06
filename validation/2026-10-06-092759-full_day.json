@@ -1,0 +1,35 @@
+{
+  "@context": "https://schema.org",
+  "@type": "Observation",
+  "name": "Validation Evaluation 2026-10-06-092759-full_day",
+  "observationDate": "2026-10-06T16:57:59+07:00",
+  "observationAbout": [
+    {
+      "@id": "predictions/2026-10-06-092759-full_day.json"
+    },
+    {
+      "@id": "market-data/2026-10-06-165758-atc.json"
+    }
+  ],
+  "measuredProperty": {
+    "@type": "DefinedTerm",
+    "name": "Regime Prediction Accuracy"
+  },
+  "variableMeasured": {
+    "@type": "PropertyValue",
+    "name": "Is Correct",
+    "value": false
+  },
+  "marginOfError": {
+    "@type": "QuantitativeValue",
+    "value": 1.0
+  },
+  "date": "2026-10-06",
+  "file_id": "2026-10-06-092759-full_day",
+  "session": "full_day",
+  "status": "complete",
+  "predictedRegime": "Bullish",
+  "actualRegime": "Sideways",
+  "isCorrect": false,
+  "deviationScore": 1.0
+}
