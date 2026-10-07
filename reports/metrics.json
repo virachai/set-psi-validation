@@ -7,7 +7,7 @@
     "@type": "DefinedTerm",
     "name": "Regime Prediction Accuracy"
   },
-  "datePublished": "2026-10-06T22:56:35+07:00",
+  "datePublished": "2026-10-07T16:58:02+07:00",
   "variableMeasured": [
     {
       "@type": "PropertyValue",
@@ -35,12 +35,12 @@
       "Sideways": 0.0,
       "Risk-Off": null,
       "Crisis": null,
-      "Unclassified": null
+      "Unclassified": 0.0
     },
     "precision": {
       "Bullish": 0.0,
       "Bearish": 0.0,
-      "Sideways": null,
+      "Sideways": 0.0,
       "Risk-Off": null,
       "Crisis": null,
       "Unclassified": null
@@ -48,12 +48,12 @@
     "f1": {
       "Bullish": null,
       "Bearish": null,
-      "Sideways": null,
+      "Sideways": 0.0,
       "Risk-Off": null,
       "Crisis": null,
       "Unclassified": null
     },
-    "total_count": 2
+    "total_count": 3
   },
   "confusion_matrix": {
     "Bullish": {
@@ -99,7 +99,7 @@
     "Unclassified": {
       "Bullish": 0,
       "Bearish": 0,
-      "Sideways": 0,
+      "Sideways": 1,
       "Risk-Off": 0,
       "Crisis": 0,
       "Unclassified": 0
@@ -120,6 +120,14 @@
       "session": "full_day",
       "predicted": "Bullish",
       "actual": "Sideways",
+      "correct": false
+    },
+    {
+      "date": "2026-10-07",
+      "file_id": "2026-10-07-092759-full_day",
+      "session": "full_day",
+      "predicted": "Sideways",
+      "actual": "Unclassified",
       "correct": false
     }
   ]

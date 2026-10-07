@@ -1,0 +1,49 @@
+{
+  "@context": "https://schema.org",
+  "@type": "Observation",
+  "name": "SET Market Outcome 2026-10-07",
+  "observationDate": "2026-10-07",
+  "observationPeriod": "2026-10-07T10:00:00+07:00/2026-10-07T16:30:00+07:00",
+  "measuredProperty": {
+    "@type": "DefinedTerm",
+    "name": "Actual Regime",
+    "inDefinedTermSet": "https://raw.githubusercontent.com/virachai/set-psi-validation/main/docs/010-regime-taxonomy-v01.json"
+  },
+  "variableMeasured": [
+    {
+      "@type": "QuantitativeValue",
+      "name": "ATO Price",
+      "value": 1578.5799560546875,
+      "unitText": "SET Index Points"
+    },
+    {
+      "@type": "QuantitativeValue",
+      "name": "ATC Price",
+      "value": 1584.6300048828125,
+      "unitText": "SET Index Points"
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "Return %",
+      "value": 0.38
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "Intraday Volatility",
+      "value": 0.0111
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "Actual Regime",
+      "value": "Unclassified"
+    }
+  ],
+  "date": "2026-10-07",
+  "atoPrice": 1578.5799560546875,
+  "atcPrice": 1584.6300048828125,
+  "returnPct": 0.38,
+  "volatilityIndex": 0.0111,
+  "thresholdMeanUsed": 0.0097,
+  "actualRegime": "Unclassified",
+  "status": "complete"
+}
