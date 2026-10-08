@@ -7,7 +7,7 @@
     "@type": "DefinedTerm",
     "name": "Regime Prediction Accuracy"
   },
-  "datePublished": "2026-10-07T23:27:41+07:00",
+  "datePublished": "2026-10-08T16:58:00+07:00",
   "variableMeasured": [
     {
       "@type": "PropertyValue",
@@ -33,7 +33,7 @@
       "Bullish": null,
       "Bearish": null,
       "Sideways": 0.0,
-      "Risk-Off": null,
+      "Risk-Off": 0.0,
       "Crisis": null,
       "Unclassified": 0.0
     },
@@ -53,7 +53,7 @@
       "Crisis": null,
       "Unclassified": null
     },
-    "total_count": 3
+    "total_count": 4
   },
   "confusion_matrix": {
     "Bullish": {
@@ -82,7 +82,7 @@
     },
     "Risk-Off": {
       "Bullish": 0,
-      "Bearish": 0,
+      "Bearish": 1,
       "Sideways": 0,
       "Risk-Off": 0,
       "Crisis": 0,
@@ -128,6 +128,14 @@
       "session": "full_day",
       "predicted": "Sideways",
       "actual": "Unclassified",
+      "correct": false
+    },
+    {
+      "date": "2026-10-08",
+      "file_id": "2026-10-08-092758-full_day",
+      "session": "full_day",
+      "predicted": "Bearish",
+      "actual": "Risk-Off",
       "correct": false
     }
   ]
