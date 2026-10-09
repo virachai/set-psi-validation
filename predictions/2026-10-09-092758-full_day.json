@@ -1,0 +1,83 @@
+{
+  "@context": "https://schema.org",
+  "@type": "Observation",
+  "name": "PSI Prediction 2026-10-09",
+  "observationDate": "2026-10-09T02:27:58.692Z",
+  "measuredProperty": {
+    "@type": "DefinedTerm",
+    "name": "Predicted Regime",
+    "inDefinedTermSet": "https://raw.githubusercontent.com/virachai/set-psi-validation/main/docs/010-regime-taxonomy-v01.json"
+  },
+  "variableMeasured": [
+    {
+      "@type": "PropertyValue",
+      "name": "PSI Score",
+      "value": 0.4,
+      "minValue": 0,
+      "maxValue": 1
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "Predicted Regime",
+      "value": "BEARISH"
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "VIX Level",
+      "value": 15.41
+    }
+  ],
+  "additionalProperty": [
+    {
+      "@type": "PropertyValue",
+      "name": "Avg Equity Change",
+      "value": -1.1046
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "DXY Change",
+      "value": -0.0978
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "USD/THB Change",
+      "value": 0.0566
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "^GSPC As Of",
+      "value": "2026-10-08"
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "^N225 As Of",
+      "value": "2026-10-08"
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "^HSI As Of",
+      "value": "2026-10-08"
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "DXY As Of",
+      "value": "2026-10-08"
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "USD/THB As Of",
+      "value": "2026-10-08"
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "^VIX As Of",
+      "value": "2026-10-08"
+    }
+  ],
+  "timestamp": "2026-10-09T02:27:58.692Z",
+  "date": "2026-10-09",
+  "predictedRegime": "Bearish",
+  "psiScore": 0.4,
+  "modelId": "PSI Engine v1 (Lambda)",
+  "session": "full_day"
+}
