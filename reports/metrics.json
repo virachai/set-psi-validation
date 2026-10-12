@@ -7,32 +7,32 @@
     "@type": "DefinedTerm",
     "name": "Regime Prediction Accuracy"
   },
-  "datePublished": "2026-10-09T23:11:43+07:00",
+  "datePublished": "2026-10-12T16:58:03+07:00",
   "variableMeasured": [
     {
       "@type": "PropertyValue",
       "name": "Overall Accuracy",
-      "value": 0.0
+      "value": 0.1667
     },
     {
       "@type": "PropertyValue",
       "name": "Rolling 7D Accuracy",
-      "value": 0.0
+      "value": 0.1667
     },
     {
       "@type": "PropertyValue",
       "name": "Rolling 30D Accuracy",
-      "value": 0.0
+      "value": 0.1667
     }
   ],
   "metrics": {
-    "overall_accuracy": 0.0,
-    "rolling_7d": 0.0,
-    "rolling_30d": 0.0,
+    "overall_accuracy": 0.16666666666666666,
+    "rolling_7d": 0.16666666666666666,
+    "rolling_30d": 0.16666666666666666,
     "hit_rates": {
       "Bullish": null,
       "Bearish": null,
-      "Sideways": 0.0,
+      "Sideways": 0.25,
       "Risk-Off": 0.0,
       "Crisis": null,
       "Unclassified": 0.0
@@ -40,7 +40,7 @@
     "precision": {
       "Bullish": 0.0,
       "Bearish": 0.0,
-      "Sideways": 0.0,
+      "Sideways": 0.5,
       "Risk-Off": null,
       "Crisis": null,
       "Unclassified": null
@@ -48,12 +48,12 @@
     "f1": {
       "Bullish": null,
       "Bearish": null,
-      "Sideways": 0.0,
+      "Sideways": 0.3333333333333333,
       "Risk-Off": null,
       "Crisis": null,
       "Unclassified": null
     },
-    "total_count": 5
+    "total_count": 6
   },
   "confusion_matrix": {
     "Bullish": {
@@ -75,7 +75,7 @@
     "Sideways": {
       "Bullish": 1,
       "Bearish": 2,
-      "Sideways": 0,
+      "Sideways": 1,
       "Risk-Off": 0,
       "Crisis": 0,
       "Unclassified": 0
@@ -145,6 +145,14 @@
       "predicted": "Bearish",
       "actual": "Sideways",
       "correct": false
+    },
+    {
+      "date": "2026-10-12",
+      "file_id": "2026-10-12-092759-full_day",
+      "session": "full_day",
+      "predicted": "Sideways",
+      "actual": "Sideways",
+      "correct": true
     }
   ]
 }

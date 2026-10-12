@@ -1,0 +1,49 @@
+{
+  "@context": "https://schema.org",
+  "@type": "Observation",
+  "name": "SET Market Outcome 2026-10-12",
+  "observationDate": "2026-10-12",
+  "observationPeriod": "2026-10-12T10:00:00+07:00/2026-10-12T16:30:00+07:00",
+  "measuredProperty": {
+    "@type": "DefinedTerm",
+    "name": "Actual Regime",
+    "inDefinedTermSet": "https://raw.githubusercontent.com/virachai/set-psi-validation/main/docs/010-regime-taxonomy-v01.json"
+  },
+  "variableMeasured": [
+    {
+      "@type": "QuantitativeValue",
+      "name": "ATO Price",
+      "value": 1575.43994140625,
+      "unitText": "SET Index Points"
+    },
+    {
+      "@type": "QuantitativeValue",
+      "name": "ATC Price",
+      "value": 1571.739990234375,
+      "unitText": "SET Index Points"
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "Return %",
+      "value": -0.23
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "Intraday Volatility",
+      "value": 0.0089
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "Actual Regime",
+      "value": "Sideways"
+    }
+  ],
+  "date": "2026-10-12",
+  "atoPrice": 1575.43994140625,
+  "atcPrice": 1571.739990234375,
+  "returnPct": -0.23,
+  "volatilityIndex": 0.0089,
+  "thresholdMeanUsed": 0.00962,
+  "actualRegime": "Sideways",
+  "status": "complete"
+}
