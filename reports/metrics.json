@@ -7,32 +7,32 @@
     "@type": "DefinedTerm",
     "name": "Regime Prediction Accuracy"
   },
-  "datePublished": "2026-11-04T16:58:03+07:00",
+  "datePublished": "2026-11-05T16:58:02+07:00",
   "variableMeasured": [
     {
       "@type": "PropertyValue",
       "name": "Overall Accuracy",
-      "value": 0.15
+      "value": 0.1905
     },
     {
       "@type": "PropertyValue",
       "name": "Rolling 7D Accuracy",
-      "value": 0.1429
+      "value": 0.2857
     },
     {
       "@type": "PropertyValue",
       "name": "Rolling 30D Accuracy",
-      "value": 0.15
+      "value": 0.1905
     }
   ],
   "metrics": {
-    "overall_accuracy": 0.15,
-    "rolling_7d": 0.14285714285714285,
-    "rolling_30d": 0.15,
+    "overall_accuracy": 0.19047619047619047,
+    "rolling_7d": 0.2857142857142857,
+    "rolling_30d": 0.19047619047619047,
     "hit_rates": {
       "Bullish": 0.0,
       "Bearish": 0.0,
-      "Sideways": 0.42857142857142855,
+      "Sideways": 0.5,
       "Risk-Off": 0.0,
       "Crisis": null,
       "Unclassified": 0.0
@@ -40,7 +40,7 @@
     "precision": {
       "Bullish": 0.0,
       "Bearish": 0.0,
-      "Sideways": 0.25,
+      "Sideways": 0.3076923076923077,
       "Risk-Off": null,
       "Crisis": null,
       "Unclassified": null
@@ -48,12 +48,12 @@
     "f1": {
       "Bullish": 0.0,
       "Bearish": 0.0,
-      "Sideways": 0.3157894736842105,
+      "Sideways": 0.380952380952381,
       "Risk-Off": null,
       "Crisis": null,
       "Unclassified": null
     },
-    "total_count": 20
+    "total_count": 21
   },
   "confusion_matrix": {
     "Bullish": {
@@ -75,7 +75,7 @@
     "Sideways": {
       "Bullish": 1,
       "Bearish": 3,
-      "Sideways": 3,
+      "Sideways": 4,
       "Risk-Off": 0,
       "Crisis": 0,
       "Unclassified": 0
@@ -265,6 +265,14 @@
       "predicted": "Sideways",
       "actual": "Unclassified",
       "correct": false
+    },
+    {
+      "date": "2026-11-05",
+      "file_id": "2026-11-05-092758-full_day",
+      "session": "full_day",
+      "predicted": "Sideways",
+      "actual": "Sideways",
+      "correct": true
     }
   ]
 }
