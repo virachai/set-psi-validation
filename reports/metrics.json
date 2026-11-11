@@ -7,12 +7,12 @@
     "@type": "DefinedTerm",
     "name": "Regime Prediction Accuracy"
   },
-  "datePublished": "2026-11-10T17:28:01+07:00",
+  "datePublished": "2026-11-11T16:58:01+07:00",
   "variableMeasured": [
     {
       "@type": "PropertyValue",
       "name": "Overall Accuracy",
-      "value": 0.1667
+      "value": 0.16
     },
     {
       "@type": "PropertyValue",
@@ -22,17 +22,17 @@
     {
       "@type": "PropertyValue",
       "name": "Rolling 30D Accuracy",
-      "value": 0.1667
+      "value": 0.16
     }
   ],
   "metrics": {
-    "overall_accuracy": 0.16666666666666666,
+    "overall_accuracy": 0.16,
     "rolling_7d": 0.14285714285714285,
-    "rolling_30d": 0.16666666666666666,
+    "rolling_30d": 0.16,
     "hit_rates": {
       "Bullish": 0.0,
       "Bearish": 0.0,
-      "Sideways": 0.4444444444444444,
+      "Sideways": 0.4,
       "Risk-Off": 0.0,
       "Crisis": null,
       "Unclassified": 0.0
@@ -48,12 +48,12 @@
     "f1": {
       "Bullish": 0.0,
       "Bearish": 0.0,
-      "Sideways": 0.3636363636363637,
+      "Sideways": 0.34782608695652173,
       "Risk-Off": null,
       "Crisis": null,
       "Unclassified": null
     },
-    "total_count": 24
+    "total_count": 25
   },
   "confusion_matrix": {
     "Bullish": {
@@ -73,7 +73,7 @@
       "Unclassified": 0
     },
     "Sideways": {
-      "Bullish": 1,
+      "Bullish": 2,
       "Bearish": 3,
       "Sideways": 4,
       "Risk-Off": 0,
@@ -295,6 +295,14 @@
       "file_id": "2026-11-10-092800-full_day",
       "session": "full_day",
       "predicted": "Crisis",
+      "actual": "Sideways",
+      "correct": false
+    },
+    {
+      "date": "2026-11-11",
+      "file_id": "2026-11-11-092759-full_day",
+      "session": "full_day",
+      "predicted": "Bullish",
       "actual": "Sideways",
       "correct": false
     }
