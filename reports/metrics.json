@@ -7,12 +7,12 @@
     "@type": "DefinedTerm",
     "name": "Regime Prediction Accuracy"
   },
-  "datePublished": "2026-11-11T17:28:02+07:00",
+  "datePublished": "2026-11-12T16:58:00+07:00",
   "variableMeasured": [
     {
       "@type": "PropertyValue",
       "name": "Overall Accuracy",
-      "value": 0.16
+      "value": 0.1538
     },
     {
       "@type": "PropertyValue",
@@ -22,17 +22,17 @@
     {
       "@type": "PropertyValue",
       "name": "Rolling 30D Accuracy",
-      "value": 0.16
+      "value": 0.1538
     }
   ],
   "metrics": {
-    "overall_accuracy": 0.16,
+    "overall_accuracy": 0.15384615384615385,
     "rolling_7d": 0.14285714285714285,
-    "rolling_30d": 0.16,
+    "rolling_30d": 0.15384615384615385,
     "hit_rates": {
       "Bullish": 0.0,
       "Bearish": 0.0,
-      "Sideways": 0.4,
+      "Sideways": 0.36363636363636365,
       "Risk-Off": 0.0,
       "Crisis": null,
       "Unclassified": 0.0
@@ -41,19 +41,19 @@
       "Bullish": 0.0,
       "Bearish": 0.0,
       "Sideways": 0.3076923076923077,
-      "Risk-Off": null,
+      "Risk-Off": 0.0,
       "Crisis": 0.0,
       "Unclassified": null
     },
     "f1": {
       "Bullish": 0.0,
       "Bearish": 0.0,
-      "Sideways": 0.34782608695652173,
-      "Risk-Off": null,
+      "Sideways": 0.33333333333333337,
+      "Risk-Off": 0.0,
       "Crisis": null,
       "Unclassified": null
     },
-    "total_count": 25
+    "total_count": 26
   },
   "confusion_matrix": {
     "Bullish": {
@@ -76,7 +76,7 @@
       "Bullish": 2,
       "Bearish": 3,
       "Sideways": 4,
-      "Risk-Off": 0,
+      "Risk-Off": 1,
       "Crisis": 1,
       "Unclassified": 0
     },
@@ -303,6 +303,14 @@
       "file_id": "2026-11-11-092759-full_day",
       "session": "full_day",
       "predicted": "Bullish",
+      "actual": "Sideways",
+      "correct": false
+    },
+    {
+      "date": "2026-11-12",
+      "file_id": "2026-11-12-092757-full_day",
+      "session": "full_day",
+      "predicted": "Risk-Off",
       "actual": "Sideways",
       "correct": false
     }
