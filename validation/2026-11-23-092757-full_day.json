@@ -2,7 +2,7 @@
   "@context": "https://schema.org",
   "@type": "Observation",
   "name": "Validation Evaluation 2026-11-23-092757-full_day",
-  "observationDate": "2026-11-23T16:58:00+07:00",
+  "observationDate": "2026-11-23T17:28:20+07:00",
   "observationAbout": [
     {
       "@id": "predictions/2026-11-23-092757-full_day.json"
