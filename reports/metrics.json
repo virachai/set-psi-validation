@@ -7,12 +7,12 @@
     "@type": "DefinedTerm",
     "name": "Regime Prediction Accuracy"
   },
-  "datePublished": "2026-11-25T17:28:03+07:00",
+  "datePublished": "2026-11-26T16:58:03+07:00",
   "variableMeasured": [
     {
       "@type": "PropertyValue",
       "name": "Overall Accuracy",
-      "value": 0.1714
+      "value": 0.1667
     },
     {
       "@type": "PropertyValue",
@@ -22,18 +22,18 @@
     {
       "@type": "PropertyValue",
       "name": "Rolling 30D Accuracy",
-      "value": 0.2
+      "value": 0.1667
     }
   ],
   "metrics": {
-    "overall_accuracy": 0.17142857142857143,
+    "overall_accuracy": 0.16666666666666666,
     "rolling_7d": 0.14285714285714285,
-    "rolling_30d": 0.2,
+    "rolling_30d": 0.16666666666666666,
     "hit_rates": {
       "Bullish": 0.0,
       "Bearish": 0.0,
       "Sideways": 0.35714285714285715,
-      "Risk-Off": 0.1111111111111111,
+      "Risk-Off": 0.1,
       "Crisis": null,
       "Unclassified": 0.0
     },
@@ -49,11 +49,11 @@
       "Bullish": 0.0,
       "Bearish": 0.0,
       "Sideways": 0.3448275862068965,
-      "Risk-Off": 0.16666666666666666,
+      "Risk-Off": 0.15384615384615383,
       "Crisis": null,
       "Unclassified": null
     },
-    "total_count": 35
+    "total_count": 36
   },
   "confusion_matrix": {
     "Bullish": {
@@ -82,7 +82,7 @@
     },
     "Risk-Off": {
       "Bullish": 1,
-      "Bearish": 4,
+      "Bearish": 5,
       "Sideways": 3,
       "Risk-Off": 1,
       "Crisis": 0,
@@ -106,14 +106,6 @@
     }
   },
   "history": [
-    {
-      "date": "2026-10-12",
-      "file_id": "2026-10-12-092759-full_day",
-      "session": "full_day",
-      "predicted": "Sideways",
-      "actual": "Sideways",
-      "correct": true
-    },
     {
       "date": "2026-10-14",
       "file_id": "2026-10-14-092758-full_day",
@@ -343,6 +335,14 @@
       "file_id": "2026-11-25-092758-full_day",
       "session": "full_day",
       "predicted": "Bullish",
+      "actual": "Risk-Off",
+      "correct": false
+    },
+    {
+      "date": "2026-11-26",
+      "file_id": "2026-11-26-092758-full_day",
+      "session": "full_day",
+      "predicted": "Bearish",
       "actual": "Risk-Off",
       "correct": false
     }
